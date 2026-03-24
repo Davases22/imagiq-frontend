@@ -1330,17 +1330,23 @@ export default function Step3({
   // aunque no haya tiendas disponibles. No debemos mostrar skeleton en este caso.
   const finishedCalculationWithNoPickup = canPickUp === false && !storesLoading && !isLoadingCanPickUp;
 
-  // Mostrar skeleton si:
-  // 1. Está cargando stores (siempre mostrar skeleton mientras carga, incluso si hay datos previos)
-  // 2. O si está cargando canPickUp (esperando datos del caché o endpoint)
-  // 3. O si no hay datos Y no se ha cargado pickup al menos una vez (carga inicial) Y NO terminamos con canPickUp=false
-  const shouldShowSkeleton = storesLoading || isLoadingCanPickUp || (!hasStoreData && !hasLoadedPickupOnceRef.current && !finishedCalculationWithNoPickup);
+  // Safety timeout: nunca bloquear Step3 por más de 5 segundos con skeleton
+  const [skeletonTimedOut, setSkeletonTimedOut] = React.useState(false);
+  React.useEffect(() => {
+    const timer = setTimeout(() => setSkeletonTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Mostrar skeleton solo mientras está activamente cargando Y no haya expirado el timeout
+  const isActivelyLoading = (storesLoading || isLoadingCanPickUp) && !skeletonTimedOut;
+  const shouldShowSkeleton = isActivelyLoading;
 
   // DEBUG: Descomentar para troubleshooting de skeleton
   console.log('🔍 [Step3 SKELETON DEBUG]', {
     shouldShowSkeleton,
     storesLoading,
     isLoadingCanPickUp,
+    skeletonTimedOut,
     hasStoreData,
     hasLoadedPickupOnce: hasLoadedPickupOnceRef.current,
     finishedCalculationWithNoPickup,
