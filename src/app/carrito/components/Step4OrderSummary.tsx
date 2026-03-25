@@ -752,6 +752,20 @@ export default function Step4OrderSummary({
     }
   }, [isLoadingCanPickUp]);
 
+  // Safety timeout para isArtificialLoading - si el processing falla silenciosamente
+  // (ej: processOrder retorna temprano sin setIsProcessing), re-habilitar el botón
+  React.useEffect(() => {
+    if (isArtificialLoading) {
+      const timer = setTimeout(() => {
+        // Solo resetear si isProcessing no tomó el control (procesamiento real no inició)
+        if (!isProcessing) {
+          setIsArtificialLoading(false);
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isArtificialLoading, isProcessing]);
+
   // Actualizar la ref cada vez que cambie la función
   React.useEffect(() => {
     fetchGlobalCanPickUpRef.current = fetchGlobalCanPickUp;
