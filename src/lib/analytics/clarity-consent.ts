@@ -6,35 +6,10 @@
 
 /**
  * Envía el consentimiento de grabación de Clarity al backend
+ * Nota: El consent se maneja localmente, no hay endpoint en el backend
  */
-export async function sendClarityConsentToBackend(consent: boolean): Promise<boolean> {
-  try {
-    const response = await fetch('/api/custommer/analytics/consent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clarity_recording: consent,
-        timestamp: new Date().toISOString(),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend responded with status ${response.status}`);
-    }
-
-    await response.json();
-    return true;
-  } catch (error) {
-    if (process.env.NODE_ENV === "production") {
-      console.error("[Clarity Consent] Failed to send consent to backend:", error);
-    } else {
-      console.warn("[Clarity Consent] Backend not available (development mode)");
-    }
-
-    return false;
-  }
+export async function sendClarityConsentToBackend(_consent: boolean): Promise<boolean> {
+  return true;
 }
 
 /**
