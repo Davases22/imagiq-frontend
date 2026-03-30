@@ -51,7 +51,7 @@ export const posthogConfig = {
     recordBody: true,
     // Replace PostHog's aggressive default scrubbing (which redacts ANY body
     // containing "token", "auth", etc.) with targeted field-level redaction.
-    maskCapturedNetworkRequestFn: (request) => {
+    maskCapturedNetworkRequestFn: (request: Record<string, any>) => {
       // Don't capture payment processor or third-party requests at all
       if (
         request.name.includes("epayco.co") ||
