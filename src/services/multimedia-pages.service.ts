@@ -152,6 +152,13 @@ export interface MultimediaPage {
   created_at: string;
   updated_at: string;
   created_by: string;
+  // Campos SEO adicionales
+  seo_og_title?: string | null;
+  seo_og_description?: string | null;
+  seo_canonical?: string | null;
+  seo_no_index?: boolean;
+  seo_no_follow?: boolean;
+  include_in_sitemap?: boolean;
   // Campos para documentos legales
   page_type?: 'landing' | 'legal' | 'promo' | 'form' | 'livestream';
   legal_content?: TiptapContent | null;
