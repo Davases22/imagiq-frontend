@@ -97,7 +97,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
     if (typeof window === 'undefined') return;
 
     try {
-      const storedData = localStorage.getItem("checkout-card-data");
+      const storedData = sessionStorage.getItem("checkout-card-data");
       if (storedData) {
         const parsed = JSON.parse(storedData);
         if (parsed.cardNumber) setCardNumber(parsed.cardNumber);
@@ -321,7 +321,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         bankName: bankName || franchise || (cleanCardNumber.startsWith('4') ? 'Visa Test Bank' : 'Mastercard Test Bank'),
       };
 
-      localStorage.setItem("checkout-card-data", JSON.stringify(cardData));
+      sessionStorage.setItem("checkout-card-data", JSON.stringify(cardData));
       localStorage.setItem("checkout-payment-method", "tarjeta");
 
       // Mostrar mensaje informativo
@@ -359,7 +359,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         bankName: bankName || franchise || getCardBrand(cardNumber),
       };
 
-      localStorage.setItem("checkout-card-data", JSON.stringify(cardData));
+      sessionStorage.setItem("checkout-card-data", JSON.stringify(cardData));
       localStorage.setItem("checkout-payment-method", "tarjeta");
 
       setSubmitStatus("success");

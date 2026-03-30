@@ -197,9 +197,11 @@ function clearSensitiveData(): void {
   sensitiveKeys.forEach(key => {
     try {
       localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
       // También intentar con prefijo encriptado
       const encryptedKey = `_enc_${key}`;
       localStorage.removeItem(encryptedKey);
+      sessionStorage.removeItem(encryptedKey);
     } catch (error) {
       // Ignore errors
     }

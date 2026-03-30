@@ -845,7 +845,7 @@ export default function SuccessCheckoutPage({
         localStorage.removeItem("applied-discount");
         localStorage.removeItem("current-order");
         // SEGURIDAD: Limpiar datos de tarjeta temporal después de compra exitosa
-        localStorage.removeItem("checkout-card-data");
+        sessionStorage.removeItem("checkout-card-data");
       }
 
       // Redirigir al tracking service

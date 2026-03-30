@@ -88,7 +88,7 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
 
     // Cargar tarjeta temporal si no hay tarjeta guardada
     if (!cardId) {
-      const tempCardData = localStorage.getItem("checkout-card-data");
+      const tempCardData = sessionStorage.getItem("checkout-card-data");
       // console.log("💳 [Step5] Temp Card Data exists:", !!tempCardData);
       if (tempCardData) {
         try {
