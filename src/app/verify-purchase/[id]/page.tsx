@@ -47,16 +47,17 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
       // Verificar primero el status HTTP de la respuesta
       if (!response.ok) {
         console.error("❌ [VERIFY] HTTP error:", response.status, response.statusText);
-        // Intentar extraer mensaje de error del body
         let errorDetail = "";
+        let errorCode = "";
         try {
           const errBody = await response.json();
           errorDetail = errBody?.message || "";
+          errorCode = errBody?.errorCode || "";
         } catch {}
-        const errorUrl = errorDetail
-          ? `/error-checkout?message=${encodeURIComponent(errorDetail)}`
-          : "/error-checkout";
-        router.push(errorUrl);
+        const params = new URLSearchParams();
+        if (errorDetail) params.set("message", errorDetail);
+        if (errorCode) params.set("code", errorCode);
+        router.push(`/error-checkout?${params.toString()}`);
         return;
       }
 
@@ -83,7 +84,7 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
         if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
           console.error("❌ [VERIFY] Timeout: La validación 3DS no se completó en 2 minutos");
           console.error("❌ [VERIFY] Redirigiendo a error-checkout...");
-          router.push("/error-checkout?message=" + encodeURIComponent("La validación del pago tardó demasiado. Intenta de nuevo."));
+          router.push("/error-checkout?message=" + encodeURIComponent("La validación del pago tardó demasiado. Intenta de nuevo.") + "&code=185");
           return;
         }
         
@@ -105,10 +106,9 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
         console.error("❌ [VERIFY] Verification failed with status:", data.status, "- orderStatus:", data.orderStatus);
         console.error("❌ [VERIFY] Message:", data.message);
         console.error("❌ [VERIFY] Redirigiendo a error-checkout...");
-        const errorUrl = data.message
-          ? `/error-checkout?message=${encodeURIComponent(data.message)}`
-          : "/error-checkout";
-        router.push(errorUrl);
+        const errParams = new URLSearchParams();
+        if (data.message) errParams.set("message", data.message);
+        router.push(`/error-checkout?${errParams.toString()}`);
       }
     } catch (error) {
       console.error("💥 [VERIFY] Error verifying order:", error);

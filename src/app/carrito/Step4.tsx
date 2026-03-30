@@ -310,9 +310,9 @@ export default function Step4({
           return;
         }
 
-        // Si tuvo éxito, los datos están en localStorage (checkout-card-data).
+        // Si tuvo éxito, los datos están en sessionStorage (checkout-card-data).
         // Necesitamos sincronizarlos con el estado 'card' de useCheckoutLogic para que el pago funcione.
-        const tempCardData = localStorage.getItem("checkout-card-data");
+        const tempCardData = sessionStorage.getItem("checkout-card-data");
         // console.log("💳 [Step4] Temp card data found after submission:", !!tempCardData);
         if (tempCardData) {
           const parsed = JSON.parse(tempCardData);

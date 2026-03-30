@@ -23,12 +23,19 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
   const [internalIsFlipped, setInternalIsFlipped] = useState(false);
   const isFlipped = externalIsFlipped || internalIsFlipped;
 
-  // Formatear número de tarjeta para mostrar
+  // Formatear número de tarjeta para mostrar (primeros 6 dígitos visibles, resto enmascarado)
   const formatCardNumber = (number: string) => {
-    const cleaned = number.replace(/\s/g, "");
-    const groups = cleaned.match(/.{1,4}/g) || [];
-    return groups.join(" ").padEnd(19, "•");
+    const cleaned = number.replace(/\D/g, "");
+    const masked = cleaned.length > 6
+      ? cleaned.slice(0, 6) + cleaned.slice(6).replace(/\d/g, "•")
+      : cleaned;
+    const padded = masked.padEnd(16, "•");
+    const groups = padded.match(/.{1,4}/g) || [];
+    return groups.join(" ");
   };
+
+  // Enmascarar CVV para display
+  const maskedCvv = cvv ? "•".repeat(cvv.length) : "•••";
 
   // Determinar color del fondo según marca (colores pastel suaves)
   const getCardColor = () => {
@@ -107,7 +114,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
           <div className="px-6 md:px-7 mt-8">
             <div className="bg-white h-12 rounded flex items-center justify-end px-4">
               <div className="text-black font-mono text-lg italic font-semibold">
-                {cvv || "•••"}
+                {maskedCvv}
               </div>
             </div>
             <div className="text-gray-200 text-[10px] mt-2 text-right font-semibold">CVV</div>

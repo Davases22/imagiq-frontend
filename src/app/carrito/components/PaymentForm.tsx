@@ -365,7 +365,7 @@ export default function PaymentForm({
           >
             {/* Opción: Tarjeta de crédito o débito (Nueva tarjeta) */}
             {(() => {
-              const tempCardData = localStorage.getItem("checkout-card-data");
+              const tempCardData = sessionStorage.getItem("checkout-card-data");
               const hasTempCard = !!tempCardData;
               // Para rol 2 o 4: mantener seleccionado cuando paymentMethod es tarjeta (incluso con tarjeta guardada seleccionada)
               // Para rol 3: solo seleccionado cuando no hay tarjeta guardada seleccionada
@@ -402,7 +402,7 @@ export default function PaymentForm({
                             onCardSelect(null);
                             onUseNewCardChange(true);
                             // Limpiar caché de datos de tarjeta por seguridad (no cachear datos de tarjetas nuevas)
-                            localStorage.removeItem("checkout-card-data");
+                            sessionStorage.removeItem("checkout-card-data");
                           }
                         }}
                         className="accent-black w-5 h-5 flex-shrink-0"

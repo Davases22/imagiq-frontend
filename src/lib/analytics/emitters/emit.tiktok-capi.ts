@@ -95,9 +95,8 @@ export async function sendTikTokCapi(
     if (!response.success) {
       console.error('[TikTok CAPI] Event failed:', eventName, response.error);
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[TikTok CAPI] Failed to send event ${eventName}:`, errorMessage);
+  } catch {
+    // Silenced: TikTok CAPI errors are non-critical and noisy in local dev
   }
 }
 

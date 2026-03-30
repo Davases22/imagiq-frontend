@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [
       {
@@ -68,6 +69,15 @@ const nextConfig: NextConfig = {
       {
         source: "/api/:path*",
         destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/:path*`,
+      },
+      // PostHog reverse proxy - bypasses ad blockers
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
       },
     ];
   },
