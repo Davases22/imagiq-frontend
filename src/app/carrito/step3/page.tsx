@@ -18,30 +18,22 @@ function checkCandidateStoresCache(userId: string, addressId: string | null | un
   try {
     console.log('🔍 [checkCandidateStoresCache] Iniciando validación para userId:', userId);
 
-    // Obtener productos del carrito - MULTIPLE SOURCES
+    // Obtener productos del carrito
     let products: Array<{ sku: string; quantity: number }> = [];
 
-    // Intento 1: imagiq_cart (formato nuevo)
-    const cartStr = localStorage.getItem("imagiq_cart");
-    if (cartStr && cartStr !== 'null' && cartStr !== 'undefined') {
+    // Fuente principal: cart-items (key usada por useCart hook)
+    const cartItemsStr = localStorage.getItem("cart-items");
+    if (cartItemsStr && cartItemsStr !== 'null' && cartItemsStr !== 'undefined') {
       try {
-        const cart = JSON.parse(cartStr);
-        products = cart.products || cart || [];
-      } catch (e) {
-        console.warn("⚠️ [checkCandidateStoresCache] Error parseando imagiq_cart:", e);
-      }
-    }
-
-    // Intento 2: cart (formato antiguo)
-    if (products.length === 0) {
-      const oldCartStr = localStorage.getItem("cart");
-      if (oldCartStr && oldCartStr !== 'null' && oldCartStr !== 'undefined') {
-        try {
-          const oldCart = JSON.parse(oldCartStr);
-          products = oldCart.products || oldCart || [];
-        } catch (e) {
-          console.warn("⚠️ [checkCandidateStoresCache] Error parseando cart:", e);
+        const cartItems = JSON.parse(cartItemsStr);
+        if (Array.isArray(cartItems)) {
+          products = cartItems.map((item: { sku?: string; id?: string; quantity?: number }) => ({
+            sku: item.sku || item.id || '',
+            quantity: item.quantity || 1,
+          }));
         }
+      } catch (e) {
+        console.warn("⚠️ [checkCandidateStoresCache] Error parseando cart-items:", e);
       }
     }
 

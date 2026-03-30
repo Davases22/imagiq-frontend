@@ -20,6 +20,7 @@
  */
 
 import posthog from "posthog-js";
+import type { CapturedNetworkRequest } from "posthog-js";
 import type { CampaignData } from "@/components/InWebCampaign/types";
 
 // Configuración de claves y host de PostHog
@@ -51,7 +52,7 @@ export const posthogConfig = {
     recordBody: true,
     // Replace PostHog's aggressive default scrubbing (which redacts ANY body
     // containing "token", "auth", etc.) with targeted field-level redaction.
-    maskCapturedNetworkRequestFn: (request: Record<string, any>) => {
+    maskCapturedNetworkRequestFn: (request: CapturedNetworkRequest) => {
       // Don't capture payment processor or third-party requests at all
       if (
         request.name.includes("epayco.co") ||
@@ -82,8 +83,8 @@ export const posthogConfig = {
         return s.slice(0, 6) + "••••••" + (s.length > 12 ? s.slice(-4) : "");
       };
 
-      const redactBody = (raw: string | undefined): string | undefined => {
-        if (!raw) return raw;
+      const redactBody = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
         try {
           const body = JSON.parse(raw);
           for (const key of fullyRedactedKeys) {
@@ -99,7 +100,7 @@ export const posthogConfig = {
           return JSON.stringify(body);
         } catch {
           // Not valid JSON — discard body entirely to prevent leaking sensitive data
-          return undefined;
+          return null;
         }
       };
 
