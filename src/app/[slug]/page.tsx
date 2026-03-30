@@ -3,15 +3,46 @@
  * Ruta: /[slug]
  */
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getActivePageBySlug } from '@/services/multimedia-pages.service';
 import MultimediaPageClient from './components/MultimediaPageClient';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://imagiq.com';
 
 interface PageProps {
   params: Promise<{
     slug: string;
   }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getActivePageBySlug(slug);
+
+  if (!data?.page) return {};
+
+  const { page } = data;
+  const title = page.meta_title || page.title;
+  const description = page.meta_description || `${page.title} - ImagiQ`;
+  const url = `${SITE_URL}/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: page.seo_canonical || url },
+    robots: {
+      index: !page.seo_no_index,
+      follow: !page.seo_no_follow,
+    },
+    openGraph: {
+      title: page.seo_og_title || title,
+      description: page.seo_og_description || description,
+      url,
+      images: page.og_image ? [{ url: page.og_image }] : undefined,
+    },
+  };
 }
 
 export default async function DynamicPage({ params, searchParams }: PageProps) {
