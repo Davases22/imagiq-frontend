@@ -1,6 +1,20 @@
 "use client";
 import { AddiPaymentData, CardPaymentData, PsePaymentData, CheckZeroInterestRequest, CheckZeroInterestResponse } from "../types";
 import { apiPost, apiGet } from "@/lib/api-client";
+import posthog from "posthog-js";
+
+/** Get PostHog session tracking IDs (safe - returns empty strings if unavailable) */
+function getPostHogIds() {
+  try {
+    if (typeof window !== "undefined" && posthog.__loaded) {
+      return {
+        posthogSessionId: posthog.get_session_id?.() || "",
+        posthogDistinctId: posthog.get_distinct_id?.() || "",
+      };
+    }
+  } catch { /* PostHog not available */ }
+  return { posthogSessionId: "", posthogDistinctId: "" };
+}
 
 export async function payWithAddi(
   props: AddiPaymentData
@@ -24,6 +38,7 @@ export async function payWithCard(
     const data = await apiPost<{ redirectionUrl: string; requires3DS?: boolean; data3DS?: unknown; orderId?: string }>('/api/payments/epayco/credit-card', {
       ...props,
       dues: props.dues.trim() === "" ? "1" : props.dues,
+      ...getPostHogIds(),
     });
     return data;
   } catch (error) {
@@ -43,6 +58,7 @@ export async function payWithSavedCard(
     const data = await apiPost<{ redirectionUrl: string; requires3DS?: boolean; data3DS?: unknown; orderId?: string }>('/api/payments/epayco/saved-card', {
       ...props,
       dues: props.dues.trim() === "" ? "1" : props.dues,
+      ...getPostHogIds(),
     });
     return data;
   } catch (error) {
@@ -56,7 +72,10 @@ export async function payWithSavedCard(
 
 export async function payWithPse(props: PsePaymentData): Promise<{ redirectUrl: string } | { error: string; message: string }> {
   try {
-    const data = await apiPost<{ redirectUrl: string }>('/api/payments/epayco/pse', props);
+    const data = await apiPost<{ redirectUrl: string }>('/api/payments/epayco/pse', {
+      ...props,
+      ...getPostHogIds(),
+    });
     return data;
   } catch (error) {
     console.error("Error processing PSE payment:", error);
