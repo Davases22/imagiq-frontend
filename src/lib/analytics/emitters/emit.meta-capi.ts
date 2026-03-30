@@ -110,9 +110,8 @@ export async function sendMetaCapi(
     if (!response.success) {
       console.error('[Meta CAPI] Event failed:', eventName, response.error);
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Meta CAPI] Failed to send event ${eventName}:`, errorMessage);
+  } catch {
+    // Silenced: Meta CAPI errors are non-critical and noisy in local dev
   }
 }
 

@@ -13,6 +13,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useAuthContext } from "@/features/auth/context";
+import { useCheckoutAddress } from "@/features/checkout";
 import { profileService } from "@/services/profile.service";
 import { toast } from "sonner";
 import { DBCard, DecryptedCardData } from "@/features/profile/types";
@@ -29,7 +30,6 @@ import {
 import { CheckZeroInterestResponse, BeneficiosDTO, DetalleDispositivoRetoma } from "./types";
 import { apiPost } from "@/lib/api-client";
 import { safeGetLocalStorage } from "@/lib/localStorage";
-import { addressesService } from "@/services/addresses.service";
 import { productEndpoints, deliveryEndpoints, tradeInEndpoints } from "@/lib/api";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
@@ -189,50 +189,8 @@ export default function Step7({ onBack }: Step7Props) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(false); // Para saber si debemos proceder con la orden después del registro
 
-  // CRÍTICO: Leer dirección desde localStorage normal, NO desde useSecureStorage
-  // porque se guarda en localStorage.setItem("checkout-address") en Step3
-  const [checkoutAddress, setCheckoutAddress] = useState<{
-    "id": string,
-    "usuario_id": string,
-    "email": string,
-    "linea_uno": string,
-    "codigo_dane": string,
-    "ciudad": string,
-    "pais": string,
-    "esPredeterminada": boolean
-  } | null>(null);
-
-  // Cargar dirección desde localStorage al montar el componente
-  // y validar que sea la predeterminada del usuario
-  useEffect(() => {
-    try {
-      const addressStr = localStorage.getItem('checkout-address');
-      if (addressStr) {
-        const parsed = JSON.parse(addressStr);
-        setCheckoutAddress(parsed);
-
-        // Siempre asegurar que la dirección de entrega sea la predeterminada en BD
-        if (parsed.id) {
-          console.log("📍 [Step7 - Validación dirección] Asegurando que sea predeterminada:", {
-            id: parsed.id,
-            linea_uno: parsed.linea_uno,
-            ciudad: parsed.ciudad,
-          });
-          addressesService.setDefaultAddress(parsed.id)
-            .then(() => {
-              console.log("✅ [Step7] Dirección de entrega confirmada como predeterminada:", parsed.id);
-            })
-            .catch((err) => {
-              console.error("⚠️ [Step7] Error al establecer dirección como predeterminada (no bloquea):", err);
-            });
-        }
-      } else {
-        console.warn("⚠️ [Step7 - Init] No se encontró checkout-address en localStorage");
-      }
-    } catch (error) {
-      console.error("❌ [Step7 - Init] Error al cargar checkout-address:", error);
-    }
-  }, []);
+  // Leer dirección desde el contexto CheckoutAddressProvider
+  const { selectedAddress: checkoutAddress } = useCheckoutAddress();
 
   // Store/Warehouse validation state
   const [isCentroDistribucion, setIsCentroDistribucion] = useState<boolean | null>(null);
@@ -264,7 +222,7 @@ export default function Step7({ onBack }: Step7Props) {
       // Cargar método de pago
       const paymentMethod = localStorage.getItem("checkout-payment-method");
       const savedCardId = localStorage.getItem("checkout-saved-card-id");
-      const cardDataStr = localStorage.getItem("checkout-card-data");
+      const cardDataStr = sessionStorage.getItem("checkout-card-data");
       const selectedBank = localStorage.getItem("checkout-selected-bank");
       const installments = localStorage.getItem("checkout-installments");
 
@@ -386,32 +344,14 @@ export default function Step7({ onBack }: Step7Props) {
         });
       }
     } else {
-      // Buscar primero en checkout-address, si no existe buscar en imagiq_default_address (para invitados)
-      let shippingAddress = localStorage.getItem("checkout-address");
-      if (!shippingAddress) {
-        shippingAddress = localStorage.getItem("imagiq_default_address");
-        //         console.log("📍 [Step7 - useEffect] No hay checkout-address, usando imagiq_default_address para invitado");
-      }
-
-      if (shippingAddress) {
-        try {
-          const parsed = JSON.parse(shippingAddress);
-          //           console.log("📍 [Step7 - useEffect] Dirección de envío cargada desde localStorage:", parsed);
-          //           console.log("📍 [Step7 - useEffect] UUID de dirección:", parsed.id);
-          //           console.log("📍 [Step7 - useEffect] Usuario ID (de dirección):", parsed.usuario_id);
-          //           console.log("📍 [Step7 - useEffect] Línea uno:", parsed.linea_uno || parsed.direccionFormateada);
-          //           console.log("📍 [Step7 - useEffect] Ciudad:", parsed.ciudad);
-          //           console.log("📍 [Step7 - useEffect] Código DANE:", parsed.codigo_dane);
-          setShippingData({
-            type: "delivery",
-            address: parsed.linea_uno || parsed.direccionFormateada || parsed.lineaUno,
-            city: parsed.ciudad,
-          });
-        } catch (error) {
-          console.error("Error parsing shipping address:", error);
-        }
+      if (checkoutAddress) {
+        setShippingData({
+          type: "delivery",
+          address: checkoutAddress.lineaUno || checkoutAddress.direccionFormateada,
+          city: checkoutAddress.ciudad,
+        });
       } else {
-        console.warn("⚠️ [Step7 - useEffect] No se encontró dirección en localStorage (ni checkout-address ni imagiq_default_address)");
+        console.warn("⚠️ [Step7 - useEffect] No se encontró dirección en el contexto checkout-address");
       }
     }
 
@@ -503,7 +443,7 @@ export default function Step7({ onBack }: Step7Props) {
       }
     }
 
-  }, [authContext.user?.id, loggedUser?.id, loadSavedCards]);
+  }, [authContext.user?.id, loggedUser?.id, loadSavedCards, checkoutAddress]);
 
   // Estado para tracking de validación de Trade-In
   const [isValidatingTradeIn, setIsValidatingTradeIn] = useState(false);
@@ -677,46 +617,20 @@ export default function Step7({ onBack }: Step7Props) {
       if (fromHeader) {
         //         console.log("🔄 Dirección cambiada desde header en Step7, redirigiendo a Step3...");
         router.push("/carrito/step3");
-      } else {
-        // Si cambia la dirección (pero no desde header), actualizar el estado
-        try {
-          const addressStr = localStorage.getItem('checkout-address');
-          if (addressStr) {
-            const parsed = JSON.parse(addressStr);
-            //             console.log("🔄 [Step7] Dirección actualizada desde evento:", parsed);
-            setCheckoutAddress(parsed);
-          }
-        } catch (error) {
-          console.error("❌ [Step7] Error al actualizar dirección:", error);
-        }
       }
-    };
-
-    // Escuchar cambios en localStorage también
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'checkout-address' && event.newValue) {
-        try {
-          const parsed = JSON.parse(event.newValue);
-          //           console.log("🔄 [Step7] Dirección actualizada desde storage event:", parsed);
-          setCheckoutAddress(parsed);
-        } catch (error) {
-          console.error("❌ [Step7] Error al parsear dirección de storage:", error);
-        }
-      }
+      // El contexto CheckoutAddressProvider actualiza selectedAddress automáticamente
     };
 
     globalThis.window.addEventListener(
       "address-changed",
       handleAddressChange as EventListener
     );
-    globalThis.window.addEventListener("storage", handleStorageChange);
 
     return () => {
       globalThis.window.removeEventListener(
         "address-changed",
         handleAddressChange as EventListener
       );
-      globalThis.window.removeEventListener("storage", handleStorageChange);
     };
   }, [router]);
 
@@ -788,12 +702,7 @@ export default function Step7({ onBack }: Step7Props) {
         try {
           const { buildGlobalCanPickUpKey, getFullCandidateStoresResponseFromCache, getGlobalCanPickUpFromCache } = await import('@/app/carrito/utils/globalCanPickUpCache');
 
-          let currentAddressId = null;
-          const savedAddress = localStorage.getItem("checkout-address");
-          if (savedAddress) {
-            const parsed = JSON.parse(savedAddress);
-            currentAddressId = parsed.id || null;
-          }
+          const currentAddressId = checkoutAddress?.id ?? null;
 
           const cacheKey = buildGlobalCanPickUpKey({
             userId: effectiveUserId,
@@ -897,12 +806,7 @@ export default function Step7({ onBack }: Step7Props) {
             const { buildGlobalCanPickUpKey, setGlobalCanPickUpCache } = await import('@/app/carrito/utils/globalCanPickUpCache');
 
             // Obtener dirección actual para la clave del caché
-            let currentAddressId = null;
-            const savedAddress = localStorage.getItem("checkout-address");
-            if (savedAddress) {
-              const parsed = JSON.parse(savedAddress);
-              currentAddressId = parsed.id || null;
-            }
+            const currentAddressId = checkoutAddress?.id ?? null;
 
             const cacheKey = buildGlobalCanPickUpKey({
               userId,
@@ -1042,8 +946,7 @@ export default function Step7({ onBack }: Step7Props) {
           // PASO 3: SIEMPRE verificar cobertura Imagiq (incluso si canPickUp es false)
           // Esto asegura que siempre tengamos la información completa de verificación
           // console.log("🔍 [Step7] Verificando cobertura Imagiq (canPickUp:", globalCanPickUp, ", esCentroDistribucion:", esCentroDistribucion, ")");
-          const shippingAddress = localStorage.getItem("checkout-address");
-          if (!shippingAddress) {
+          if (!checkoutAddress?.id) {
             const verification = {
               envio_imagiq: false,
               todos_productos_im_it: false,
@@ -1056,9 +959,8 @@ export default function Step7({ onBack }: Step7Props) {
             return;
           }
 
-          const parsed = JSON.parse(shippingAddress);
           const requestBody = {
-            direccion_id: parsed.id,
+            direccion_id: checkoutAddress.id,
             skus: products.map((p) => p.sku),
           };
 
@@ -1136,7 +1038,7 @@ export default function Step7({ onBack }: Step7Props) {
     };
 
     verifyWhenProductsReady();
-  }, [products, shippingData]);
+  }, [products, shippingData, checkoutAddress]);
 
   // Calcular si la compra aplica para 0% interés y guardarlo en localStorage
   useEffect(() => {

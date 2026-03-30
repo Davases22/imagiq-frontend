@@ -4,15 +4,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
+import { useCheckoutAddress } from "@/features/checkout";
 
 export default function Step6Page() {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
   const [loggedUser] = useSecureStorage<User | null>("imagiq_user", null);
+  const { selectedAddress, isLoading: isAddressLoading } = useCheckoutAddress();
 
   // Protección: Solo permitir acceso si hay usuario logueado (invitado o regular con token)
   useEffect(() => {
     if (!isChecking) return; // Ya se verificó, no volver a verificar
+
+    // Esperar a que el contexto de dirección termine de cargar
+    if (isAddressLoading) return;
 
     const token = localStorage.getItem("imagiq_token");
 
@@ -41,25 +46,16 @@ export default function Step6Page() {
     }
 
     // CASO 2: Usuario invitado sin token pero CON dirección agregada
-    const savedAddress = localStorage.getItem("checkout-address");
-    if (savedAddress && savedAddress !== "null" && savedAddress !== "undefined") {
-      try {
-        const address = JSON.parse(savedAddress);
-        // Validar que tenga los campos mínimos
-        if (address && address.ciudad && address.linea_uno) {
-          console.log("✅ [STEP6] Usuario invitado con dirección válida, permitiendo acceso");
-          setIsChecking(false);
-          return;
-        }
-      } catch (err) {
-        console.error("❌ [STEP6] Error al parsear dirección:", err);
-      }
+    if (selectedAddress && selectedAddress.ciudad && selectedAddress.lineaUno) {
+      console.log("✅ [STEP6] Usuario invitado con dirección válida, permitiendo acceso");
+      setIsChecking(false);
+      return;
     }
 
     // CASO 3: Sin sesión activa ni dirección - redirigir
     console.warn("⚠️ [STEP6] Acceso denegado: No hay sesión activa ni dirección. Redirigiendo a step2...");
     router.push("/carrito/step2");
-  }, [router, loggedUser, isChecking]);
+  }, [router, loggedUser, isChecking, selectedAddress, isAddressLoading]);
 
   const handleBack = () => {
     // Leer el método de pago desde localStorage

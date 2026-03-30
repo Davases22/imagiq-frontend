@@ -4,19 +4,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
-import { 
+import {
   getFullCandidateStoresResponseFromCache,
-  buildGlobalCanPickUpKey 
+  buildGlobalCanPickUpKey
 } from "../utils/globalCanPickUpCache";
+import { useCheckoutAddress } from "@/features/checkout";
 
 /**
  * Verifica si existe un caché válido de candidate-stores para el usuario
  * Esto es CRÍTICO antes de permitir acceso al Step3
  */
-function checkCandidateStoresCache(userId: string): boolean {
+function checkCandidateStoresCache(userId: string, addressId: string | null | undefined): boolean {
   try {
     console.log('🔍 [checkCandidateStoresCache] Iniciando validación para userId:', userId);
-    
+
     // Obtener productos del carrito
     let products: Array<{ sku: string; quantity: number }> = [];
 
@@ -35,7 +36,7 @@ function checkCandidateStoresCache(userId: string): boolean {
         console.warn("⚠️ [checkCandidateStoresCache] Error parseando cart-items:", e);
       }
     }
-    
+
     if (products.length === 0) {
       console.warn("⚠️ [checkCandidateStoresCache] Carrito vacío o no encontrado");
       // Si no hay productos pero es usuario autenticado, permitir acceso
@@ -45,18 +46,13 @@ function checkCandidateStoresCache(userId: string): boolean {
 
     console.log(`📦 [checkCandidateStoresCache] Productos en carrito: ${products.length}`);
 
-    // Obtener dirección actual
-    const addressStr = localStorage.getItem("checkout-address");
-    if (!addressStr || addressStr === 'null' || addressStr === 'undefined') {
+    if (!addressId) {
       console.warn("⚠️ [checkCandidateStoresCache] No hay dirección");
       // Si no hay dirección pero es usuario autenticado, permitir de todas formas
       // porque puede seleccionar dirección en Step3
       return true;
     }
 
-    const address = JSON.parse(addressStr);
-    const addressId = address.id;
-    
     console.log(`📍 [checkCandidateStoresCache] Dirección ID: ${addressId}`);
 
     // Construir la clave de caché
@@ -64,7 +60,7 @@ function checkCandidateStoresCache(userId: string): boolean {
       sku: p.sku,
       quantity: p.quantity,
     }));
-    
+
     const cacheKey = buildGlobalCanPickUpKey({
       userId,
       products: productsToCheck,
@@ -75,7 +71,7 @@ function checkCandidateStoresCache(userId: string): boolean {
 
     // Verificar si existe el caché
     const cachedResponse = getFullCandidateStoresResponseFromCache(cacheKey);
-    
+
     if (cachedResponse) {
       console.log("✅ [checkCandidateStoresCache] Caché válido encontrado:", {
         canPickUp: cachedResponse.canPickUp,
@@ -87,10 +83,10 @@ function checkCandidateStoresCache(userId: string): boolean {
 
     // Si no hay caché pero hay productos y dirección, intentar buscar cualquier caché relacionado
     // Esto es un fallback para casos edge
-    const allCacheKeys = Object.keys(localStorage).filter(key => 
+    const allCacheKeys = Object.keys(localStorage).filter(key =>
       key.startsWith('global_canPickUp_') && key.includes(userId)
     );
-    
+
     if (allCacheKeys.length > 0) {
       console.log(`🔄 [checkCandidateStoresCache] Encontrados ${allCacheKeys.length} cachés relacionados, permitiendo acceso`);
       return true;
@@ -110,9 +106,13 @@ export default function Step3Page() {
   const [, /* loggedUser */] = useSecureStorage<User | null>("imagiq_user", null);
   const [isChecking, setIsChecking] = useState(true);
   const checkExecuted = useRef(false);
+  const { selectedAddress, isLoading: isAddressLoading } = useCheckoutAddress();
 
   // Protección: Solo permitir acceso si hay usuario logueado (invitado o regular con token)
   useEffect(() => {
+    // Esperar a que el contexto de dirección termine de cargar
+    if (isAddressLoading) return;
+
     // Prevenir múltiples ejecuciones
     if (checkExecuted.current) {
       return;
@@ -122,7 +122,7 @@ export default function Step3Page() {
       checkExecuted.current = true;
 
       const token = localStorage.getItem("imagiq_token");
-      
+
       // Intentar obtener usuario desde localStorage directamente (más confiable)
       let userToCheck = null;
       try {
@@ -133,9 +133,9 @@ export default function Step3Page() {
       } catch {
         userToCheck = null;
       }
-      
-      console.log("🔍 [STEP3] Verificando acceso:", { 
-        hasToken: !!token, 
+
+      console.log("🔍 [STEP3] Verificando acceso:", {
+        hasToken: !!token,
         hasUser: !!userToCheck,
         userRol: userToCheck ? ((userToCheck as User & { rol?: number }).rol ?? (userToCheck as User).role) : null,
         userEmail: userToCheck?.email
@@ -145,55 +145,28 @@ export default function Step3Page() {
       // Step3 es para TODOS los usuarios autenticados, pueden agregar/seleccionar dirección aquí
       if (token && userToCheck) {
         const userRole = (userToCheck as User & { rol?: number }).rol ?? (userToCheck as User).role;
-        
+
         // 🚨 CRÍTICO: Verificar que exista caché de candidate-stores antes de permitir acceso
-        const hasCandidateStoresCache = checkCandidateStoresCache(userToCheck.id);
-        
+        const hasCandidateStoresCache = checkCandidateStoresCache(userToCheck.id, selectedAddress?.id);
+
         if (!hasCandidateStoresCache) {
           console.error("❌ [STEP3] No hay caché de candidate-stores, redirigiendo a step1");
           router.push("/carrito/step1");
           return;
         }
-        
+
         console.log(`✅ [STEP3] Usuario autenticado (rol ${userRole}) con token y caché válido, permitiendo acceso`);
         setIsChecking(false);
         return;
       }
 
       // CASO 2: Usuario invitado sin token pero CON dirección agregada en step2
-      // Permitir acceso si hay checkout-address (ya completó step2)
-      // IMPORTANTE: También verificar imagiq_default_address como fallback
-      let savedAddress = localStorage.getItem("checkout-address");
-      
-      // Si no hay checkout-address, intentar usar imagiq_default_address
-      if (!savedAddress || savedAddress === "null" || savedAddress === "undefined") {
-        console.log("⚠️ [STEP3] No hay checkout-address, intentando con imagiq_default_address...");
-        const defaultAddress = localStorage.getItem("imagiq_default_address");
-        if (defaultAddress && defaultAddress !== "null" && defaultAddress !== "undefined") {
-          // Copiar imagiq_default_address a checkout-address
-          localStorage.setItem("checkout-address", defaultAddress);
-          savedAddress = defaultAddress;
-          console.log("✅ [STEP3] imagiq_default_address copiado a checkout-address");
-        }
-      }
-      
-      if (savedAddress && savedAddress !== "null" && savedAddress !== "undefined") {
-        try {
-          const address = JSON.parse(savedAddress);
-          // Validar que tenga los campos mínimos (ciudad y linea_uno)
-          if (address && address.ciudad && address.linea_uno) {
-            console.log("✅ [STEP3] Usuario invitado con dirección válida en checkout-address, permitiendo acceso");
-            console.log("📍 Dirección:", { ciudad: address.ciudad, linea_uno: address.linea_uno });
-            setIsChecking(false);
-            return;
-          } else {
-            console.warn("⚠️ [STEP3] checkout-address existe pero no tiene campos válidos:", address);
-          }
-        } catch (err) {
-          console.error("❌ [STEP3] Error al parsear checkout-address:", err);
-        }
-      } else {
-        console.log("⚠️ [STEP3] No hay checkout-address válido");
+      // Permitir acceso si hay selectedAddress del contexto (ya completó step2)
+      if (selectedAddress && selectedAddress.ciudad && selectedAddress.lineaUno) {
+        console.log("✅ [STEP3] Usuario invitado con dirección válida en contexto, permitiendo acceso");
+        console.log("📍 Dirección:", { ciudad: selectedAddress.ciudad, linea_uno: selectedAddress.lineaUno });
+        setIsChecking(false);
+        return;
       }
 
       // CASO 3: Sin sesión activa Y sin dirección - redirigir a step2
@@ -202,7 +175,7 @@ export default function Step3Page() {
     };
 
     performCheck();
-  }, [router]);
+  }, [router, selectedAddress, isAddressLoading]);
 
   const handleBack = () => router.push("/carrito/step1");
   const handleNext = () => router.push("/carrito/step4");

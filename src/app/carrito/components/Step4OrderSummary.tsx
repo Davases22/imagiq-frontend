@@ -675,7 +675,7 @@ export default function Step4OrderSummary({
     if (typeof window !== 'undefined') {
       // Si es Step1, NO hacer fetch de respaldo (ya lo hace useDelivery)
       if (isStep1) {
-        setGlobalCanPickUp(null);
+        setGlobalCanPickUp(false);
         setIsLoadingCanPickUp(false);
         return;
       }
@@ -745,7 +745,8 @@ export default function Step4OrderSummary({
         if (isLoadingCanPickUp) {
           console.warn('⚠️ [Step4OrderSummary] Safety timeout triggered - Forcing stop loading');
           setIsLoadingCanPickUp(false);
-          // NO cambiar globalCanPickUp - si el endpoint respondió, su valor debe mantenerse
+          // Si globalCanPickUp sigue en null tras el timeout, forzar false para desbloquear el botón
+          setGlobalCanPickUp((prev) => prev ?? false);
         }
       }, 5000);
       return () => clearTimeout(timer);

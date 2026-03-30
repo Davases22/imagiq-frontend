@@ -20,26 +20,104 @@
  */
 
 import posthog from "posthog-js";
+import type { CapturedNetworkRequest } from "posthog-js";
 import type { CampaignData } from "@/components/InWebCampaign/types";
 
 // Configuración de claves y host de PostHog
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
+// Use reverse proxy (/ingest) to bypass ad blockers; fall back to direct host
 const POSTHOG_HOST =
-  process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com";
+  typeof window !== "undefined" ? "/ingest" : (process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com");
 
 // Configuración avanzada del cliente PostHog
 export const posthogConfig = {
-  api_host: POSTHOG_HOST, // URL del servidor PostHog
+  api_host: POSTHOG_HOST, // Proxied through Next.js rewrites to avoid ad blockers
+  ui_host: "https://us.posthog.com", // Keep UI links pointing to PostHog directly
   loaded: (_posthog: unknown) => {
     // Callback cuando PostHog se carga correctamente
   },
   capture_pageview: true, // Captura vistas de página automáticamente
   capture_pageleave: true, // Captura cuando el usuario abandona la página
+  capture_performance: {
+    network_timing: true,
+    web_vitals: true,
+  },
   session_recording: {
     enabled: true, // Habilita grabación de sesión
     maskAllInputs: true, // Oculta inputs sensibles
     maskAllText: false,
     recordCrossOriginIframes: false,
+    // Network payload capture — see request/response bodies in session replays
+    recordHeaders: true,
+    recordBody: true,
+    // Replace PostHog's aggressive default scrubbing (which redacts ANY body
+    // containing "token", "auth", etc.) with targeted field-level redaction.
+    maskCapturedNetworkRequestFn: (request: CapturedNetworkRequest) => {
+      // Don't capture payment processor or third-party requests at all
+      if (
+        request.name.includes("epayco.co") ||
+        request.name.includes("stripe.com") ||
+        request.name.includes("mercadopago.com") ||
+        request.name.includes("addi.com") ||
+        request.name.includes("facebook.com") ||
+        request.name.includes("sentry.io") ||
+        request.name.includes("clarity.ms")
+      ) {
+        return null;
+      }
+
+      // Keys that must be fully redacted
+      const fullyRedactedKeys = [
+        "cardCvc", "cvc", "cvv", "cardExpYear", "cardExpMonth",
+        "password", "contrasena", "clave",
+        "cardTokenId", "token", "codigo_seguridad",
+      ];
+      // Keys containing card numbers — show first 6 digits (BIN) for debug
+      const cardNumberKeys = [
+        "cardNumber", "card_number", "numero_tarjeta",
+      ];
+
+      const truncateCard = (val: unknown): string => {
+        const s = String(val).replace(/\D/g, "");
+        if (s.length <= 6) return s;
+        return s.slice(0, 6) + "••••••" + (s.length > 12 ? s.slice(-4) : "");
+      };
+
+      const redactBody = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        try {
+          const body = JSON.parse(raw);
+          for (const key of fullyRedactedKeys) {
+            if (key in body) body[key] = "[REDACTED]";
+          }
+          for (const key of cardNumberKeys) {
+            if (key in body) body[key] = truncateCard(body[key]);
+          }
+          // Redact card holder to initials for privacy but keep for debug
+          if (body.cardHolder) body.cardHolder = body.cardHolder.split(" ").map((w: string) => w[0] || "").join(".");
+          if (body.card_holder) body.card_holder = body.card_holder.split(" ").map((w: string) => w[0] || "").join(".");
+          if (body.userInfo?.password) body.userInfo.password = "[REDACTED]";
+          return JSON.stringify(body);
+        } catch {
+          // Not valid JSON — discard body entirely to prevent leaking sensitive data
+          return null;
+        }
+      };
+
+      request.requestBody = redactBody(request.requestBody);
+      request.responseBody = redactBody(request.responseBody);
+
+      // Redact auth headers
+      if (request.requestHeaders) {
+        const h = request.requestHeaders as Record<string, string>;
+        if (h["authorization"] || h["Authorization"]) {
+          h["authorization"] = "[REDACTED]";
+          h["Authorization"] = "[REDACTED]";
+        }
+      }
+
+      return request;
+    },
   },
   autocapture: {
     enabled: true, // Captura automática de clicks y acciones
@@ -51,7 +129,7 @@ export const posthogConfig = {
     ],
   },
   disable_session_recording: false,
-  enable_recording_console_log: true,
+  enable_recording_console_log: false,
   advanced_disable_decide: false,
 };
 

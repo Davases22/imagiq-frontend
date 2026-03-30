@@ -201,7 +201,7 @@ export function useCheckoutLogic() {
   const [useNewCard, setUseNewCard] = useState(() => {
     if (typeof window !== "undefined") {
       const savedCardId = localStorage.getItem("checkout-saved-card-id");
-      const tempCardData = localStorage.getItem("checkout-card-data");
+      const tempCardData = sessionStorage.getItem("checkout-card-data");
       // If we have temporary card data and NO saved card selected, default to new card
       if (tempCardData && !savedCardId) {
         return true;
@@ -239,7 +239,7 @@ export function useCheckoutLogic() {
 
       // Check for temporary card data
       try {
-        const tempCardData = localStorage.getItem("checkout-card-data");
+        const tempCardData = sessionStorage.getItem("checkout-card-data");
         if (tempCardData) {
           const parsed = JSON.parse(tempCardData);
           initialCardData = {
@@ -391,7 +391,7 @@ export function useCheckoutLogic() {
     // Validar campos de tarjeta si corresponde
     if (paymentMethod === "tarjeta") {
       // Verificar que haya seleccionado una tarjeta guardada O esté usando una nueva
-      const hasTempCard = typeof window !== 'undefined' && localStorage.getItem("checkout-card-data");
+      const hasTempCard = typeof window !== 'undefined' && sessionStorage.getItem("checkout-card-data");
 
       if (!selectedCardId && !hasTempCard) {
         setError("Debes seleccionar una tarjeta o ingresar los datos de una nueva.");
@@ -455,7 +455,7 @@ export function useCheckoutLogic() {
     // Validar campos de tarjeta si corresponde
     if (paymentMethod === "tarjeta") {
       // Verificar que haya seleccionado una tarjeta guardada O esté usando una nueva
-      const hasTempCard = typeof window !== 'undefined' && localStorage.getItem("checkout-card-data");
+      const hasTempCard = typeof window !== 'undefined' && sessionStorage.getItem("checkout-card-data");
 
       if (!selectedCardId && !hasTempCard) {
         setError("Debes seleccionar una tarjeta o ingresar los datos de una nueva.");

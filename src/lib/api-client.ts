@@ -100,7 +100,9 @@ export async function apiClient(
 
     return response;
   } catch (error) {
-    if (error instanceof Error) {
+    // Silence analytics errors (non-critical, noisy in local dev)
+    const isAnalytics = endpoint.includes('/analytics/');
+    if (error instanceof Error && !isAnalytics) {
       console.error("❌ API Client Error:", error.message, { endpoint, url });
     }
     throw error;
