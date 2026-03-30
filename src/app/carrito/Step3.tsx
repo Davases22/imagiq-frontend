@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { useCardsCache } from "./hooks/useCardsCache";
 import { useAuthContext } from "@/features/auth/context";
 import { syncAddress } from "@/lib/addressSync";
-import { safeGetLocalStorage } from "@/lib/localStorage";
+import { useCheckoutAddress } from "@/features/checkout";
 import {
   getGlobalCanPickUpFromCache,
   buildGlobalCanPickUpKey,
@@ -37,6 +37,7 @@ export default function Step3({
   const { products, calculations } = useCart();
   const { trackAddPaymentInfo } = useAnalyticsWithUser();
   const { user, login } = useAuthContext();
+  const { selectedAddress, selectAddress } = useCheckoutAddress();
 
   // OPTIMIZACIÓN: Step3 prefiere leer del caché, pero permite fetch como fallback
   // Si viene de Step1, ya debería existir el caché de candidate-stores
@@ -252,10 +253,7 @@ export default function Step3({
       }
 
       // Solo verificar dirección para usuarios invitados (rol 3)
-      const savedAddress = safeGetLocalStorage<Address | null>(
-        "checkout-address",
-        null
-      );
+      const savedAddress = selectedAddress;
 
       // Si es invitado sin dirección y el método de entrega es domicilio, redirigir a Step2
       if (!savedAddress && deliveryMethod === "domicilio" && userRole === 3) {
@@ -416,21 +414,8 @@ export default function Step3({
 
       if (!userId) return null;
 
-      // 2. Obtener dirección - Intentar checkout-address primero, luego imagiq_default_address como fallback
-      let addressId: string | null = null;
-      let savedAddress = localStorage.getItem("checkout-address");
-
-      // Fallback a imagiq_default_address si checkout-address no existe (para usuarios invitados)
-      if (!savedAddress || savedAddress === "null" || savedAddress === "undefined") {
-        savedAddress = localStorage.getItem("imagiq_default_address");
-      }
-
-      if (savedAddress && savedAddress !== "null" && savedAddress !== "undefined") {
-        const parsed = JSON.parse(savedAddress);
-        if (parsed?.id) {
-          addressId = parsed.id;
-        }
-      }
+      // 2. Obtener dirección desde contexto
+      const addressId: string | null = selectedAddress?.id ?? null;
 
       // IMPORTANTE: Si no hay dirección válida, retornar false inmediatamente
       // Esto permite que usuarios recién registrados sin direcciones puedan continuar
@@ -485,20 +470,7 @@ export default function Step3({
       if (!products || products.length === 0) return true; // Si no hay productos, asumimos loading hasta que lleguen
 
       // Verificar caché de nuevo (es rápido porque es memoria/localStorage)
-      let addressId: string | null = null;
-      let savedAddress = localStorage.getItem("checkout-address");
-
-      // Fallback a imagiq_default_address si checkout-address no existe (para usuarios invitados)
-      if (!savedAddress || savedAddress === "null" || savedAddress === "undefined") {
-        savedAddress = localStorage.getItem("imagiq_default_address");
-      }
-
-      if (savedAddress && savedAddress !== "null" && savedAddress !== "undefined") {
-        const parsed = JSON.parse(savedAddress);
-        if (parsed?.id) {
-          addressId = parsed.id;
-        }
-      }
+      const addressId: string | null = selectedAddress?.id ?? null;
 
       // IMPORTANTE: Si no hay dirección válida, NO mostrar loading
       // Esto permite que usuarios recién registrados sin direcciones puedan continuar
@@ -728,18 +700,8 @@ export default function Step3({
       if (addressFromEvent?.id) {
         newAddressId = addressFromEvent.id;
       } else {
-        // Intentar obtener el ID desde localStorage
-        try {
-          let addressStr = globalThis.window.localStorage.getItem("checkout-address");
-          // Fallback a imagiq_default_address si checkout-address no existe
-          if (!addressStr || addressStr === "null" || addressStr === "undefined") {
-            addressStr = globalThis.window.localStorage.getItem("imagiq_default_address") || "{}";
-          }
-          const saved = JSON.parse(addressStr) as Address;
-          newAddressId = saved?.id || null;
-        } catch {
-          return;
-        }
+        // Obtener el ID desde el contexto de checkout-address
+        newAddressId = selectedAddress?.id ?? null;
       }
 
       // PROTECCIÓN: Verificar flag global compartido
@@ -768,25 +730,16 @@ export default function Step3({
           setAddress(addressFromEvent);
         }
       } else {
-        // Si no viene del header, leer de localStorage
-        try {
-          let addressStr = globalThis.window.localStorage.getItem("checkout-address");
-          // Fallback a imagiq_default_address si checkout-address no existe
-          if (!addressStr || addressStr === "null" || addressStr === "undefined") {
-            addressStr = globalThis.window.localStorage.getItem("imagiq_default_address") || "{}";
-          }
-          const saved = JSON.parse(addressStr) as Address;
+        // Si no viene del header, leer del contexto de checkout-address
+        const saved = selectedAddress;
 
-          if (saved?.id && saved.id !== lastAddressIdRef.current) {
-            setIsRecalculatingPickup(true);
-            lastAddressIdRef.current = saved.id;
-            // IMPORTANTE: Resetear el ref de canPickUp para permitir recarga cuando cambie
-            lastCanPickUpForcedRef.current = null;
-            // Actualizar la dirección en el estado
-            setAddress(saved);
-          }
-        } catch (error) {
-          console.error('❌ Error al leer dirección de localStorage:', error);
+        if (saved?.id && saved.id !== lastAddressIdRef.current) {
+          setIsRecalculatingPickup(true);
+          lastAddressIdRef.current = saved.id;
+          // IMPORTANTE: Resetear el ref de canPickUp para permitir recarga cuando cambie
+          lastCanPickUpForcedRef.current = null;
+          // Actualizar la dirección en el estado
+          setAddress(saved);
         }
       }
     };
@@ -1244,8 +1197,8 @@ export default function Step3({
       } catch (error) {
         console.error('⚠️ Error al sincronizar dirección predeterminada en Step3:', error);
         // No bloquear el flujo si falla la sincronización
-        // Guardar al menos en localStorage (ambas claves)
-        localStorage.setItem("checkout-address", JSON.stringify(newAddress));
+        // Persistir a través del contexto como fallback
+        selectAddress(newAddress);
 
         // También intentar guardar como default para consistencia local
         try {
@@ -1257,8 +1210,8 @@ export default function Step3({
         }
       }
     } else {
-      // Si no tiene id, solo guardar en localStorage (nueva dirección no guardada)
-      localStorage.setItem("checkout-address", JSON.stringify(newAddress));
+      // Si no tiene id, persistir a través del contexto
+      selectAddress(newAddress);
     }
   };
   const handleDeliveryMethodChange = (method: string) => {
