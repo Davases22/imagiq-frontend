@@ -12,36 +12,31 @@ interface SeoSettings {
   [key: string]: string | null;
 }
 
-let cachedSettings: SeoSettings | null = null;
+const DEFAULTS: SeoSettings = {
+  site_name: "Imagiq Samsung Store",
+  site_url: SITE_URL,
+  title_template: "%s | Imagiq Samsung Store",
+  default_title: "Imagiq - Distribuidor Oficial Samsung Colombia",
+  default_description:
+    "Imagiq - Distribuidor oficial de Samsung en Colombia. Encuentra los últimos Galaxy, tablets, wearables y electrodomésticos con garantía oficial. Envío gratis, soporte especializado y las mejores promociones.",
+  default_og_image: "/logo-og.png",
+  google_verification: "",
+};
 
 export async function getSeoSettings(): Promise<SeoSettings> {
-  if (cachedSettings) return cachedSettings;
-
-  const defaults: SeoSettings = {
-    site_name: "Imagiq Samsung Store",
-    site_url: SITE_URL,
-    title_template: "%s | Imagiq Samsung Store",
-    default_title: "Imagiq - Distribuidor Oficial Samsung Colombia",
-    default_description:
-      "Imagiq - Distribuidor oficial de Samsung en Colombia. Encuentra los últimos Galaxy, tablets, wearables y electrodomésticos con garantía oficial.",
-    default_og_image: "/logo-og.png",
-    google_verification: "",
-  };
-
   try {
     const res = await fetch(`${API_URL}/api/multimedia/seo/settings`, {
-      next: { revalidate: 300 },
+      next: { revalidate: 60 },
     });
     if (res.ok) {
       const data = await res.json();
-      cachedSettings = { ...defaults, ...data };
-      return cachedSettings!;
+      return { ...DEFAULTS, ...data };
     }
   } catch {
     // API unavailable — use defaults
   }
 
-  return defaults;
+  return DEFAULTS;
 }
 
 /** Build Organization JSON-LD for the root layout */
