@@ -3,6 +3,7 @@
  */
 
 import type { Metadata } from "next";
+import { getSeoSettings } from "@/lib/seo-utils";
 import { samsungSharpSans } from "./fonts";
 import { ThreeDSScript } from "@/components/ThreeDSScript";
 // Nota: eliminamos la importación de Inter desde next/font/google para evitar
@@ -40,74 +41,80 @@ import SecurityInitializer from "@/components/security/SecurityInitializer";
 // Si necesitas Inter desde Google Fonts en entornos con internet,
 // reactivar la importación desde next/font/google o agregar el CSS manual.
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://imagiq.com"),
-  title: {
-    default: "Imagiq - Distribuidor Oficial Samsung Colombia",
-    template: "%s | Imagiq Samsung Store",
-  },
-  description:
-    "Imagiq - Distribuidor oficial de Samsung en Colombia. Encuentra los últimos Galaxy, tablets, wearables y electrodomésticos con garantía oficial. Envío gratis, soporte especializado y las mejores promociones.",
-  keywords: [
-    "Samsung Colombia",
-    "distribuidor oficial Samsung",
-    "Galaxy",
-    "Samsung Store",
-    "electrodomésticos Samsung",
-    "tablets Samsung",
-    "smartwatch Samsung",
-    "Galaxy Z Fold",
-    "Galaxy Z Flip",
-    "tienda Samsung Colombia",
-  ],
-  authors: [{ name: "Imagiq Team", url: "https://imagiq.com" }],
-  creator: "Imagiq Store",
-  publisher: "Imagiq Store",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSeoSettings();
+
+  const ogImage = s.default_og_image?.startsWith("/")
+    ? `${s.site_url}${s.default_og_image}`
+    : s.default_og_image || `${s.site_url}/logo-og.png`;
+
+  return {
+    metadataBase: new URL(s.site_url || "https://imagiq.com"),
+    title: {
+      default: s.default_title,
+      template: s.title_template,
+    },
+    description: s.default_description,
+    keywords: [
+      "Samsung Colombia",
+      "distribuidor oficial Samsung",
+      "Galaxy",
+      "Samsung Store",
+      "electrodomésticos Samsung",
+      "tablets Samsung",
+      "smartwatch Samsung",
+      "Galaxy Z Fold",
+      "Galaxy Z Flip",
+      "tienda Samsung Colombia",
+    ],
+    authors: [{ name: "Imagiq Team", url: s.site_url }],
+    creator: s.site_name,
+    publisher: s.site_name,
+    formatDetection: {
+      email: false,
+      address: false,
+      telephone: false,
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  openGraph: {
-    type: "website",
-    locale: "es_CO",
-    url: "https://imagiq.com",
-    siteName: "Imagiq Samsung Store",
-    title: "Imagiq - Distribuidor Oficial Samsung Colombia",
-    description:
-      "Distribuidor oficial de Samsung en Colombia. Galaxy, tablets, wearables y electrodomésticos con garantía oficial.",
-    images: [
-      {
-        url: "/logo-og.png",
-        width: 1200,
-        height: 630,
-        alt: "Imagiq Store Logo",
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
       },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    site: "@imagiqstore",
-    creator: "@imagiqstore",
-  },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION,
-  },
-  alternates: {
-    canonical: "https://imagiq.com",
-  },
-};
+    },
+    openGraph: {
+      type: "website",
+      locale: "es_CO",
+      url: s.site_url,
+      siteName: s.site_name,
+      title: s.default_title,
+      description: s.default_description,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: `${s.site_name} Logo`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      site: "@imagiqstore",
+      creator: "@imagiqstore",
+    },
+    verification: {
+      google: s.google_verification || process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION,
+    },
+    alternates: {
+      canonical: s.site_url,
+    },
+  };
+}
 
 export const viewport = {
   width: "device-width",
