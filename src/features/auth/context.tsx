@@ -65,6 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData);
           apiClient.setAuthToken(savedToken!);
 
+          // Identify user in PostHog on session restore
+          const userRole = userData.role ?? (userData as User & { rol?: number }).rol;
+          setPosthogUserId(userData.id, {
+            $email: userData.email,
+            $name: `${userData.nombre ?? ""} ${userData.apellido ?? ""}`.trim(),
+            telefono: userData.telefono,
+            role: userRole,
+          });
+
           // ✅ NUEVO: Cargar dirección predeterminada si no está en localStorage
           const existingAddress = localStorage.getItem('checkout-address');
           if (!existingAddress || existingAddress === 'null' || existingAddress === 'undefined') {
