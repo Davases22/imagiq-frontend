@@ -106,7 +106,29 @@ export default function SuccessCheckoutPage({
   const pathParams = use(params);
   const router = useRouter();
   const [open, setOpen] = useState(true);
+  const [verified, setVerified] = useState(false);
   const { clearCart } = useCart();
+
+  // Safety net: verificar que la orden realmente fue aprobada
+  useEffect(() => {
+    const verifyOrderStatus = async () => {
+      try {
+        const res = await apiClient.get<{ orderStatus?: string; message?: string }>(
+          `/api/orders/verify/${pathParams.orderId}`
+        );
+        if (res.data?.orderStatus === "REJECTED") {
+          router.replace(
+            `/error-checkout?message=${encodeURIComponent(res.data?.message || "Tu pago fue rechazado por el banco")}`
+          );
+          return;
+        }
+      } catch {
+        // Si falla la verificación, mostrar success como fallback
+      }
+      setVerified(true);
+    };
+    verifyOrderStatus();
+  }, [pathParams.orderId, router]);
   const { trackPurchase } = useAnalyticsWithUser();
   const whatsappSentRef = useRef(false);
   const analyticsSentRef = useRef(false);
@@ -865,6 +887,15 @@ export default function SuccessCheckoutPage({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // No mostrar nada hasta verificar que la orden fue aprobada
+  if (!verified) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#009047]">
+        <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#009047]">
