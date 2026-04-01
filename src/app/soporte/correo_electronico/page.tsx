@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { associateEmailWithSession } from "@/lib/posthogClient";
 
 export default function CorreoElectronicoPage() {
   const [formData, setFormData] = useState({
@@ -37,6 +38,11 @@ export default function CorreoElectronicoPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.email) {
+      associateEmailWithSession(formData.email, {
+        $name: `${formData.firstName} ${formData.lastName}`.trim() || undefined,
+      });
+    }
     // Handle form submission
     console.log("Form submitted:", formData);
   };
