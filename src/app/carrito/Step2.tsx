@@ -21,6 +21,7 @@ import {
   getTradeInValidationMessage,
 } from "./utils/validateTradeIn";
 import { toast } from "sonner";
+import { associateEmailWithSession } from "@/lib/posthogClient";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -341,6 +342,11 @@ export default function Step2({
 
       // Guardar userId temporalmente (solo en estado, no en localStorage todavía)
       setGuestUserId(registerResult.userId);
+
+      // Associate guest email with PostHog session
+      associateEmailWithSession(guestForm.email.toLowerCase(), {
+        $name: `${guestForm.nombre} ${guestForm.apellido}`.trim(),
+      });
 
       // 2. Establecer estado inicial para OTP pero SIN enviarlo aún
       // Esto permite que el usuario seleccione el método de envío (WhatsApp o Email)

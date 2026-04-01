@@ -183,6 +183,26 @@ export function setPosthogUserId(
   posthogUtils.identify(userId, userProperties);
 }
 
+/**
+ * Associate an email with the current PostHog session.
+ * Works even for anonymous/guest users — sets $set_once so the first email
+ * seen sticks as the canonical one, while $set keeps the latest.
+ */
+export function associateEmailWithSession(
+  email: string,
+  extraProperties?: Record<string, unknown>
+) {
+  if (typeof window === "undefined" || !email) return;
+  try {
+    posthog.setPersonProperties(
+      { $email: email, ...extraProperties },
+      { $initial_email: email }
+    );
+  } catch (error) {
+    console.error("Error associating email with PostHog session:", error);
+  }
+}
+
 // Utilidades para interactuar con PostHog
 export const posthogUtils = {
   /**
