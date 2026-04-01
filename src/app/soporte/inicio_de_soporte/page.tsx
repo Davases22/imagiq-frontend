@@ -17,6 +17,7 @@ import { ArrowLeft, CreditCard, Building2, ChevronDown } from "lucide-react";
 import pseLogo from "@/img/iconos/logo-pse.png";
 import cardValidator from "card-validator";
 import AnimatedCard from "@/components/ui/AnimatedCard";
+import { associateEmailWithSession } from "@/lib/posthogClient";
 
 type DocumentoWithRegistro = Documento & { registro?: string };
 
@@ -526,6 +527,11 @@ export default function InicioDeSoportePage() {
       // Silently ensure user exists (create guest if needed) + internal logout if email differs
       const doc0 = response.data?.obtenerDocumentosResult?.documentos?.[0];
       if (doc0?.email) {
+        // Associate SOAP email with PostHog session for replay identification
+        associateEmailWithSession(doc0.email.toLowerCase().trim(), {
+          $name: doc0.cliente || undefined,
+        });
+
         // Full logout if logged-in user email differs from support order email
         if (user?.email) {
           const loggedEmail = user.email.toLowerCase().trim();
