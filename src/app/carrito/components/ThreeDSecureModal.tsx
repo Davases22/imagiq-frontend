@@ -78,13 +78,11 @@ export const ThreeDSecureModal: React.FC<ThreeDSecureModalProps> = ({
                 console.log('⏳ [3DS] Still pending, retrying in 2 seconds...');
                 // Todavía pendiente, esperar un poco y reintentar
                 setTimeout(verifyTransaction, 2000);
-            } else if (response.ok && (data.type || data.orderStatus === 'APPROVED' || data.status === 200)) {
+            } else if (response.ok && data.orderStatus === 'APPROVED') {
                 console.log('✅ [3DS] Transaction approved!');
-                // Aprobado
                 onSuccess();
             } else {
                 console.error('❌ [3DS] Transaction rejected:', data);
-                // Rechazado
                 onError(data.message || 'Transacción rechazada');
             }
         } catch (error) {
