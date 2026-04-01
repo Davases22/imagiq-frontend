@@ -114,7 +114,6 @@ export default function AddNewAddressForm({
     if (currentStep !== 2) return false;
     
     return !!(
-      selectedAddress &&
       formData.nombreDireccion.trim() &&
       formData.instruccionesEntrega.trim() &&
       formData.departamento.trim() &&
@@ -125,7 +124,6 @@ export default function AddNewAddressForm({
     );
   }, [
     currentStep,
-    selectedAddress,
     formData.nombreDireccion,
     formData.instruccionesEntrega,
     formData.departamento,
@@ -367,9 +365,9 @@ export default function AddNewAddressForm({
   }, [geoLocationData, isRequestingLocation, cities, formData.ciudad]);
 
   // Validar si el Step 1 está completo para habilitar el botón "Continuar"
+  // Google Places (selectedAddress) es opcional — los campos manuales son suficientes
   const isStep1Complete = useMemo(() => {
     return !!(
-      selectedAddress &&
       formData.departamento.trim() &&
       formData.ciudad.trim() &&
       formData.nombreCalle.trim() &&
@@ -379,7 +377,6 @@ export default function AddNewAddressForm({
       formData.setsReferencia.trim()
     );
   }, [
-    selectedAddress,
     formData.departamento,
     formData.ciudad,
     formData.nombreCalle,
@@ -407,7 +404,7 @@ export default function AddNewAddressForm({
     if (!formData.numeroSecundario.trim()) missing.push("# Secund.");
     if (!formData.numeroComplementario.trim()) missing.push("# Compl.");
     if (!formData.setsReferencia.trim()) missing.push("Complemento");
-    if (!selectedAddress) missing.push("Dirección de Google Maps");
+    // Google Places es opcional — no listar como campo faltante
 
     return missing;
   }, [
@@ -423,11 +420,6 @@ export default function AddNewAddressForm({
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-
-    if (!selectedAddress) {
-      newErrors.address =
-        "Selecciona una dirección de envío usando el autocompletado";
-    }
 
     // Solo validar nombreDireccion e instruccionesEntrega si NO es billingOnly
     // (en billingOnly se usa nombre automático y no requiere instrucciones)
@@ -492,67 +484,74 @@ export default function AddNewAddressForm({
   };
 
   const handleSubmitInternal = async () => {
-    if (!validateForm() || !selectedAddress) {
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Validar que selectedAddress tenga la estructura necesaria
-      if (!selectedAddress) {
-        throw new Error("No se ha seleccionado una dirección válida");
-      }
+      // Construir placeDetails: desde Google si disponible, o desde campos manuales
+      let transformedPlaceDetails: Record<string, unknown>;
 
-      // Obtener coordenadas de manera segura - manejar diferentes estructuras posibles
-      let latitude: number;
-      let longitude: number;
+      if (selectedAddress) {
+        // Obtener coordenadas de manera segura
+        let latitude: number;
+        let longitude: number;
 
-      if (
-        selectedAddress.latitude !== undefined &&
-        selectedAddress.longitude !== undefined
-      ) {
-        // Estructura directa según PlaceDetails type
-        latitude = selectedAddress.latitude;
-        longitude = selectedAddress.longitude;
-      } else if (selectedAddress.geometry?.location) {
-        // Estructura de Google Places API
-        latitude = selectedAddress.geometry.location.lat;
-        longitude = selectedAddress.geometry.location.lng;
+        if (
+          selectedAddress.latitude !== undefined &&
+          selectedAddress.longitude !== undefined
+        ) {
+          latitude = selectedAddress.latitude;
+          longitude = selectedAddress.longitude;
+        } else if (selectedAddress.geometry?.location) {
+          latitude = selectedAddress.geometry.location.lat;
+          longitude = selectedAddress.geometry.location.lng;
+        } else {
+          throw new Error(
+            "No se pudieron obtener las coordenadas de la dirección seleccionada"
+          );
+        }
+
+        transformedPlaceDetails = {
+          placeId: selectedAddress.placeId,
+          formattedAddress: selectedAddress.formattedAddress,
+          name: selectedAddress.name || "",
+          latitude,
+          longitude,
+          addressComponents: selectedAddress.addressComponents || [],
+          types: selectedAddress.types || [],
+          ...(selectedAddress.postalCode && {
+            postalCode: selectedAddress.postalCode,
+          }),
+          ...(selectedAddress.city && { city: selectedAddress.city }),
+          ...(selectedAddress.department && {
+            department: selectedAddress.department,
+          }),
+          ...(selectedAddress.locality && { locality: selectedAddress.locality }),
+          ...(selectedAddress.neighborhood && {
+            neighborhood: selectedAddress.neighborhood,
+          }),
+          ...(selectedAddress.vicinity && { vicinity: selectedAddress.vicinity }),
+          ...(selectedAddress.url && { url: selectedAddress.url }),
+          ...(selectedAddress.nomenclature && {
+            nomenclature: selectedAddress.nomenclature,
+          }),
+        };
       } else {
-        throw new Error(
-          "No se pudieron obtener las coordenadas de la dirección seleccionada"
-        );
+        // Sin Google Places: construir dirección formateada desde campos manuales
+        const manualAddress = `${formData.nombreCalle} ${formData.numeroPrincipal} # ${formData.numeroSecundario} - ${formData.numeroComplementario}`;
+        transformedPlaceDetails = {
+          placeId: '',
+          formattedAddress: manualAddress,
+          name: manualAddress,
+          latitude: 0,
+          longitude: 0,
+          addressComponents: [],
+          types: [],
+        };
       }
-
-      // Transformar PlaceDetails al formato esperado por el backend
-      // Incluir todos los campos opcionales si están disponibles
-      const transformedPlaceDetails = {
-        placeId: selectedAddress.placeId,
-        formattedAddress: selectedAddress.formattedAddress,
-        name: selectedAddress.name || "",
-        latitude,
-        longitude,
-        addressComponents: selectedAddress.addressComponents || [],
-        types: selectedAddress.types || [],
-        // Campos opcionales - incluir solo si existen
-        ...(selectedAddress.postalCode && {
-          postalCode: selectedAddress.postalCode,
-        }),
-        ...(selectedAddress.city && { city: selectedAddress.city }),
-        ...(selectedAddress.department && {
-          department: selectedAddress.department,
-        }),
-        ...(selectedAddress.locality && { locality: selectedAddress.locality }),
-        ...(selectedAddress.neighborhood && {
-          neighborhood: selectedAddress.neighborhood,
-        }),
-        ...(selectedAddress.vicinity && { vicinity: selectedAddress.vicinity }),
-        ...(selectedAddress.url && { url: selectedAddress.url }),
-        ...(selectedAddress.nomenclature && {
-          nomenclature: selectedAddress.nomenclature,
-        }),
-      };
 
       // Crear dirección de envío (o facturación si billingOnly)
       const shippingAddressRequest: CreateAddressRequest = {
@@ -562,7 +561,7 @@ export default function AddNewAddressForm({
         // Si es billingOnly, siempre es tipo FACTURACION
         tipo: billingOnly ? "FACTURACION" : (formData.usarMismaParaFacturacion ? "AMBOS" : "ENVIO"),
         esPredeterminada: !skipSetDefault, // NO marcar como predeterminada si skipSetDefault es true
-        placeDetails: transformedPlaceDetails as PlaceDetails,
+        placeDetails: transformedPlaceDetails as unknown as PlaceDetails,
         // Nuevos campos estructurados
         departamento: formData.departamento || undefined,
         nombreCalle: formData.nombreCalle || undefined,
@@ -1088,7 +1087,7 @@ export default function AddNewAddressForm({
           }
         } else {
           // En paso 2: hacer submit
-          if (!validateForm() || !selectedAddress) {
+          if (!validateForm()) {
             return;
           }
           await handleSubmitInternal();

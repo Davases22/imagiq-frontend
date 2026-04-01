@@ -13,6 +13,7 @@ import AddNewAddressForm from "./components/AddNewAddressForm";
 import { MapPin, Plus, Check, Trash2 } from "lucide-react";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 import { useCart } from "@/hooks/useCart";
+import { associateEmailWithSession } from "@/lib/posthogClient";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { toast } from "sonner";
 
@@ -588,6 +589,13 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
         "checkout-billing-data",
         JSON.stringify(billingToSave)
       );
+
+      // Associate billing email with PostHog session
+      if (billingToSave.email) {
+        associateEmailWithSession(billingToSave.email, {
+          $name: billingToSave.nombre,
+        });
+      }
 
       if (onContinue) {
         onContinue();
