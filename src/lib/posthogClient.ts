@@ -47,6 +47,8 @@ export const posthogConfig = {
     maskAllInputs: true, // Oculta inputs sensibles
     maskAllText: false,
     recordCrossOriginIframes: false,
+    recordHeaders: true,
+    recordBody: true,
     // Replace PostHog's aggressive default scrubbing (which redacts ANY body
     // containing "token", "auth", etc.) with targeted field-level redaction.
     maskCapturedNetworkRequestFn: (request: CapturedNetworkRequest) => {
