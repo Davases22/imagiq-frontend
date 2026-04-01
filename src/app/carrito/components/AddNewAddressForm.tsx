@@ -1066,7 +1066,7 @@ export default function AddNewAddressForm({
     if (onSubmitRef) {
       onSubmitRef.current = async () => {
         // Validar antes de proceder
-        if (!validateForm() || !selectedAddress) {
+        if (!validateForm()) {
           return;
         }
         // Llamar a handleSubmitInternal
@@ -1687,13 +1687,12 @@ export default function AddNewAddressForm({
                 type="submit"
                 disabled={
                   isLoading ||
-                  !selectedAddress ||
                   !formData.nombreDireccion ||
                   !formData.instruccionesEntrega ||
                   (!formData.usarMismaParaFacturacion && !selectedBillingAddress)
                 }
                 className={`flex-1 text-white px-6 py-3 rounded-xl font-bold transition border-2 ${
-                  !(isLoading || !selectedAddress || !formData.nombreDireccion || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
+                  !(isLoading || !formData.nombreDireccion || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
                     ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                     : "bg-gray-400 border-gray-300 cursor-not-allowed"
                 }`}
