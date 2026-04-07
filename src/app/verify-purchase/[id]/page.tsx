@@ -96,16 +96,17 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
       // Resetear contador si la transacción ya no está pendiente
       retryCountRef.current = 0;
 
-      // Verificar el status del body de la respuesta
-      // Solo redirigir a success si NO hay requiresAction, NO está PENDING, y el status es 200 o APPROVED
-      if ((data.status === 200 || data.status === "APPROVED") && data.orderStatus !== "PENDING") {
+      // Solo redirigir a success si orderStatus es explícitamente APPROVED
+      if (data.orderStatus === "APPROVED") {
         console.log("✅ [VERIFY] Transacción aprobada, redirigiendo a success...");
-        // Mantener animación visible durante la redirección
         router.push(`/success-checkout/${orderId}`);
+      } else if (data.orderStatus === "REJECTED") {
+        console.error("❌ [VERIFY] Transacción rechazada:", data.message);
+        const errParams = new URLSearchParams();
+        if (data.message) errParams.set("message", data.message);
+        router.push(`/error-checkout?${errParams.toString()}`);
       } else {
-        console.error("❌ [VERIFY] Verification failed with status:", data.status, "- orderStatus:", data.orderStatus);
-        console.error("❌ [VERIFY] Message:", data.message);
-        console.error("❌ [VERIFY] Redirigiendo a error-checkout...");
+        console.error("❌ [VERIFY] Estado inesperado:", data.status, "- orderStatus:", data.orderStatus);
         const errParams = new URLSearchParams();
         if (data.message) errParams.set("message", data.message);
         router.push(`/error-checkout?${errParams.toString()}`);

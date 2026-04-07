@@ -26,15 +26,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     [],
   );
 
-  // Static pages
+  // Static pages — navbar pages get highest priorities for sitelink visibility
   const staticPages: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
-    { url: `${baseUrl}/productos`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${baseUrl}/ofertas`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${baseUrl}/tiendas`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/soporte`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${baseUrl}/ofertas`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/productos/dispositivos-moviles`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/productos/tv-y-audio`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/productos/electrodomesticos`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/productos/monitores`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/tiendas`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/soporte/inicio_de_soporte`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/productos`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
+    { url: `${baseUrl}/soporte`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/ventas-corporativas`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${baseUrl}/ventas-corporativas/education`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
     { url: `${baseUrl}/ventas-corporativas/finance`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
     { url: `${baseUrl}/ventas-corporativas/government`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
@@ -52,13 +57,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }));
 
-  // Category pages
-  const categoryPages: MetadataRoute.Sitemap = categories.map((c: any) => ({
-    url: `${baseUrl}/productos/${c.slug || c.id}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }));
+  // Category pages (exclude ones already in staticPages to avoid duplicates)
+  const staticSlugs = new Set(['dispositivos-moviles', 'tv-y-audio', 'electrodomesticos', 'monitores']);
+  const categoryPages: MetadataRoute.Sitemap = categories
+    .filter((c: any) => !staticSlugs.has(c.slug))
+    .map((c: any) => ({
+      url: `${baseUrl}/productos/${c.slug || c.id}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    }));
 
   return [...staticPages, ...cmsPages, ...categoryPages];
 }

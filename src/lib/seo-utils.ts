@@ -94,6 +94,30 @@ export function buildProductJsonLd(product: {
   };
 }
 
+/** Build SiteNavigationElement JSON-LD for sitelinks */
+export function buildSiteNavigationJsonLd(siteUrl: string) {
+  const navItems = [
+    { name: "Ofertas", url: `${siteUrl}/ofertas` },
+    { name: "Dispositivos Móviles", url: `${siteUrl}/productos/dispositivos-moviles` },
+    { name: "TV y Audio", url: `${siteUrl}/productos/tv-y-audio` },
+    { name: "Electrodomésticos", url: `${siteUrl}/productos/electrodomesticos` },
+    { name: "Monitores", url: `${siteUrl}/productos/monitores` },
+    { name: "Tiendas", url: `${siteUrl}/tiendas` },
+    { name: "Servicio Técnico", url: `${siteUrl}/soporte/inicio_de_soporte` },
+  ];
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: navItems.map((item, i) => ({
+      "@type": "SiteNavigationElement",
+      position: i + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  };
+}
+
 /** Build BreadcrumbList JSON-LD */
 export function buildBreadcrumbJsonLd(
   items: Array<{ name: string; url: string }>,
