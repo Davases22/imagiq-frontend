@@ -32,7 +32,7 @@ export function FooterBottom({ isVisible }: FooterBottomProps) {
     >
       {/* Información de la compañía y Logo superintendencia */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-6">
-        <div className="space-y-1">
+        <div className="space-y-1" data-nosnippet>
           <p className="text-xs text-gray-500 font-bold">{companyInfo.copyright}</p>
           <p className="text-xs text-gray-500 font-bold">{companyInfo.address}</p>
           <p className="text-xs text-gray-500 font-bold">{companyInfo.contact}</p>

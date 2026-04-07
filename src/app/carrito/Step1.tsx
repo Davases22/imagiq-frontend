@@ -937,7 +937,7 @@ export default function Step1({
               ))}
             </div>
           ) : cartProducts.length === 0 ? (
-            <div className="text-gray-500 text-center py-16 text-lg">
+            <div className="text-gray-500 text-center py-16 text-lg" data-nosnippet>
               No hay productos en el carrito.
             </div>
           ) : (
