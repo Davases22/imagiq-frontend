@@ -17,7 +17,7 @@ const CATEGORY_META: Record<string, { title: string; description: string }> = {
   electrodomesticos: {
     title: "Electrodomésticos Samsung",
     description:
-      "Neveras, lavadoras, secadoras, lavavajillas y aspiradoras Samsung. Electrodomésticos de última tecnología con garantía oficial en Imagiq Colombia.",
+      "Neveras, lavadoras, aspiradoras y más. Electrodomésticos Samsung de última tecnología con garantía oficial en Imagiq Colombia.",
   },
   monitores: {
     title: "Monitores Samsung",

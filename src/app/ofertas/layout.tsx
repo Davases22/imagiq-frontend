@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Ofertas y Promociones Samsung",
   description:
-    "Descubre las mejores ofertas y promociones en productos Samsung. Galaxy, tablets, wearables y electrodomesticos con descuentos exclusivos en Imagiq.",
+    "Descubre las mejores ofertas y promociones en productos Samsung. Galaxy, tablets, wearables y electrodomésticos con descuentos exclusivos en Imagiq.",
   alternates: { canonical: "https://imagiq.com/ofertas" },
   openGraph: {
     title: "Ofertas Samsung - Imagiq",
