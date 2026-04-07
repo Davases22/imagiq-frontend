@@ -105,6 +105,13 @@ async function getValidSlugs(): Promise<Set<string>> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Strip spam query parameters (?i=) — redirect 301 to clean URL
+  if (request.nextUrl.searchParams.has("i")) {
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete("i");
+    return NextResponse.redirect(cleanUrl, 301);
+  }
+
   // Excluir archivos estáticos y API
   if (
     pathname.startsWith("/_next") ||

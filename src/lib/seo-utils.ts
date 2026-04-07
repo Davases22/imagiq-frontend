@@ -16,9 +16,9 @@ const DEFAULTS: SeoSettings = {
   site_name: "Imagiq Samsung Store",
   site_url: SITE_URL,
   title_template: "%s | Imagiq Samsung Store",
-  default_title: "Imagiq - Distribuidor Oficial Samsung Colombia",
+  default_title: "Samsung Store - iMagiQ Colombia",
   default_description:
-    "Imagiq - Distribuidor oficial de Samsung en Colombia. Encuentra los últimos Galaxy, tablets, wearables y electrodomésticos con garantía oficial. Envío gratis, soporte especializado y las mejores promociones.",
+    "Tiendas oficiales Samsung. Encuentra los últimos Smartphones Galaxy, Televisores y Electrodomésticos con garantía oficial. Descuentos exclusivos y soporte.",
   default_og_image: "/logo-og.png",
   google_verification: "",
 };
@@ -30,7 +30,9 @@ export async function getSeoSettings(): Promise<SeoSettings> {
     });
     if (res.ok) {
       const data = await res.json();
-      return { ...DEFAULTS, ...data };
+      // Hardcode title & description — no permitir override del API
+      const { default_title, default_description, ...restData } = data;
+      return { ...DEFAULTS, ...restData };
     }
   } catch {
     // API unavailable — use defaults
