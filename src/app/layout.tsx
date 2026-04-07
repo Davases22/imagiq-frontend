@@ -3,7 +3,7 @@
  */
 
 import type { Metadata } from "next";
-import { getSeoSettings } from "@/lib/seo-utils";
+import { getSeoSettings, buildOrganizationJsonLd, buildSiteNavigationJsonLd } from "@/lib/seo-utils";
 import { samsungSharpSans } from "./fonts";
 import { ThreeDSScript } from "@/components/ThreeDSScript";
 // Nota: eliminamos la importación de Inter desde next/font/google para evitar
@@ -161,6 +161,15 @@ export default function RootLayout({
         <link rel="preconnect" href="https://media.flixfacts.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://media.flixcar.com" crossOrigin="anonymous" />
         <link rel="preload" href="//media.flixfacts.com/js/loader.js" as="script" />
+        {/* JSON-LD: SiteNavigationElement for Google sitelinks */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              buildSiteNavigationJsonLd(process.env.NEXT_PUBLIC_SITE_URL || "https://imagiq.com")
+            ),
+          }}
+        />
       </head>
       <body className="antialiased">
         <SecurityInitializer>
