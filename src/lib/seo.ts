@@ -24,7 +24,7 @@ export interface SEOData {
 // Generate page title with site name
 export const generatePageTitle = (
   title: string,
-  siteName: string = "Imagiq"
+  siteName: string = "Samsung Store"
 ) => {
   return `${title} | ${siteName}`;
 };
