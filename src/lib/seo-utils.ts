@@ -13,9 +13,9 @@ interface SeoSettings {
 }
 
 const DEFAULTS: SeoSettings = {
-  site_name: "Imagiq Samsung Store",
+  site_name: "Samsung Store",
   site_url: SITE_URL,
-  title_template: "%s | Imagiq Samsung Store",
+  title_template: "%s | Samsung Store",
   default_title: "Samsung Store - iMagiQ Colombia",
   default_description:
     "Tiendas oficiales Samsung. Encuentra los últimos Smartphones Galaxy, Televisores y Electrodomésticos con garantía oficial. Descuentos exclusivos y soporte.",
@@ -39,6 +39,17 @@ export async function getSeoSettings(): Promise<SeoSettings> {
   }
 
   return DEFAULTS;
+}
+
+/** Build WebSite JSON-LD — controls the site name shown in Google SERPs (especially mobile) */
+export function buildWebSiteJsonLd(settings: SeoSettings) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Samsung Store",
+    alternateName: ["Samsung Store iMagiQ", "Samsung Store Colombia"],
+    url: settings.site_url,
+  };
 }
 
 /** Build Organization JSON-LD for the root layout */
