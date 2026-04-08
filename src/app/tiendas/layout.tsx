@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "Encuentra la tienda Samsung más cercana. Puntos de venta autorizados Imagiq en toda Colombia con atención personalizada y productos originales.",
   alternates: { canonical: "https://imagiq.com/tiendas" },
   openGraph: {
-    title: "Tiendas Samsung - Imagiq",
+    title: "Tiendas Samsung - Samsung Store",
     description: "Puntos de venta Samsung autorizados en Colombia.",
     url: "https://imagiq.com/tiendas",
   },

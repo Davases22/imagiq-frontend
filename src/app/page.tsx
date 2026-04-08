@@ -83,7 +83,7 @@ export default async function HomePage() {
   return (
     <>
       <SEO
-        title="Imagiq - Distribuidor Oficial Samsung Colombia"
+        title="Samsung Store - iMagiQ Colombia"
         description="Distribuidor oficial de Samsung en Colombia. Encuentra los últimos Galaxy, tablets, wearables y electrodomésticos con garantía oficial. Envío gratis, soporte especializado y las mejores promociones."
         keywords="Samsung Colombia, distribuidor oficial Samsung, Galaxy, Samsung Store, electrodomésticos Samsung, tablets Samsung, smartwatch Samsung, Galaxy Z Fold, Galaxy Z Flip, tienda Samsung Colombia"
       />

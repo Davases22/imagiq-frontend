@@ -3,7 +3,7 @@
  */
 
 import type { Metadata } from "next";
-import { getSeoSettings, buildOrganizationJsonLd, buildSiteNavigationJsonLd } from "@/lib/seo-utils";
+import { getSeoSettings, buildOrganizationJsonLd, buildWebSiteJsonLd, buildSiteNavigationJsonLd } from "@/lib/seo-utils";
 import { samsungSharpSans } from "./fonts";
 import { ThreeDSScript } from "@/components/ThreeDSScript";
 // Nota: eliminamos la importación de Inter desde next/font/google para evitar
@@ -161,6 +161,23 @@ export default function RootLayout({
         <link rel="preconnect" href="https://media.flixfacts.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://media.flixcar.com" crossOrigin="anonymous" />
         <link rel="preload" href="//media.flixfacts.com/js/loader.js" as="script" />
+        {/* JSON-LD: WebSite — controls site name in Google SERPs (especially mobile) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              buildWebSiteJsonLd({
+                site_name: "Samsung Store - iMagiQ Colombia",
+                site_url: process.env.NEXT_PUBLIC_SITE_URL || "https://imagiq.com",
+                title_template: "",
+                default_title: "",
+                default_description: "",
+                default_og_image: "",
+                google_verification: "",
+              })
+            ),
+          }}
+        />
         {/* JSON-LD: SiteNavigationElement for Google sitelinks */}
         <script
           type="application/ld+json"
