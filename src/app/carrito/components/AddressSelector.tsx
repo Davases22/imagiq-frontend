@@ -195,7 +195,8 @@ export const AddressSelector: React.FC<AddressSelectorProps> = ({
                 {addresses.filter(a => a.tipo !== "FACTURACION").map((ad, i) => {
                   const icon = getTipoDireccionIcon(ad.tipoDireccion);
                   const label = getTipoDireccionLabel(ad.tipoDireccion);
-                  const mainAddress = ad.direccionFormateada || ad.nombreDireccion || 'Dirección';
+                  // Prioridad: lineaUno (lo que el usuario escribió) > direccionFormateada (lo de Google) > nombreDireccion
+                  const mainAddress = ad.lineaUno || (ad as Address & { linea_uno?: string }).linea_uno || ad.direccionFormateada || ad.nombreDireccion || 'Dirección';
                   const barrio = ad.barrio || '';
                   const ciudad = ad.ciudad || '';
                   const localidad = ad.localidad || '';

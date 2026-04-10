@@ -17,7 +17,10 @@ export function addressToDireccion(address: Partial<Address> & Pick<Address, 'id
     id: address.id,
     usuario_id: address.usuarioId || "",
     email: userEmail || "",
-    linea_uno: address.direccionFormateada || address.lineaUno || "",
+    // linea_uno tiene prioridad sobre direccionFormateada para que la dirección
+    // que se muestre en la UI refleje lo que el usuario escribió (incluyendo
+    // número de casa y barrio) y no la versión simplificada de Google Places.
+    linea_uno: address.lineaUno || address.direccionFormateada || "",
     codigo_dane: address.codigo_dane || "",
     ciudad: address.ciudad || "",
     pais: address.pais || "Colombia",
