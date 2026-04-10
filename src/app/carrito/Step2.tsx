@@ -1243,7 +1243,7 @@ export default function Step2({
         id: address.id,
         usuario_id: userId || address.usuarioId || '',
         email: userEmail,
-        linea_uno: address.direccionFormateada || address.lineaUno || '',
+        linea_uno: address.lineaUno || address.direccionFormateada || '',
         codigo_dane: address.codigo_dane || '',
         ciudad: address.ciudad || '',
         pais: address.pais || 'Colombia',

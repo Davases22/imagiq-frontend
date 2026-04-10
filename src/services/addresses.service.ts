@@ -23,6 +23,7 @@ export interface CreateAddressRequest {
   nombreCalle?: string;
   numeroPrincipal?: string;
   numeroSecundario?: string;
+  numeroComplementario?: string;
   barrio?: string;
   setsReferencia?: string; // Antes "puntoReferencia"
   instruccionesEntrega?: string;

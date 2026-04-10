@@ -159,12 +159,16 @@ export const DeliveryMethodSelector: React.FC<DeliveryMethodSelectorProps> = ({
                     <div className="text-sm text-gray-600">
                       {address
                         ? (() => {
-                            // El backend usa snake_case, necesitamos acceder a linea_uno
+                            // El backend usa snake_case, necesitamos acceder a linea_uno.
+                            // IMPORTANTE: linea_uno/lineaUno tienen prioridad sobre direccionFormateada
+                            // porque es el campo que refleja lo que el usuario escribió en los campos
+                            // estructurados (ej. "Avenida Carrera 21w #16a-25, Vallejo"), mientras que
+                            // direccionFormateada es el string crudo que devolvió Google Places.
                             const addressWithSnakeCase = address as Address & { linea_uno?: string };
                             const displayAddress =
-                              address.direccionFormateada ||
-                              addressWithSnakeCase.linea_uno ||
                               address.lineaUno ||
+                              addressWithSnakeCase.linea_uno ||
+                              address.direccionFormateada ||
                               address.nombreDireccion ||
                               'Dirección';
 

@@ -37,8 +37,8 @@ const getAddressUpToCity = (address: Address | null): string => {
     return ciudad || 'Dirección';
   }
 
-  // Use formatted address or line one
-  const fullAddress = direccionFormateada || lineaUno || '';
+  // lineaUno (lo que el usuario escribió) tiene prioridad sobre direccionFormateada (lo de Google)
+  const fullAddress = lineaUno || direccionFormateada || '';
 
   // If no city, return address as is (or truncated if too long)
   if (!ciudad) {
@@ -542,7 +542,7 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
             showWhiteItems ? "text-white/90" : "text-black/80"
           )}
           onClick={handleToggle}
-          title={displayAddress.direccionFormateada || displayAddress.lineaUno || 'Dirección'}
+          title={displayAddress.lineaUno || displayAddress.direccionFormateada || 'Dirección'}
           style={{ lineHeight: "1.4" }}
           type="button"
         >
@@ -553,7 +553,7 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
               lineHeight: "1.4",
               maxWidth: "calc(100% - 60px)" // Dejar espacio para iconos y "Para Empresas"
             }}
-            title={displayAddress.direccionFormateada || displayAddress.lineaUno || 'Dirección'}
+            title={displayAddress.lineaUno || displayAddress.direccionFormateada || 'Dirección'}
           >
             {getAddressUpToCity(displayAddress)}
           </span>
@@ -575,7 +575,7 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
               "text-black"
             )}
             onClick={handleToggle}
-            title={displayAddress.direccionFormateada || displayAddress.lineaUno || displayAddress.ciudad || 'Dirección'}
+            title={displayAddress.lineaUno || displayAddress.direccionFormateada || displayAddress.ciudad || 'Dirección'}
             type="button"
           >
             <MapPin className="w-5 h-5 text-black" />
@@ -698,7 +698,7 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
                               )}
                             </div>
                             <p className="text-sm text-gray-700 mt-1.5 leading-relaxed">
-                              {address.direccionFormateada}
+                              {address.lineaUno || address.direccionFormateada}
                             </p>
                             {address.ciudad && (
                               <p className="text-xs text-gray-500 mt-1">
