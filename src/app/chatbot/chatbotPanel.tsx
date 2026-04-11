@@ -33,6 +33,30 @@ export default function ChatbotPanel({ onClose }: Readonly<{ onClose: () => void
 
   // Ref para el contenedor de mensajes (auto-scroll)
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Ajustar el panel al viewport visible cuando el teclado iOS aparece.
+  // Usa height + transform para que el panel siempre ocupe exactamente
+  // el área visible, sin que iOS desplace el header fuera de pantalla.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const sync = () => {
+      if (!panelRef.current) return;
+      // Altura = viewport visible (excluye teclado)
+      panelRef.current.style.height = `${vv.height}px`;
+      // Compensar el scroll que iOS aplica al abrir teclado
+      panelRef.current.style.transform = `translateY(${vv.offsetTop}px)`;
+    };
+
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
 
   // Auto-scroll cuando cambian los mensajes o el estado de loading
   useEffect(() => {
@@ -104,11 +128,8 @@ export default function ChatbotPanel({ onClose }: Readonly<{ onClose: () => void
 
   return (
     <div
-      className="fixed top-0 right-0 flex flex-col chatbot-panel shadow-2xl"
-      style={{
-        height: '100dvh', // Dynamic viewport height para móviles
-        maxHeight: '100vh',
-      }}
+      ref={panelRef}
+      className="fixed inset-0 flex flex-col chatbot-panel shadow-2xl"
     >
       {/* Header mejorado */}
       <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-gray-900 to-black border-b border-gray-800">

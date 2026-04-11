@@ -12,7 +12,10 @@ import type { ProductFilterParams } from "./sharedInterfaces";
 import type { StoresApiResponse } from "@/types/store";
 
 // API Client configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Use relative URLs in the browser so requests go through Next.js rewrites.
+// NEXT_PUBLIC_* vars are inlined at build time, so we can't conditionally check
+// typeof window — instead we always use "" for client-side code.
+const API_BASE_URL = "";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
 // Advertencia en desarrollo si no está configurada la API Key

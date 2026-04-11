@@ -417,11 +417,33 @@ export default function PaymentForm({
                         </span>
                       </div>
                     </span>
-                    {hasTempCard && isNewCardSelected && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">
-                        Ingresada
-                      </span>
-                    )}
+                    {hasTempCard && isNewCardSelected && (() => {
+                      try {
+                        const parsed = JSON.parse(tempCardData!);
+                        const last4 = parsed.cardNumber?.slice(-4);
+                        const brand = parsed.franchise || "";
+                        const wasSaved = parsed.saved === true;
+                        return (
+                          <span className="flex items-center gap-2">
+                            {brand && <CardBrandLogo brand={brand} size="lg" />}
+                            <span className="text-xs text-gray-600 font-medium">
+                              •••• {last4}
+                            </span>
+                            {!wasSaved && (
+                              <span className="text-xs text-amber-600 font-medium">
+                                No se guardará esta tarjeta
+                              </span>
+                            )}
+                          </span>
+                        );
+                      } catch {
+                        return (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                            Ingresada
+                          </span>
+                        );
+                      }
+                    })()}
                   </label>
 
                   {/* Formulario inline solo para rol 3 (invitados) */}
@@ -540,8 +562,8 @@ export default function PaymentForm({
         </div>
       </div>
 
-      {/* Sección de Tarjetas guardadas - Solo para rol 2 */}
-      {canSaveCards && activeCards.length > 0 ? (
+      {/* Sección de Tarjetas guardadas - Solo para rol 2/4 cuando método es tarjeta */}
+      {paymentMethod === "tarjeta" && canSaveCards && activeCards.length > 0 ? (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-gray-700">
@@ -697,7 +719,7 @@ export default function PaymentForm({
             })}
           </div>
         </div>
-      ) : canSaveCards ? (
+      ) : paymentMethod === "tarjeta" && canSaveCards ? (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-gray-700">

@@ -191,24 +191,9 @@ export function useCheckoutLogic() {
   const [selectedBankName, setSelectedBankName] = useState<string>("");
 
   // Estados para tarjetas guardadas
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("checkout-saved-card-id");
-    }
-    return null;
-  });
-
-  const [useNewCard, setUseNewCard] = useState(() => {
-    if (typeof window !== "undefined") {
-      const savedCardId = localStorage.getItem("checkout-saved-card-id");
-      const tempCardData = sessionStorage.getItem("checkout-card-data");
-      // If we have temporary card data and NO saved card selected, default to new card
-      if (tempCardData && !savedCardId) {
-        return true;
-      }
-    }
-    return false;
-  });
+  // No inicializar desde localStorage — PaymentForm auto-selecciona la tarjeta predeterminada
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [useNewCard, setUseNewCard] = useState(false);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   // Contador para forzar recarga de tarjetas guardadas
   const [savedCardsReloadCounter, setSavedCardsReloadCounter] = useState(0);
@@ -319,17 +304,19 @@ export function useCheckoutLogic() {
   };
 
   // Cerrar modal después de agregar tarjeta y solicitar recarga de tarjetas
-  const handleAddCardSuccess = async (newCardId?: string) => {
+  const handleAddCardSuccess = async (saved?: boolean) => {
     setIsAddCardModalOpen(false);
-
-    // Forzar recarga de tarjetas - la tarjeta se seleccionará automáticamente en PaymentForm después de recargar
-    setSavedCardsReloadCounter((c) => c + 1);
     setPaymentMethod("tarjeta");
-    setUseNewCard(false);
 
-    // Si se proporcionó el ID de la nueva tarjeta, consultar cuotas sin interés
-    if (newCardId) {
-      fetchZeroInterestInfo([newCardId]);
+    if (saved) {
+      // Tarjeta guardada: recargar lista y auto-seleccionar
+      setSavedCardsReloadCounter((c) => c + 1);
+      setUseNewCard(false);
+    } else {
+      // Tarjeta sin guardar: usar datos crudos de sessionStorage
+      setSelectedCardId(null);
+      localStorage.removeItem("checkout-saved-card-id");
+      setUseNewCard(true);
     }
   };
 

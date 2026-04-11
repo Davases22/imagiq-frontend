@@ -119,8 +119,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover", // Importante para iOS safe-area
 };
 
@@ -146,6 +146,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${samsungSharpSans.variable}`}
       style={
         {
@@ -188,7 +189,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <SecurityInitializer>
           <AnalyticsScripts />
           <AnalyticsInit />
@@ -225,17 +226,13 @@ export default function RootLayout({
                                   {/* Toast notifications */}
                                   <Toaster
                                     position="top-center"
+                                    offset="100px"
                                     expand={true}
                                     richColors
                                     closeButton
+                                    mobileOffset={{ top: "70px", right: "16px", bottom: "16px", left: "16px" }}
                                     toastOptions={{
                                       duration: 4000,
-                                      style: {
-                                        background: "white",
-                                        border: "1px solid #e2e8f0",
-                                        color: "#1e293b",
-                                        fontFamily: "var(--font-inter)",
-                                      },
                                     }}
                                   />
                                 </PointsProvider>
