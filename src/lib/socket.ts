@@ -4,9 +4,23 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 
+function getSocketUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  // In the browser, if the page was loaded via a non-localhost hostname (e.g. LAN IP
+  // or devtunnel), replace localhost in the API URL with the actual hostname so that
+  // socket.io can reach the backend from devices like the iOS Simulator.
+  if (typeof window !== "undefined") {
+    const pageHost = window.location.hostname;
+    if (pageHost !== "localhost" && pageHost !== "127.0.0.1" && envUrl.includes("localhost")) {
+      return envUrl.replace("localhost", pageHost);
+    }
+  }
+  return envUrl;
+}
+
 export function connectSocket(channel: string): Socket {
   if (!socket) {
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/realtime`;
+    const url = `${getSocketUrl()}/realtime`;
     console.log(`[Socket] Creating NEW socket -> ${url} (channel: ${channel})`);
     socket = io(url, {
       transports: ["websocket", "polling"],

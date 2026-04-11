@@ -14,18 +14,16 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { getPaymentErrorInfo } from "@/lib/payment-error-map";
+import { useCardsCache } from "@/app/carrito/hooks/useCardsCache";
+import CardBrandLogo from "@/components/ui/CardBrandLogo";
+import pseLogo from "@/img/iconos/logo-pse.png";
+import addiLogo from "@/img/iconos/addi_negro.png";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-type ErrorCategory =
-  | "funds"
-  | "card"
-  | "auth3ds"
-  | "fraud"
-  | "system"
-  | "generic";
 
 type CtaAction =
   | "retry"
@@ -34,20 +32,7 @@ type CtaAction =
   | "viewOrders"
   | "goHome";
 
-type ColorScheme = "amber" | "orange" | "blue" | "slate";
-
-interface PaymentErrorInfo {
-  category: ErrorCategory;
-  title: string;
-  description: string;
-  icon: ErrorCategory;
-  primaryCta: { label: string; action: CtaAction };
-  secondaryCta: { label: string; action: CtaAction };
-  colorScheme: ColorScheme;
-  canRetry: boolean;
-  helpLink?: { label: string; url: string };
-  tip: string;
-}
+type ColorScheme = "amber" | "red" | "blue";
 
 // ---------------------------------------------------------------------------
 // Inline SVG icon components
@@ -397,165 +382,27 @@ function ErrorIcon({
   icon,
   colorClass,
 }: {
-  icon: ErrorCategory;
+  icon: string;
   colorClass: string;
 }) {
   const props = { colorClass, size: 80 };
   switch (icon) {
-    case "fraud":
+    case "shield":
       return <ShieldIcon {...props} />;
-    case "funds":
+    case "wallet":
       return <WalletIcon {...props} />;
     case "card":
       return <CardIcon {...props} />;
-    case "auth3ds":
+    case "lock":
       return <LockIcon {...props} />;
-    case "system":
+    case "clock":
       return <ClockIcon {...props} />;
     default:
       return <AlertIcon {...props} />;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Inline getPaymentErrorInfo (fallback until @/lib/payment-error-map exists)
-// ---------------------------------------------------------------------------
-
-function getPaymentErrorInfo(
-  code?: string,
-  message?: string
-): PaymentErrorInfo {
-  const msg = (message ?? "").toLowerCase();
-  const c = (code ?? "").toLowerCase();
-
-  // Fondos insuficientes
-  if (
-    msg.includes("fondos") ||
-    msg.includes("insuficiente") ||
-    c === "funds" ||
-    c === "insufficient"
-  ) {
-    return {
-      category: "funds",
-      title: "Fondos insuficientes",
-      description:
-        "Tu tarjeta no tiene saldo suficiente para completar este pago.",
-      icon: "funds",
-      primaryCta: { label: "Cambiar método de pago", action: "changeMethod" },
-      secondaryCta: { label: "Volver al carrito", action: "retry" },
-      colorScheme: "amber",
-      canRetry: false,
-      tip: "Puedes pagar con PSE directamente desde tu cuenta bancaria o dividir el pago con Addi.",
-    };
-  }
-
-  // Fraude / tarjeta robada
-  if (
-    msg.includes("fraude") ||
-    msg.includes("robada") ||
-    msg.includes("fraud") ||
-    c === "fraud" ||
-    c === "stolen"
-  ) {
-    return {
-      category: "fraud",
-      title: "Pago bloqueado por seguridad",
-      description:
-        "Tu banco bloqueó esta transacción por razones de seguridad.",
-      icon: "fraud",
-      primaryCta: { label: "Contactar a mi banco", action: "contactBank" },
-      secondaryCta: { label: "Cambiar método de pago", action: "changeMethod" },
-      colorScheme: "orange",
-      canRetry: false,
-      tip: "Llama al número al reverso de tu tarjeta para autorizar el pago o desbloquear tu cuenta.",
-    };
-  }
-
-  // Autenticación 3DS
-  if (
-    msg.includes("3ds") ||
-    msg.includes("autenticacion") ||
-    msg.includes("autenticación") ||
-    c === "3ds" ||
-    c === "auth"
-  ) {
-    return {
-      category: "auth3ds",
-      title: "Verificación de seguridad fallida",
-      description:
-        "No se pudo completar la autenticación 3D Secure requerida por tu banco.",
-      icon: "auth3ds",
-      primaryCta: { label: "Reintentar pago", action: "retry" },
-      secondaryCta: { label: "Cambiar método de pago", action: "changeMethod" },
-      colorScheme: "amber",
-      canRetry: true,
-      helpLink: {
-        label: "¿Qué es la verificación 3D Secure?",
-        url: "https://soporte.epayco.com/es/articles/3ds",
-      },
-      tip: "Asegúrate de tener acceso a tu teléfono registrado en el banco para recibir el código de verificación.",
-    };
-  }
-
-  // Problemas con la tarjeta
-  if (
-    msg.includes("tarjeta") ||
-    msg.includes("expirada") ||
-    msg.includes("vencida") ||
-    c === "card" ||
-    c === "expired"
-  ) {
-    return {
-      category: "card",
-      title: "Problema con la tarjeta",
-      description: "Hubo un inconveniente al procesar los datos de tu tarjeta.",
-      icon: "card",
-      primaryCta: { label: "Cambiar método de pago", action: "changeMethod" },
-      secondaryCta: { label: "Volver al carrito", action: "retry" },
-      colorScheme: "amber",
-      canRetry: false,
-      tip: "Verifica que el número, fecha de vencimiento y código de seguridad estén correctos.",
-    };
-  }
-
-  // Errores de sistema / timeout
-  if (
-    msg.includes("timeout") ||
-    msg.includes("sistema") ||
-    msg.includes("conexion") ||
-    msg.includes("conexión") ||
-    c === "system" ||
-    c === "timeout" ||
-    c === "network"
-  ) {
-    return {
-      category: "system",
-      title: "Error temporal del sistema",
-      description:
-        "Ocurrió un problema técnico en la plataforma de pagos. Tu dinero no fue cobrado.",
-      icon: "system",
-      primaryCta: { label: "Reintentar pago", action: "retry" },
-      secondaryCta: { label: "Ver mis pedidos", action: "viewOrders" },
-      colorScheme: "blue",
-      canRetry: true,
-      tip: "Este tipo de error suele resolverse en minutos. Intenta nuevamente o usa PSE como alternativa.",
-    };
-  }
-
-  // Genérico / fallback
-  return {
-    category: "generic",
-    title: "No pudimos procesar tu pago",
-    description:
-      "Tu banco rechazó la transacción. No realizamos ningún cargo a tu cuenta.",
-    icon: "generic",
-    primaryCta: { label: "Reintentar pago", action: "retry" },
-    secondaryCta: { label: "Cambiar método de pago", action: "changeMethod" },
-    colorScheme: "amber",
-    canRetry: true,
-    tip: "Intenta con otra tarjeta o usa PSE para pagar directamente desde tu banco.",
-  };
-}
+// getPaymentErrorInfo is now imported from @/lib/payment-error-map
 
 // ---------------------------------------------------------------------------
 // Color scheme maps
@@ -591,7 +438,7 @@ const schemeMap: Record<
     altCardBorder: "border-amber-200 hover:border-amber-400",
     altCardHover: "hover:bg-amber-50",
   },
-  orange: {
+  red: {
     leftBg: "from-orange-400 to-orange-700",
     leftBgFrom: "#fb923c",
     leftBgTo: "#c2410c",
@@ -619,20 +466,6 @@ const schemeMap: Record<
     altCardBorder: "border-blue-200 hover:border-blue-400",
     altCardHover: "hover:bg-blue-50",
   },
-  slate: {
-    leftBg: "from-slate-500 to-slate-700",
-    leftBgFrom: "#64748b",
-    leftBgTo: "#334155",
-    iconWrapper: "bg-slate-50 ring-4 ring-slate-200",
-    iconColor: "text-slate-600",
-    badge: "bg-slate-100 text-slate-800",
-    primaryBtn:
-      "bg-[#0057B7] hover:bg-[#004a9e] active:bg-[#003d84] text-white focus-visible:ring-[#0057B7]",
-    infoBox: "bg-slate-50 border-slate-200 text-slate-900",
-    tipBox: "bg-blue-50 border-blue-200 text-blue-900",
-    altCardBorder: "border-slate-200 hover:border-slate-400",
-    altCardHover: "hover:bg-slate-50",
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -644,18 +477,19 @@ function ErrorCheckoutContent() {
   const searchParams = useSearchParams();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [mounted, setMounted] = useState(false);
+  const { savedCards, isLoadingCards, loadSavedCards } = useCardsCache();
 
   const rawMessage = searchParams.get("message") ?? undefined;
   const rawCode = searchParams.get("code") ?? undefined;
-  const rawType = searchParams.get("type") ?? undefined;
 
-  // Determine error info — prefer type param for category override
-  const errorInfo = getPaymentErrorInfo(rawCode ?? rawType, rawMessage);
-  const scheme = schemeMap[errorInfo.colorScheme];
+  // Use the comprehensive error map from @/lib/payment-error-map
+  const errorInfo = getPaymentErrorInfo(rawCode, rawMessage);
+  const scheme = schemeMap[errorInfo.colorScheme as ColorScheme] ?? schemeMap.amber;
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    loadSavedCards();
+  }, [loadSavedCards]);
 
   // Focus the title after mount for accessibility
   useEffect(() => {
@@ -810,9 +644,9 @@ function ErrorCheckoutContent() {
                   ? "Pago bloqueado"
                   : errorInfo.category === "funds"
                     ? "Fondos insuficientes"
-                    : errorInfo.category === "auth3ds"
+                    : errorInfo.category === "auth"
                       ? "Verificación fallida"
-                      : errorInfo.category === "card"
+                      : errorInfo.category === "card" || errorInfo.category === "data"
                         ? "Problema con tu tarjeta"
                         : "Pago rechazado"}
             </p>
@@ -882,26 +716,28 @@ function ErrorCheckoutContent() {
             )}
 
             {/* 4. Helpful tip */}
-            <div
-              className={`ec-panel-enter-delay-2 mt-4 flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${scheme.tipBox}`}
-            >
-              <svg
-                className="shrink-0 mt-0.5 opacity-70"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
+            {errorInfo.tip && (
+              <div
+                className={`ec-panel-enter-delay-2 mt-4 flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${scheme.tipBox}`}
               >
-                <path
-                  d="M8 1.5A5.5 5.5 0 0 0 5 11.5V13a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1.5A5.5 5.5 0 0 0 8 1.5z"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                />
-                <line x1="6" y1="15" x2="10" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <span>{errorInfo.tip}</span>
-            </div>
+                <svg
+                  className="shrink-0 mt-0.5 opacity-70"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M8 1.5A5.5 5.5 0 0 0 5 11.5V13a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1.5A5.5 5.5 0 0 0 8 1.5z"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                  />
+                  <line x1="6" y1="15" x2="10" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span>{errorInfo.tip}</span>
+              </div>
+            )}
 
             {/* 5. 3DS help link */}
             {errorInfo.helpLink && (
@@ -932,7 +768,7 @@ function ErrorCheckoutContent() {
             <div className="ec-panel-enter-delay-3 mt-8">
               <button
                 type="button"
-                onClick={() => handleAction(errorInfo.primaryCta.action)}
+                onClick={() => handleAction(errorInfo.primaryCta.action as CtaAction)}
                 className={`ec-primary-btn w-full py-4 px-6 rounded-2xl text-base font-bold shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${scheme.primaryBtn}`}
                 aria-label={errorInfo.primaryCta.label}
               >
@@ -941,16 +777,18 @@ function ErrorCheckoutContent() {
             </div>
 
             {/* 7. Secondary CTA */}
-            <div className="ec-panel-enter-delay-3 mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => handleAction(errorInfo.secondaryCta.action)}
-                className="ec-secondary-btn text-sm text-gray-500 underline underline-offset-2 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 rounded"
-                aria-label={errorInfo.secondaryCta.label}
-              >
-                {errorInfo.secondaryCta.label}
-              </button>
-            </div>
+            {errorInfo.secondaryCta && (
+              <div className="ec-panel-enter-delay-3 mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => handleAction(errorInfo.secondaryCta!.action as CtaAction)}
+                  className="ec-secondary-btn text-sm text-gray-500 underline underline-offset-2 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 rounded"
+                  aria-label={errorInfo.secondaryCta.label}
+                >
+                  {errorInfo.secondaryCta.label}
+                </button>
+              </div>
+            )}
 
             {/* ------------------------------------------------------------ */}
             {/* 8. Alternative payment methods                               */}
@@ -967,11 +805,8 @@ function ErrorCheckoutContent() {
                   className={`ec-alt-card flex flex-col items-center gap-2 p-4 rounded-2xl border bg-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7] ${scheme.altCardBorder} ${scheme.altCardHover}`}
                   aria-label="Pagar con PSE"
                 >
-                  {/* PSE logo inline SVG representation */}
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#004C97]">
-                    <span className="text-white font-extrabold text-sm tracking-tight">
-                      PSE
-                    </span>
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white">
+                    <Image src={pseLogo} alt="PSE" width={35} height={35} className="object-contain" />
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-semibold text-gray-800">PSE</p>
@@ -990,10 +825,8 @@ function ErrorCheckoutContent() {
                   className={`ec-alt-card flex flex-col items-center gap-2 p-4 rounded-2xl border bg-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7] ${scheme.altCardBorder} ${scheme.altCardHover}`}
                   aria-label="Pagar con Addi en cuotas"
                 >
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#00C08B]">
-                    <span className="text-white font-extrabold text-sm tracking-tight">
-                      A
-                    </span>
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white">
+                    <Image src={addiLogo} alt="Addi" width={35} height={35} className="object-contain" />
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-semibold text-gray-800">Addi</p>
@@ -1004,6 +837,50 @@ function ErrorCheckoutContent() {
                 </button>
               </div>
             </div>
+
+            {/* ------------------------------------------------------------ */}
+            {/* 8b. Saved cards — retry with a different card               */}
+            {/* ------------------------------------------------------------ */}
+            {isLoadingCards && (
+              <div className="ec-panel-enter-delay-4 mt-6 space-y-2">
+                <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                <div className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+                <div className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+              </div>
+            )}
+            {!isLoadingCards && savedCards.length > 0 && (
+              <div className="ec-panel-enter-delay-4 mt-6">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                  Reintentar con otra tarjeta
+                </p>
+                <div className="space-y-2">
+                  {savedCards.map((card) => (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => router.push(`/carrito?step=payment&savedCard=${card.id}`)}
+                      className={`ec-alt-card w-full flex items-center gap-3 p-3 rounded-xl border bg-white cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7] ${scheme.altCardBorder} ${scheme.altCardHover}`}
+                      aria-label={`Pagar con tarjeta terminada en ${card.ultimos_dijitos}`}
+                    >
+                      <CardBrandLogo brand={card.marca} size="md" />
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-bold text-gray-800 tracking-wider">
+                          **** {card.ultimos_dijitos}
+                        </p>
+                        {card.nombre_titular && (
+                          <p className="text-[10px] text-gray-500 uppercase truncate">
+                            {card.nombre_titular}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs text-[#0057B7] font-semibold whitespace-nowrap">
+                        Usar esta
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ------------------------------------------------------------ */}
             {/* 9. Support footer                                            */}

@@ -592,12 +592,18 @@ export function useCart(): UseCartReturn {
         // Mostrar alerta solo si no está activa para este producto
         if (!toastActiveRef.current[productId]) {
           toastActiveRef.current[productId] = true;
-          toast.success(
+          toast(
             wasUpdated ? `Cantidad actualizada` : `Producto añadido al carrito`,
             {
               description: `${displayName} - Cantidad: ${finalQuantity}`,
-              duration: 3000,
-              className: "toast-success",
+              duration: 4000,
+              className: "toast-cart-added",
+              action: {
+                label: "Ir al carrito",
+                onClick: () => {
+                  window.location.href = "/carrito";
+                },
+              },
               onAutoClose: () => {
                 toastActiveRef.current[productId] = false;
               },
@@ -1135,7 +1141,14 @@ export function useCart(): UseCartReturn {
       // Mostrar toast
       toast.success("Bundle añadido al carrito", {
         description: `${items.length} productos del bundle añadidos`,
-        duration: 3000,
+        duration: 4000,
+        className: "toast-cart-added",
+        action: {
+          label: "Ir al carrito",
+          onClick: () => {
+            window.location.href = "/carrito";
+          },
+        },
       });
 
       // Llamar al backend

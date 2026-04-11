@@ -157,6 +157,103 @@ export default function AddNewAddressForm({
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingBillingCities, setLoadingBillingCities] = useState(false);
+  const [isManualGeoLoading, setIsManualGeoLoading] = useState(false);
+  const [manualGeoCity, setManualGeoCity] = useState<string | null>(null);
+
+  // Solicitar geolocalización manualmente y aplicar al formulario
+  const handleUseMyLocation = async () => {
+    if (!('geolocation' in navigator)) {
+      alert('Tu navegador no soporta geolocalización');
+      return;
+    }
+    setIsManualGeoLoading(true);
+    try {
+      console.log('📍 [GEO] Solicitando ubicación...');
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      const { latitude, longitude } = position.coords;
+      console.log('📍 [GEO] Ubicación obtenida:', { latitude, longitude });
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+      const response = await fetch('/api/addresses/reverse-geocode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'X-API-Key': apiKey || '',
+        },
+        body: JSON.stringify({ lat: latitude, lng: longitude }),
+      });
+      if (!response.ok) {
+        console.error('📍 [GEO] Reverse geocode falló:', response.status);
+        setIsManualGeoLoading(false);
+        return;
+      }
+      const data = await response.json();
+      console.log('📍 [GEO] Datos recibidos:', data);
+      let departamento = data.departamento || '';
+      const ciudad = data.ciudad || data.city || '';
+      if (ciudad.toLowerCase().includes('bogot') && departamento === 'Bogotá') {
+        departamento = 'Cundinamarca';
+      }
+      // Parse numero_secundario if it contains a dash (e.g. "63-18" → sec: "63", comp: "18")
+      let numSecundario = data.numero_secundario || '';
+      let numComplementario = data.numero_complementario || '';
+      if (numSecundario.includes('-')) {
+        const parts = numSecundario.split('-');
+        numSecundario = parts[0];
+        numComplementario = numComplementario || parts[1] || '';
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        departamento: departamento || prev.departamento,
+        nombreCalle: data.tipo_via || prev.nombreCalle,
+        numeroPrincipal: data.numero_principal || prev.numeroPrincipal,
+        numeroSecundario: numSecundario || prev.numeroSecundario,
+        numeroComplementario: numComplementario || prev.numeroComplementario,
+        barrio: data.barrio || prev.barrio,
+      }));
+      if (ciudad) {
+        setManualGeoCity(ciudad);
+      }
+    } catch (err) {
+      const geoError = err as GeolocationPositionError;
+      console.warn('📍 [GEO]:', geoError.message || err);
+      // code 1 = denied, code 2 = unavailable, code 3 = timeout
+      // "Only secure origins" = HTTP instead of HTTPS (expected on LAN dev)
+      const msg = String(geoError.message || '');
+      if (msg.includes('secure origins') || msg.includes('secure context')) {
+        alert('La geolocalización requiere HTTPS. En desarrollo local, usa localhost:3000.');
+      } else if (geoError.code === 1) {
+        alert('Permiso de ubicación denegado. Habilita el acceso a ubicación en la configuración de tu navegador.');
+      } else if (geoError.code === 2) {
+        alert('No se pudo determinar tu ubicación. Intenta de nuevo.');
+      } else if (geoError.code === 3) {
+        alert('La solicitud de ubicación tardó demasiado. Intenta de nuevo.');
+      }
+    } finally {
+      setIsManualGeoLoading(false);
+    }
+  };
+
+  // Aplicar ciudad de geolocalización manual cuando las ciudades del departamento se cargan
+  useEffect(() => {
+    if (manualGeoCity && cities.length > 0 && !formData.ciudad) {
+      const target = manualGeoCity.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const match = cities.find((c) => {
+        const name = c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return name.includes(target) || target.includes(name);
+      });
+      if (match) {
+        setFormData((prev) => ({ ...prev, ciudad: match.codigo || match.nombre }));
+        setManualGeoCity(null);
+      }
+    }
+  }, [manualGeoCity, cities, formData.ciudad]);
 
   // Cargar departamentos al montar el componente
   useEffect(() => {
@@ -1141,11 +1238,35 @@ export default function AddNewAddressForm({
             - En mobile: visible solo si NO hay onContinueRef (modal independiente)
             - Si hay onContinueRef, el control viene del padre (sticky bar en Step2) */}
         {currentStep === 1 ? (
-          <div className={`relative ${onContinueRef ? 'hidden sm:block' : ''}`}>
+          <div className={`relative flex items-center gap-2 ${onContinueRef ? 'hidden sm:flex' : ''}`}>
+            {/* Botón usar mi ubicación */}
+            {!isRequestingLocation && !geoLocationData && (
+              <button
+                type="button"
+                onClick={handleUseMyLocation}
+                disabled={isManualGeoLoading || disabled}
+                className="flex items-center gap-1.5 px-6 py-2 rounded-xl border-2 border-gray-300 bg-white text-gray-700 text-sm font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 whitespace-nowrap"
+                title="Usar mi ubicación actual"
+              >
+                {isManualGeoLoading ? (
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-gray-700 border-t-transparent" />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" />
+                    <line x1="8" y1="0.5" x2="8" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="8" y1="13" x2="8" y2="15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="0.5" y1="8" x2="3" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="13" y1="8" x2="15.5" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">{isManualGeoLoading ? "Detectando..." : "Usar mi ubicación actual"}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
-                // Si es billingOnly, hacer submit directo sin ir al paso 2
                 if (billingOnly) {
                   handleSubmitInternal();
                 } else {
@@ -1184,7 +1305,7 @@ export default function AddNewAddressForm({
         ) : (
           /* Espacio vacío para mantener la alineación cuando no hay botón
              - Solo oculto en mobile si hay onContinueRef (control externo) */
-          <div className={`${onContinueRef ? 'hidden sm:block' : ''} w-[120px]`}></div>
+          <div className={`${onContinueRef ? 'hidden sm:flex' : ''} w-[120px]`}></div>
         )}
       </div>
 

@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type { FC, FormEvent, ReactNode } from "react";
-import { MenuItem } from "./MobileMenuData";
-import { MobileMenuHeader } from "./MobileMenuHeader";
-import { MobileMenuPromo } from "./MobileMenuPromo";
+import { useState, useEffect, useCallback } from "react";
+import type { FC, FormEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { MobileMenuContent } from "./MobileMenuContent";
-import { DynamicMobileSubmenu } from "./DynamicMobileSubmenu";
 import { SearchBar } from "./SearchBar";
 import { useVisibleCategories } from "@/hooks/useVisibleCategories";
 import { usePreloadCategoryMenus } from "@/hooks/usePreloadCategoryMenus";
-import type { Menu } from "@/lib/api";
-import { isStaticCategoryUuid } from "@/constants/staticCategories";
-import OfertasDropdown from "@/components/dropdowns/ofertas";
-import ServicioTecnicoDropdown from "@/components/dropdowns/servicio_tecnico";
-import type { DropdownName } from "../types";
 
 type Props = {
   isOpen: boolean;
@@ -24,7 +16,29 @@ type Props = {
   onSearchSubmit: (e: FormEvent) => void;
 };
 
-// SUBMENU_COMPONENTS eliminado - todas las categorías dinámicas usan DynamicMobileSubmenu
+const dropdownVariants = {
+  hidden: {
+    opacity: 0,
+    height: 0,
+    transition: {
+      height: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
+      opacity: { duration: 0.2, ease: "easeOut" as const },
+    },
+  },
+  visible: {
+    opacity: 1,
+    height: "auto",
+    transition: {
+      height: { duration: 0.35, ease: [0.4, 0, 0.2, 1] as const },
+      opacity: { duration: 0.25, delay: 0.05, ease: "easeIn" as const },
+    },
+  },
+};
+
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.25 } },
+};
 
 export const MobileMenu: FC<Props> = ({
   isOpen,
@@ -33,186 +47,73 @@ export const MobileMenu: FC<Props> = ({
   onSearchChange,
   onSearchSubmit,
 }) => {
-  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
-  const [activeMenus, setActiveMenus] = useState<Menu[] | null>(null);
-  const [activeCategoryCode, setActiveCategoryCode] = useState<string | null>(
-    null
-  );
-  const [activeCategoryVisibleName, setActiveCategoryVisibleName] = useState<
-    string | null
-  >(null);
-  const [activeDropdownName, setActiveDropdownName] =
-    useState<DropdownName | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  // Pre-cargar menús de todas las categorías dinámicas al cargar la página
   const { getMenus, isLoading } = usePreloadCategoryMenus();
-
   const { getNavbarRoutes, loading } = useVisibleCategories();
   const menuRoutes = getNavbarRoutes();
 
-  // Sincronizar activeMenus cuando los menús precargados estén disponibles
+  // Reset expanded category when menu closes
   useEffect(() => {
-    if (activeSubmenu && activeCategoryCode) {
-      const activeItem = menuRoutes.find(
-        (route) => route.name === activeSubmenu
-      );
-      if (activeItem?.uuid) {
-        const categoryUuid = activeItem.uuid;
-        const menus = getMenus(categoryUuid);
-        // Actualizar activeMenus cuando los menús estén disponibles
-        if (menus && menus.length > 0) {
-          setActiveMenus(menus);
-        }
-      }
+    if (!isOpen) {
+      setExpandedCategory(null);
     }
-  }, [activeSubmenu, activeCategoryCode, menuRoutes, getMenus]);
+  }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  const handleMenuItemClick = (
-    item: MenuItem & {
-      menus?: Menu[];
-      categoryCode?: string;
-      uuid?: string;
-      dropdownName?: string;
-      categoryVisibleName?: string;
-    }
-  ) => {
-    if (item.hasDropdown) {
-      const dropdownKey = item.dropdownName || item.name;
-      // Si es una categoría estática (Ofertas, Soporte)
-      if (isStaticCategoryUuid(item.uuid)) {
-        setActiveDropdownName(dropdownKey as DropdownName);
-        setActiveSubmenu(item.name);
-        return;
-      }
-
-      // Si el item tiene uuid (categoría dinámica), usar menús precargados
-      if (item.uuid) {
-        const categoryUuid = item.uuid;
-        const cachedMenus = getMenus(categoryUuid);
-        const menusLoading = isLoading(categoryUuid);
-
-        // Primero establecer el estado del submenú activo
-        setActiveCategoryCode(item.categoryCode || "");
-        setActiveCategoryVisibleName(item.categoryVisibleName || null);
-        setActiveSubmenu(item.name);
-
-        // Si ya hay menús precargados, establecerlos inmediatamente
-        if (cachedMenus && cachedMenus.length > 0) {
-          setActiveMenus(cachedMenus);
-        } else {
-          // Si aún están cargando, mantener activeMenus como null
-          // El useEffect actualizará activeMenus cuando los menús se carguen
-          setActiveMenus(null);
-        }
-      }
-    } else {
-      onClose();
-    }
-  };
-
-  // Función para obtener el componente de submenú apropiado (igual que desktop pero móvil)
-  const getSubmenuComponent = (): ReactNode | null => {
-    if (!activeSubmenu) return null;
-
-    // Si es un dropdown estático (Ofertas, Servicio Técnico)
-    if (activeDropdownName) {
-      switch (activeDropdownName) {
-        case "Ofertas":
-          return (
-            <div className="flex-1 overflow-y-auto">
-              <OfertasDropdown isMobile={true} onItemClick={() => onClose()} />
-            </div>
-          );
-        case "Servicio Técnico":
-          return (
-            <div className="flex-1 overflow-y-auto">
-              <ServicioTecnicoDropdown isMobile={true} onItemClick={() => onClose()} />
-            </div>
-          );
-        default:
-          return null;
-      }
-    }
-
-    // Si es una categoría dinámica con menús de API
-    if (activeCategoryCode) {
-      const activeItem = menuRoutes.find(
-        (route) => route.name === activeSubmenu
-      );
-      const categoryUuid = activeItem?.uuid;
-      const menusToPass = activeMenus || [];
-      // Verificar si están cargando usando el hook de precarga
-      const isStillLoading = categoryUuid ? isLoading(categoryUuid) : false;
-
-      return (
-        <DynamicMobileSubmenu
-          menus={menusToPass}
-          categoryCode={activeCategoryCode}
-          categoryVisibleName={activeCategoryVisibleName || undefined}
-          onClose={onClose}
-          loading={isStillLoading}
-        />
-      );
-    }
-
-    return null;
-  };
-
-  const SubmenuComponent = getSubmenuComponent();
+  const handleToggleCategory = useCallback((categoryName: string) => {
+    setExpandedCategory((prev) => (prev === categoryName ? null : categoryName));
+  }, []);
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/50 z-[10000]"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-[10001] overflow-y-auto">
-        <MobileMenuHeader
-          activeSubmenu={activeSubmenu}
-          onClose={onClose}
-          onBack={() => {
-            setActiveSubmenu(null);
-            setActiveDropdownName(null);
-            setActiveMenus(null);
-            setActiveCategoryCode(null);
-          }}
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          onSearchSubmit={onSearchSubmit}
-        />
-
-        {!activeSubmenu && (
-          <div className="sticky top-0 bg-white z-10">
-            <MobileMenuPromo onClose={onClose} />
-
-            <div
-              className="px-4 pb-4 pt-3"
-              style={{
-                background: "linear-gradient(to bottom, #f3f4f6 0%, #ffffff 100%)"
-              }}
-            >
-              <SearchBar
-                value={searchQuery}
-                onChange={onSearchChange}
-                onSubmit={onSearchSubmit}
-              />
-            </div>
-          </div>
-        )}
-
-        {SubmenuComponent || (
-          <MobileMenuContent
-            onClose={onClose}
-            onMenuItemClick={handleMenuItemClick}
-            menuRoutes={menuRoutes}
-            loading={loading}
+      {/* Backdrop */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black/30 z-[9998] xl:hidden"
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            onClick={onClose}
+            aria-hidden="true"
           />
         )}
-      </div>
+      </AnimatePresence>
+
+      {/* Dropdown menu */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="absolute left-0 right-0 z-[9999] xl:hidden bg-white shadow-2xl overflow-hidden rounded-b-3xl"
+            style={{ top: "100%" }}
+            variants={dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+          >
+            <div className="max-h-[80vh] overflow-y-auto overscroll-contain">
+              <div className="px-4 pb-3 pt-3">
+                <SearchBar
+                  value={searchQuery}
+                  onChange={onSearchChange}
+                  onSubmit={onSearchSubmit}
+                />
+              </div>
+
+              <MobileMenuContent
+                onClose={onClose}
+                menuRoutes={menuRoutes}
+                loading={loading}
+                expandedCategory={expandedCategory}
+                onToggleCategory={handleToggleCategory}
+                getMenus={getMenus}
+                isMenuLoading={isLoading}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

@@ -9,7 +9,7 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { User, Menu, Heart, MapPin, ChevronDown, Search } from "lucide-react";
+import { User, Menu, X, Heart, MapPin, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavbarLogic } from "@/hooks/navbarLogic";
 import { posthogUtils } from "@/lib/posthogClient";
@@ -209,8 +209,9 @@ export default function Navbar() {
         ? theme === "light"
         : navbar.showWhiteItems;
 
-  const shouldShowWhiteItemsMobile =
-    navbar.isOfertas && !navbar.isScrolled
+  const shouldShowWhiteItemsMobile = mobileMenuOpen
+    ? false
+    : navbar.isOfertas && !navbar.isScrolled
       ? true
       : useHeroTheme
         ? theme === "light"
@@ -272,14 +273,17 @@ export default function Navbar() {
   const showTransparentBg =
     (navbar.isOfertas || navbar.isHome) &&
     !navbar.activeDropdown &&
-    !navbar.isScrolled;
+    !navbar.isScrolled &&
+    !mobileMenuOpen;
+
+  const forceWhiteBg = mobileMenuOpen || !showTransparentBg;
 
   const headerStyles: CSSProperties = {
     fontFamily:
       '"SamsungOne","Samsung Sharp Sans","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial',
     boxShadow: navbar.isScrolled && !navbar.isMultimedia ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
-    background: showTransparentBg ? "transparent" : "white",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    background: forceWhiteBg ? "white" : "transparent",
+    transition: mobileMenuOpen ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   };
 
   return (
@@ -314,7 +318,7 @@ export default function Navbar() {
         <div
           className={cn(
             "xl:hidden px-4 py-3 flex items-center justify-between transition-colors duration-300 min-h-16",
-            mobileMenuOpen && "hidden"
+            mobileMenuOpen && "relative z-[10000] bg-white"
           )}
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -434,14 +438,22 @@ export default function Navbar() {
               </button>
             )}
             <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2"
-              aria-label="Abrir menú"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="p-2 relative w-10 h-10 flex items-center justify-center"
+              aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
             >
+              <X
+                className={cn(
+                  "w-6 h-6 absolute transition-all duration-200",
+                  shouldShowWhiteItemsMobile ? "text-white" : "text-black",
+                  mobileMenuOpen ? "opacity-100 rotate-0" : "opacity-0 rotate-90"
+                )}
+              />
               <Menu
                 className={cn(
-                  "w-6 h-6 transition-colors duration-300",
-                  shouldShowWhiteItemsMobile ? "text-white" : "text-black"
+                  "w-6 h-6 absolute transition-all duration-200",
+                  shouldShowWhiteItemsMobile ? "text-white" : "text-black",
+                  mobileMenuOpen ? "opacity-0 -rotate-90" : "opacity-100 rotate-0"
                 )}
               />
             </button>
@@ -719,15 +731,15 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+        {/* Mobile dropdown menu - positioned relative to header */}
+        <MobileMenu
+          isOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          searchQuery={navbar.searchQuery}
+          onSearchChange={navbar.setSearchQuery}
+          onSearchSubmit={navbar.handleSearchSubmit}
+        />
       </header>
-
-      <MobileMenu
-        isOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        searchQuery={navbar.searchQuery}
-        onSearchChange={navbar.setSearchQuery}
-        onSearchSubmit={navbar.handleSearchSubmit}
-      />
     </>
   );
 }

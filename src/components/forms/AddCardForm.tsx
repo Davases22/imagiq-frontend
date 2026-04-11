@@ -14,7 +14,7 @@ export interface AddCardFormHandle {
 
 interface AddCardFormProps {
   userId: string;
-  onSuccess?: () => void;
+  onSuccess?: (saved?: boolean) => void;
   onCancel?: () => void;
   showAsModal?: boolean;
   embedded?: boolean;
@@ -38,7 +38,8 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [isCardFlipped, setIsCardFlipped] = useState(false);
-  
+  const [saveForNextTime, setSaveForNextTime] = useState(true);
+
   // Get user context to check role
   const { user } = useAuthContext();
   const userRole = user?.role ?? (user as any)?.rol;
@@ -319,6 +320,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         cardType: cardType || "credit", // Use detected type
         franchise: franchise || getCardBrand(cardNumber),
         bankName: bankName || franchise || (cleanCardNumber.startsWith('4') ? 'Visa Test Bank' : 'Mastercard Test Bank'),
+        saved: false,
       };
 
       sessionStorage.setItem("checkout-card-data", JSON.stringify(cardData));
@@ -338,7 +340,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         setSubmitStatus("idle");
         setIsSubmitting(false);
 
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(saveCard);
       }, 2000);
 
       return true;
@@ -357,25 +359,17 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         cardType: cardType || "credit", // Use detected type
         franchise: franchise || getCardBrand(cardNumber),
         bankName: bankName || franchise || getCardBrand(cardNumber),
+        saved: false,
       };
 
       sessionStorage.setItem("checkout-card-data", JSON.stringify(cardData));
       localStorage.setItem("checkout-payment-method", "tarjeta");
 
       setSubmitStatus("success");
+      setIsSubmitting(false);
 
-      setTimeout(() => {
-        setCardNumber("");
-        setCardHolder("");
-        setExpiryMonth("");
-        setExpiryYear("");
-        setCvv("");
-        setErrors({});
-        setSubmitStatus("idle");
-        setIsSubmitting(false);
-
-        if (onSuccess) onSuccess();
-      }, 1500);
+      // Llamar onSuccess inmediatamente — el modal se destruirá al cerrar
+      if (onSuccess) onSuccess(saveCard);
 
       return true;
     }
@@ -444,7 +438,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
         setErrors({});
         setSubmitStatus("idle");
 
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(saveCard);
       }, 1500);
 
       return true;
@@ -713,32 +707,46 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
       );
     }
 
-    // Si es rol 2 o admin, mostrar botón de guardar tarjeta
+    // Si es rol 2 o admin, mostrar checkbox + botón
     return (
-      <div className="flex items-center gap-3 mt-8">
-        {onCancel && (
+      <div className="mt-8">
+        <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={saveForNextTime}
+            onChange={(e) => setSaveForNextTime(e.target.checked)}
+            className="w-4 h-4 accent-black rounded"
+          />
+          <span className="text-sm text-gray-700">Guardar para próximas compras</span>
+          {!saveForNextTime && (
+            <span className="text-xs text-amber-600 font-medium">— No se guardará</span>
+          )}
+        </label>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting || submitStatus === "success"}
+              className="w-1/2 px-4 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          )}
           <button
-            type="button"
-            onClick={onCancel}
+            type="submit"
+            onClick={(e) => handleSubmit(e, saveForNextTime)}
             disabled={isSubmitting || submitStatus === "success"}
-            className="w-1/2 px-4 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50"
+            className="w-1/2 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            Cancelar
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : submitStatus === "success" ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : null}
+            {submitStatus === "success" ? "¡Lista!" : saveForNextTime ? "Guardar y usar" : "Usar tarjeta"}
           </button>
-        )}
-        <button
-          type="submit"
-          onClick={(e) => handleSubmit(e, true)}
-          disabled={isSubmitting || submitStatus === "success"}
-          className="w-1/2 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : submitStatus === "success" ? (
-            <CheckCircle className="w-4 h-4" />
-          ) : null}
-          {submitStatus === "success" ? "¡Agregada!" : "Agregar Tarjeta"}
-        </button>
+        </div>
       </div>
     );
   };

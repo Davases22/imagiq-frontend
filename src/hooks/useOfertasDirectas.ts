@@ -44,12 +44,31 @@ interface UseOfertasDirectasReturn {
     error: string | null;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = "";
 
 // Cache persistente fuera del componente para mantener datos entre montajes
 let cachedOfertas: OfertaDirecta[] | null = null;
 let isFetching = false;
 let fetchPromise: Promise<void> | null = null;
+let imagesPrefetched = false;
+
+// Prefetch ofertas images so they're in browser cache before dropdown opens
+function prefetchOfertasImages(ofertas: OfertaDirecta[]): void {
+  if (imagesPrefetched || typeof window === 'undefined') return;
+  imagesPrefetched = true;
+
+  ofertas.forEach((oferta) => {
+    const imageUrl = oferta.producto?.imagen;
+    if (!imageUrl) return;
+
+    // Prefetch the Next.js optimized URL (what <Image fill> will request)
+    const optimizedImg = new window.Image();
+    optimizedImg.src = `/_next/image?url=${encodeURIComponent(imageUrl)}&w=256&q=75`;
+    if ('decode' in optimizedImg) {
+      optimizedImg.decode().catch(() => {});
+    }
+  });
+}
 
 export function useOfertasDirectas(): UseOfertasDirectasReturn {
     const [ofertas, setOfertas] = useState<OfertaDirecta[]>(cachedOfertas || []);
@@ -108,6 +127,7 @@ export function useOfertasDirectas(): UseOfertasDirectasReturn {
                         .sort((a, b) => a.orden - b.orden);
 
                     cachedOfertas = ofertasActivas;
+                    prefetchOfertasImages(ofertasActivas);
 
                     if (isMounted) {
                         setOfertas(ofertasActivas);

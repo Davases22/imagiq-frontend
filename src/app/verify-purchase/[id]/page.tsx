@@ -3,7 +3,7 @@ import LogoReloadAnimation from "@/app/carrito/LogoReloadAnimation";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = "";
 const MAX_RETRY_ATTEMPTS = 5; // 24 intentos x 5 segundos = 2 minutos máximo
 
 export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promise<{ id: string }>>; }>) {
@@ -66,6 +66,7 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
         status: number | string;
         requiresAction?: boolean;
         orderStatus?: string;
+        errorCode?: string;
       } = await response.json();
 
       console.log("📦 [VERIFY] Response data completo:", JSON.stringify(data, null, 2));
@@ -104,11 +105,13 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
         console.error("❌ [VERIFY] Transacción rechazada:", data.message);
         const errParams = new URLSearchParams();
         if (data.message) errParams.set("message", data.message);
+        if (data.errorCode) errParams.set("code", data.errorCode);
         router.push(`/error-checkout?${errParams.toString()}`);
       } else {
         console.error("❌ [VERIFY] Estado inesperado:", data.status, "- orderStatus:", data.orderStatus);
         const errParams = new URLSearchParams();
         if (data.message) errParams.set("message", data.message);
+        if (data.errorCode) errParams.set("code", data.errorCode);
         router.push(`/error-checkout?${errParams.toString()}`);
       }
     } catch (error) {

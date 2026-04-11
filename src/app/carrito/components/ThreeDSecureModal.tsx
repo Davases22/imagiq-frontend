@@ -18,7 +18,7 @@ interface ThreeDSecureModalProps {
     onClose: () => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = "";
 
 export const ThreeDSecureModal: React.FC<ThreeDSecureModalProps> = ({
     isOpen,

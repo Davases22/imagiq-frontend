@@ -7,7 +7,14 @@
  * - Bearer Token (Authorization): Autenticación del usuario (desde localStorage)
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+// Browser: use relative URLs so requests go through Next.js rewrites.
+// Server (SSR): use the full backend URL since relative URLs don't work.
+// We use a non-NEXT_PUBLIC_ env var for server-side to avoid Turbopack inlining.
+function getApiUrl(): string {
+  if (typeof window !== "undefined") return "";
+  return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+}
+const API_URL = getApiUrl();
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
 // Advertencia en desarrollo si no está configurada la API Key
@@ -236,7 +243,7 @@ export async function apiDelete<T = unknown>(endpoint: string): Promise<T> {
 /**
  * Obtener URL base del API
  */
-export function getApiUrl(): string {
+export function getBaseApiUrl(): string {
   return API_URL;
 }
 

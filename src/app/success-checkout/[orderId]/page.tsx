@@ -20,6 +20,7 @@ import CheckoutSuccessOverlay from "../../carrito/CheckoutSuccessOverlay";
 import { useCart } from "@/hooks/useCart";
 import { apiClient } from "@/lib/api";
 import { useAnalyticsWithUser } from "@/lib/analytics";
+import { posthogUtils } from "@/lib/posthogClient";
 import { apiPost } from "@/lib/api-client";
 import { addBusinessDays, getNextBusinessDay } from "@/lib/dateUtils";
 import useSecureStorage from "@/hooks/useSecureStorage";
@@ -151,24 +152,45 @@ export default function SuccessCheckoutPage({
           const orderData = orderResponse.data;
           const items = orderData.order_items || [];
 
-          // Calcular el valor total de la orden
-          const totalValue = items.reduce(
-            (sum, item) => sum + (item.quantity || 0) * 1000000,
+          // Calcular el valor total usando precios reales
+          const totalValue = orderData.total_amount || items.reduce(
+            (sum, item) => sum + (Number(item.unit_price || item.precio) || 0) * (item.quantity || item.cantidad || 1),
             0
-          ); // Estimado
-
-          // Enviar evento de purchase
-          trackPurchase(
-            pathParams.orderId,
-            items.map((item) => ({
-              item_id: item.sku || "unknown",
-              item_name: item.product_name || "Producto",
-              item_brand: "Samsung",
-              price: 1000000, // Precio estimado, idealmente debería venir de la orden
-              quantity: item.quantity || 1,
-            })),
-            totalValue
           );
+
+          const mappedItems = items.map((item) => ({
+            item_id: item.sku || "unknown",
+            item_name: item.product_name || item.nombre || "Producto",
+            item_brand: "Samsung",
+            price: Number(item.unit_price || item.precio) || 0,
+            quantity: item.quantity || item.cantidad || 1,
+          }));
+
+          // Enviar evento de purchase a GA4/Meta/TikTok
+          trackPurchase(pathParams.orderId, mappedItems, totalValue);
+
+          // Enviar evento de purchase a PostHog (client-side, dedup via $insert_id en server)
+          try {
+            posthogUtils.capture("purchase", {
+              $insert_id: `purchase_${pathParams.orderId}`,
+              event_id: `purchase_${pathParams.orderId}`,
+              order_id: pathParams.orderId,
+              transaction_id: pathParams.orderId,
+              currency: "COP",
+              value: totalValue,
+              items: mappedItems.map((item) => ({
+                sku: item.item_id,
+                name: item.item_name,
+                brand: "Samsung",
+                price: item.price,
+                quantity: item.quantity,
+              })),
+              item_count: mappedItems.reduce((sum, i) => sum + i.quantity, 0),
+              source: "client",
+            });
+          } catch (e) {
+            console.error("[PostHog] Error capturing purchase:", e);
+          }
         }
       } catch (error) {
         console.error("[Analytics] Error sending purchase event:", error);
