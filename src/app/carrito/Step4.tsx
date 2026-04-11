@@ -243,13 +243,11 @@ export default function Step4({
 
     // Si es tarjeta, debe tener una tarjeta seleccionada O estar usando una nueva Y que el formulario sea válido
     if (paymentMethod === "tarjeta") {
-      // Para roles 2 y 4: DEBEN seleccionar una tarjeta guardada (no ven formulario de nueva)
+      // Para roles 2 y 4: deben tener tarjeta guardada seleccionada O datos de tarjeta nueva
       if (canSaveCards) {
-        if (!selectedCardId) {
-          // console.log('🔴 [Step4] isPaymentMethodValid: false - rol 2/4 must select a saved card');
-          return false;
-        }
-        return true;
+        if (selectedCardId) return true;
+        if (useNewCard && typeof window !== "undefined" && !!sessionStorage.getItem("checkout-card-data")) return true;
+        return false;
       }
 
       // Para otros roles (ej: rol 3): pueden usar tarjeta nueva si el formulario es válido
@@ -298,40 +296,38 @@ export default function Step4({
     // console.log("💳 [Step4] handleContinueToNextStep:", { paymentMethod, selectedCardId, useNewCard, isUsingNewCard, hasFormRef: !!formRef.current });
 
     if (isUsingNewCard && formRef.current) {
-      // console.log("💳 [Step4] Processing inline new card...");
+      // Formulario inline (rol 3): validar y enviar
       setIsValidatingCard(true);
       try {
-        // Enviar formulario (saveInfo determina si se tokeniza y guarda en perfil o solo en LS)
         const success = await formRef.current.submitForm(saveInfo);
-        // console.log("💳 [Step4] Inline card submission result:", success);
         if (!success) {
           e.preventDefault();
           setIsValidatingCard(false);
           return;
-        }
-
-        // Si tuvo éxito, los datos están en sessionStorage (checkout-card-data).
-        // Necesitamos sincronizarlos con el estado 'card' de useCheckoutLogic para que el pago funcione.
-        const tempCardData = sessionStorage.getItem("checkout-card-data");
-        // console.log("💳 [Step4] Temp card data found after submission:", !!tempCardData);
-        if (tempCardData) {
-          const parsed = JSON.parse(tempCardData);
-          handleCardChange({
-            number: parsed.cardNumber || "",
-            name: parsed.cardHolder || "",
-            expiryMonth: parsed.cardExpMonth || "",
-            expiryYear: parsed.cardExpYear || "",
-            cvc: parsed.cardCvc || "",
-            docType: "C.C.", // Default
-            docNumber: authContext.user?.numero_documento || loggedUser?.numero_documento || "",
-            installments: "1"
-          });
         }
       } catch (err) {
         console.error("Error processing inline card:", err);
         setIsValidatingCard(false);
         e.preventDefault();
         return;
+      }
+    }
+
+    // Sincronizar datos de tarjeta nueva (desde modal o inline) al estado card
+    if (isUsingNewCard) {
+      const tempCardData = sessionStorage.getItem("checkout-card-data");
+      if (tempCardData) {
+        const parsed = JSON.parse(tempCardData);
+        handleCardChange({
+          number: parsed.cardNumber || "",
+          name: parsed.cardHolder || "",
+          expiryMonth: parsed.cardExpMonth || "",
+          expiryYear: parsed.cardExpYear || "",
+          cvc: parsed.cardCvc || "",
+          docType: "C.C.",
+          docNumber: authContext.user?.numero_documento || loggedUser?.numero_documento || "",
+          installments: "1"
+        });
       }
     }
 
@@ -410,17 +406,7 @@ export default function Step4({
             onBack={onBack}
             buttonText="Continuar"
             buttonVariant="green"
-            disabled={(() => {
-              const isDisabled = isProcessing || isValidatingCard || !tradeInValidation.isValid || !isPaymentMethodValid;
-              // console.log('🔘 [Step4] Button disabled check:', {
-//                 isProcessing,
-//                 isValidatingCard,
-//                 tradeInIsValid: tradeInValidation.isValid,
-//                 isPaymentMethodValid,
-//                 finalDisabled: isDisabled
-//               });
-              return isDisabled;
-            })()}
+            disabled={isProcessing || isValidatingCard || !tradeInValidation.isValid || !isPaymentMethodValid}
             isSticky={true}
             shouldCalculateCanPickUp={false}
             deliveryMethod={

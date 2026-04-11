@@ -201,7 +201,9 @@ export function useNavbarLogic() {
   // Determina si mostrar logo blanco y estilos claros
   // CAMBIO: En home siempre usar logo NEGRO para que se vea sobre el video oscuro
   // Solo en ofertas mantener el logo blanco cuando está arriba
-  const isAtTop = typeof window !== "undefined" ? window.scrollY < 100 : true;
+  // Use isScrolled state (set via useEffect) to avoid hydration mismatch.
+  // Do NOT access window.scrollY during render — it differs server vs client.
+  const isAtTop = !isScrolled;
   const showWhiteLogo = isOfertas && !activeDropdown && isAtTop && !isScrolled;
   // Forzar texto blanco en ofertas cuando está arriba, negro en home
   const showWhiteItems = isOfertas && !activeDropdown && isAtTop && !isScrolled;

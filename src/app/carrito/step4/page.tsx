@@ -17,7 +17,8 @@ export default function Step4Page() {
     // SEGURIDAD: Limpiar datos de tarjeta temporal al entrar al paso 4
     // Esto asegura que no queden datos de intentos anteriores
     sessionStorage.removeItem("checkout-card-data");
-    // Limpiar cuotas seleccionadas para que siempre inicie en 1 al volver a seleccionar tarjeta
+    // Limpiar selección de tarjeta y cuotas para forzar al usuario a elegir
+    localStorage.removeItem("checkout-saved-card-id");
     localStorage.removeItem("checkout-installments");
 
     if (!isChecking) return; // Ya se verificó, no volver a verificar

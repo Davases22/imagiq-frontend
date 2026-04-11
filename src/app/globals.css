@@ -1012,3 +1012,47 @@ div[style*="text-align: center"][style*="padding"] {
 END FLIXMEDIA ERROR HIDING
 =================================================================
 */
+
+/* =================================================================
+   TOAST STYLING (Sonner)
+   ================================================================= */
+
+/* Base toast styles */
+[data-sonner-toaster] {
+  --width: 560px !important;
+}
+
+[data-sonner-toast] {
+  background: white !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #1e293b !important;
+  font-size: 14px !important;
+}
+
+/* Action button (e.g. "Ir al carrito") */
+[data-sonner-toast] [data-button] {
+  background-color: #16a34a !important;
+  color: white !important;
+  font-weight: 600 !important;
+  padding: 8px 20px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+}
+
+/* Mobile: fix Sonner's width:100% + left:offset overflow bug */
+@media (max-width: 600px) {
+  [data-sonner-toaster] {
+    width: auto !important;
+  }
+
+  [data-sonner-toaster] [data-sonner-toast] {
+    width: 100% !important;
+    font-size: 13px !important;
+  }
+
+  [data-sonner-toast] [data-button] {
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+  }
+}

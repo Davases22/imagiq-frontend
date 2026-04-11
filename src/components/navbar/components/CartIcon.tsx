@@ -4,14 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FC } from "react";
+import { type FC, useState, useEffect } from "react";
 import { useCartHover } from "@/hooks/useCartHover";
 import CartPopover from "../CartPopover";
 
 type Props = {
   count: number;
   showBump: boolean;
-  isClient: boolean;
+  isClient?: boolean;
   onClick: () => void;
   colorClass: string;
 };
@@ -19,12 +19,15 @@ type Props = {
 export const CartIcon: FC<Props> = ({
   count,
   showBump,
-  isClient,
   onClick,
   colorClass,
 }) => {
   const pathname = usePathname();
   const isCarritoPage = pathname === "/carrito" || pathname?.startsWith("/carrito/");
+  // Delay badge rendering until after hydration to prevent server/client mismatch.
+  // The cart count comes from localStorage which isn't available during SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const { isOpen, handleMouseEnter, handleMouseLeave, closePopover } = useCartHover(200, 0);
 
@@ -50,7 +53,7 @@ export const CartIcon: FC<Props> = ({
         onClick={handleClick}
       >
         <ShoppingCart className={cn("w-5 h-5", colorClass)} />
-        {isClient && count > 0 && (
+        {mounted && count > 0 && (
           <span
             className={cn(
               "absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-extrabold transition-transform duration-150 ease-out",
