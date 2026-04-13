@@ -17,6 +17,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/tracking-service/',
     '/verify-purchase/',
     '/*?i=',
+    '/products/',
+    '/product/',
   ];
   let aiPolicy = 'block_training';
   let siteUrl = SITE_URL;
