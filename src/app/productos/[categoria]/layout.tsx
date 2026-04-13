@@ -7,22 +7,22 @@ const CATEGORY_META: Record<string, { title: string; description: string }> = {
   "dispositivos-moviles": {
     title: "Dispositivos Móviles Samsung",
     description:
-      "Descubre los últimos smartphones Galaxy, tablets, smartwatches y accesorios Samsung. Compra con envío gratis y garantía oficial en Imagiq Colombia.",
+      "Smartphones Galaxy, tablets, smartwatches y accesorios Samsung con envío gratis y garantía oficial en Imagiq Colombia.",
   },
   "tv-y-audio": {
     title: "TV y Audio Samsung",
     description:
-      "Televisores Samsung QLED, Neo QLED, barras de sonido y parlantes. La mejor experiencia de entretenimiento con garantía oficial en Imagiq Colombia.",
+      "Televisores QLED, Neo QLED, barras de sonido y parlantes Samsung con garantía oficial en Imagiq Colombia.",
   },
   electrodomesticos: {
     title: "Electrodomésticos Samsung",
     description:
-      "Neveras, lavadoras, aspiradoras y más. Electrodomésticos Samsung de última tecnología con garantía oficial en Imagiq Colombia.",
+      "Neveras, lavadoras, secadoras y aspiradoras Samsung con garantía oficial en Imagiq Colombia.",
   },
   monitores: {
     title: "Monitores Samsung",
     description:
-      "Monitores Samsung para gaming, productividad y diseño. Pantallas de alta resolución con garantía oficial en Imagiq Colombia.",
+      "Monitores Samsung para gaming, productividad y diseño con garantía oficial en Imagiq Colombia.",
   },
 };
 
