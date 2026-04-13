@@ -108,7 +108,7 @@ export async function generateMetadata(): Promise<Metadata> {
       creator: "@imagiqstore",
     },
     verification: {
-      google: s.google_verification || process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION || "O0rmKClM5-HJ-pLC4H8LFHwVJsvQ44ALMcV2FpUiH5Q",
+      google: s.google_verification || process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION || "VscG5yDmCSt7SeSTCOxYRY592PE-a8DYRkLJt7bb_ac",
     },
     alternates: {
       canonical: s.site_url,
