@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getActivePageBySlug, type MultimediaPage, type LegalSection } from '@/services/multimedia-pages.service';
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://imagiq.com';
 import { LegalDocumentLayout } from '@/components/legal/LegalDocumentLayout';
 import TiptapRenderer from '@/components/legal/TiptapRenderer';
 import { extractSectionsFromContent } from '@/lib/tiptap-utils';
@@ -21,17 +23,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { page } = data;
+  const title = page.meta_title || `${page.title} - IMAGIQ`;
+  const description = page.meta_description || `${page.title} - Términos y condiciones de IMAGIQ`;
+  const url = `${SITE_URL}/soporte/${slug}`;
 
   return {
-    title: page.meta_title || `${page.title} - IMAGIQ`,
-    description: page.meta_description || `${page.title} - Términos y condiciones de IMAGIQ`,
+    title,
+    description,
     keywords: page.meta_keywords || undefined,
+    alternates: { canonical: page.seo_canonical || url },
+    robots: {
+      index: !page.seo_no_index,
+      follow: !page.seo_no_follow,
+    },
     openGraph: {
-      title: page.meta_title || page.title,
-      description: page.meta_description || '',
+      title: page.seo_og_title || title,
+      description: page.seo_og_description || description,
+      url,
+      images: page.og_image ? [{ url: page.og_image }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: page.seo_og_title || title,
+      description: page.seo_og_description || description,
       images: page.og_image ? [page.og_image] : undefined,
     },
-    robots: 'index, follow',
   };
 }
 
