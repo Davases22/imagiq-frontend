@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
+    keywords: page.meta_keywords || undefined,
     alternates: { canonical: page.seo_canonical || url },
     robots: {
       index: !page.seo_no_index,
@@ -41,6 +42,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: page.seo_og_description || description,
       url,
       images: page.og_image ? [{ url: page.og_image }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: page.seo_og_title || title,
+      description: page.seo_og_description || description,
+      images: page.og_image ? [page.og_image] : undefined,
     },
   };
 }
