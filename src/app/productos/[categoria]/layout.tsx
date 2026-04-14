@@ -102,7 +102,6 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
       title: data?.seo_og_title || title,
       description: data?.seo_og_description || description,
       images: data?.og_image ? [data.og_image] : undefined,
->>>>>>> ea0d4517 (feat(seo): dynamic generateMetadata per category from dashboard CMS)
     },
   };
 }
