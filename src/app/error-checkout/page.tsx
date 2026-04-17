@@ -11,7 +11,7 @@ import {
   Wallet,
   Ban,
 } from "lucide-react";
-import { getPaymentErrorInfo } from "@/lib/payment-error-map";
+import { getPaymentErrorInfo, type CtaAction } from "@/lib/payment-error-map";
 import { useCardsCache } from "@/app/carrito/hooks/useCardsCache";
 import CardBrandLogo from "@/components/ui/CardBrandLogo";
 import pseLogo from "@/img/iconos/logo-pse.png";
@@ -20,13 +20,6 @@ import addiLogo from "@/img/iconos/addi_negro.png";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-type CtaAction =
-  | "retry"
-  | "changeMethod"
-  | "contactBank"
-  | "viewOrders"
-  | "goHome";
 
 type ColorScheme = "amber" | "red" | "blue";
 

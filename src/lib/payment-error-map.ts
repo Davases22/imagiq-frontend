@@ -1,10 +1,17 @@
+export type CtaAction =
+  | 'retry'
+  | 'changeMethod'
+  | 'contactBank'
+  | 'viewOrders'
+  | 'goHome';
+
 export interface PaymentErrorInfo {
   category: 'data' | 'funds' | 'card' | 'auth' | 'fraud' | 'system' | 'generic';
   title: string;
   description: string;
   icon: 'shield' | 'wallet' | 'card' | 'lock' | 'clock' | 'alert';
-  primaryCta: { label: string; action: 'retry' | 'changeMethod' | 'contactBank' | 'viewOrders' };
-  secondaryCta: { label: string; action: 'retry' | 'changeMethod' | 'contactBank' | 'goHome' } | null;
+  primaryCta: { label: string; action: CtaAction };
+  secondaryCta: { label: string; action: CtaAction } | null;
   colorScheme: 'amber' | 'red' | 'blue';
   canRetry: boolean;
   helpLink: { label: string; url: string } | null;
