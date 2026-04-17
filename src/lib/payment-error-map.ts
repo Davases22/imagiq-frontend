@@ -137,6 +137,21 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     tip: 'Verifica tu saldo disponible en la app de tu banco antes de reintentar.',
   },
 
+  // --- PSE specific -----------------------------------------------------------
+  'PSE_TIMEOUT': {
+    category: 'auth',
+    title: 'Tu banco aún no confirma el pago',
+    description:
+      'La transacción PSE está siendo procesada por tu banco. Esto puede tomar unos minutos. Si ya autorizaste el pago en tu portal bancario, la confirmación llegará automáticamente a tu correo.',
+    icon: 'clock',
+    primaryCta: { label: 'Volver al inicio', action: 'goHome' },
+    secondaryCta: { label: 'Ver mis pedidos', action: 'viewOrders' },
+    colorScheme: 'blue',
+    canRetry: false,
+    helpLink: null,
+    tip: 'No intentes pagar de nuevo. Si el pago fue exitoso en tu banco, recibirás la confirmación por correo electrónico.',
+  },
+
   // --- 3D Secure / Authentication (amber) ------------------------------------
   '185': {
     category: 'auth',
