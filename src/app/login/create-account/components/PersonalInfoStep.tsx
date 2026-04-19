@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { apiPost } from "@/lib/api-client";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface PersonalInfoData {
   nombre: string;
@@ -304,6 +305,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             placeholder="tu@email.com"
             value={formData.email}
             onChange={(e) => onChange({ email: e.target.value })}
+            onBlur={(e) => identifyEmailEarly(e.target.value)}
             disabled={disabled}
             autoComplete="email"
             autoCapitalize="none"

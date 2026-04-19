@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "@/components/Modal";
 import { ProfileUser } from "../../types";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -131,6 +132,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={(e) => identifyEmailEarly(e.target.value)}
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors"
             placeholder="correo@ejemplo.com"
             required

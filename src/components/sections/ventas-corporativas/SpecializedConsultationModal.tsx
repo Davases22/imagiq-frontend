@@ -9,6 +9,7 @@ import {
   SpecializedConsultationFormData,
   SolutionInterestOption,
 } from "@/types/corporate-sales";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface SpecializedConsultationModalProps {
   isOpen: boolean;
@@ -174,6 +175,7 @@ export default function SpecializedConsultationModal({
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
+              onBlur={(e) => identifyEmailEarly(e.target.value)}
               className={`${INPUT_CLASS} ${errors.email ? "border-red-500" : ""}`}
               disabled={isLoading}
             />

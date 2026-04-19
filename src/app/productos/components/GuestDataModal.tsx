@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import React, { useState } from "react";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface GuestUserData {
   nombre: string;
@@ -124,6 +125,7 @@ const GuestDataModal: React.FC<GuestDataModalProps> = ({
               name="email"
               value={formData.email}
               onChange={handleChange}
+              onBlur={(e) => identifyEmailEarly(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition duration-200"
             />
             {errors.email && (

@@ -204,6 +204,24 @@ export function associateEmailWithSession(
   }
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Associate email with the current PostHog session as soon as the user finishes
+ * typing a plausibly-valid email (typically called on input blur). Trims and
+ * lowercases the value, skips invalid/partial inputs so we don't pollute the
+ * session with strings like "ab@".
+ */
+export function identifyEmailEarly(
+  email: string | null | undefined,
+  extraProperties?: Record<string, unknown>
+) {
+  if (!email) return;
+  const normalized = email.trim().toLowerCase();
+  if (!EMAIL_REGEX.test(normalized)) return;
+  associateEmailWithSession(normalized, extraProperties);
+}
+
 // Utilidades para interactuar con PostHog
 export const posthogUtils = {
   /**
