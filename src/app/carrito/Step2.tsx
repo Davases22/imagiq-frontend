@@ -21,7 +21,7 @@ import {
   getTradeInValidationMessage,
 } from "./utils/validateTradeIn";
 import { toast } from "sonner";
-import { associateEmailWithSession } from "@/lib/posthogClient";
+import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -284,10 +284,11 @@ export default function Step2({
   };
 
   const handleGuestBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name } = e.target;
+    const { name, value } = e.target;
     if (!name) return;
     setFieldTouched((prev) => ({ ...prev, [name]: true }));
     setFieldErrors(validateFields(guestForm));
+    if (name === "email") identifyEmailEarly(value);
   };
 
   // Manejar cambios en Select de shadcn (usa onValueChange en lugar de onChange)

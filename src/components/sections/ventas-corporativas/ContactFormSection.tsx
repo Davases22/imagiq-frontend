@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { ContactFormData } from "@/types/corporate-sales";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface ContactFormSectionProps {
   onSubmit?: (data: ContactFormData) => void;
@@ -124,6 +125,7 @@ export default function ContactFormSection({
             type="email"
             value={formData.email}
             onChange={(e) => handleInputChange("email", e.target.value)}
+            onBlur={(e) => identifyEmailEarly(e.target.value)}
             className={`w-full px-4 py-3 border-b-2 bg-transparent focus:outline-none transition-colors ${
               errors.email
                 ? "border-red-500"

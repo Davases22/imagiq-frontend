@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Modal from './Modal';
 import { useAuthContext } from '@/features/auth/context';
+import { identifyEmailEarly } from '@/lib/posthogClient';
 
 interface StockNotificationModalProps {
   isOpen: boolean;
@@ -153,6 +154,7 @@ export default function StockNotificationModal({
                   setEmail(e.target.value);
                   setError('');
                 }}
+                onBlur={(e) => identifyEmailEarly(e.target.value)}
                 placeholder="tu@email.com"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required

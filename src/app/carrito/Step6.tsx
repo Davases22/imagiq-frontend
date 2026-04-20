@@ -13,7 +13,7 @@ import AddNewAddressForm from "./components/AddNewAddressForm";
 import { MapPin, Plus, Check, Trash2 } from "lucide-react";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 import { useCart } from "@/hooks/useCart";
-import { associateEmailWithSession } from "@/lib/posthogClient";
+import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { toast } from "sonner";
 
@@ -988,6 +988,7 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
                     type="email"
                     value={billingData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
+                    onBlur={(e) => identifyEmailEarly(e.target.value)}
                     className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black ${
                       errors.email ? "border-red-500" : "border-gray-300"
                     }`}
