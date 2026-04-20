@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Edit3 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { apiPost } from "@/lib/api-client";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 // Componente de input OTP con cajas individuales
 function OTPInputBoxes({
@@ -312,6 +313,7 @@ export function OTPStep({
                     setTempEmail(e.target.value);
                     setValidationError(""); // Limpiar error al escribir
                   }}
+                  onBlur={(e) => identifyEmailEarly(e.target.value)}
                   disabled={disabled || isValidating}
                   className="text-sm"
                 />

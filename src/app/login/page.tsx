@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthContext } from "@/features/auth/context";
-import { posthogUtils } from "@/lib/posthogClient";
+import { posthogUtils, identifyEmailEarly } from "@/lib/posthogClient";
 import { Cart, Usuario } from "@/types/user";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -207,6 +207,7 @@ export default function LoginPage() {
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
+              onBlur={(e) => identifyEmailEarly(e.target.value)}
               disabled={isLoading}
               autoComplete="username"
             />

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Button from "@/components/Button";
 import { Loader } from "lucide-react";
 import Link from "next/link";
+import { identifyEmailEarly } from "@/lib/posthogClient";
 
 interface EmailStepProps {
   onEmailSubmit: (email: string) => Promise<void>;
@@ -78,6 +79,7 @@ export default function EmailStep({
                 setEmail(e.target.value);
                 setEmailError("");
               }}
+              onBlur={(e) => identifyEmailEarly(e.target.value)}
               placeholder="ejemplo@correo.com"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-black placeholder-gray-400 text-base"
               disabled={isLoading}
