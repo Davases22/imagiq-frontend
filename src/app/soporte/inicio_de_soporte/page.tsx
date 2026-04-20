@@ -18,6 +18,27 @@ import pseLogo from "@/img/iconos/logo-pse.png";
 import cardValidator from "card-validator";
 import AnimatedCard from "@/components/ui/AnimatedCard";
 import { associateEmailWithSession } from "@/lib/posthogClient";
+import posthog from "posthog-js";
+
+/**
+ * Safely grab PostHog session/distinct ids so the support-ticket payment
+ * payload lands in `ordenes_soporte.posthog_session_id`. Returns empty
+ * strings if PostHog hasn't loaded yet so the backend can still accept
+ * the request (DTO fields are optional).
+ */
+function getPostHogIds(): { posthogSessionId: string; posthogDistinctId: string } {
+  try {
+    if (typeof window !== "undefined" && posthog.__loaded) {
+      return {
+        posthogSessionId: posthog.get_session_id?.() || "",
+        posthogDistinctId: posthog.get_distinct_id?.() || "",
+      };
+    }
+  } catch {
+    /* PostHog not available */
+  }
+  return { posthogSessionId: "", posthogDistinctId: "" };
+}
 
 type DocumentoWithRegistro = Documento & { registro?: string };
 
@@ -397,6 +418,8 @@ export default function InicioDeSoportePage() {
       // Siempre enviar abreviación (CC, CE, etc.). Default CC si no se reconoce.
       const tipo_documento = getDocumentAbbreviation(tipoDocRaw) ?? "CC";
 
+      const { posthogSessionId, posthogDistinctId } = getPostHogIds();
+
       const payloadBase: Record<string, unknown> = {
         numero_orden: numeroOrden,
         usuario_email: (doc.email || "").toLowerCase().trim(),
@@ -408,6 +431,11 @@ export default function InicioDeSoportePage() {
         tipo_documento: tipo_documento,
         estado: doc.estadoCodigo ?? "",
         valor: normalizedValor,
+        // Persist the PostHog session id on `ordenes_soporte` so the admin
+        // detail page can deep-link to the session replay. Empty-string
+        // values are skipped server-side.
+        ...(posthogSessionId ? { posthogSessionId } : {}),
+        ...(posthogDistinctId ? { posthogDistinctId } : {}),
       };
 
       // Campos específicos según medio de pago
