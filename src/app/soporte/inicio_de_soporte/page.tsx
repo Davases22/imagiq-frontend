@@ -20,12 +20,6 @@ import AnimatedCard from "@/components/ui/AnimatedCard";
 import { associateEmailWithSession } from "@/lib/posthogClient";
 import posthog from "posthog-js";
 
-/**
- * Safely grab PostHog session/distinct ids so the support-ticket payment
- * payload lands in `ordenes_soporte.posthog_session_id`. Returns empty
- * strings if PostHog hasn't loaded yet so the backend can still accept
- * the request (DTO fields are optional).
- */
 function getPostHogIds(): { posthogSessionId: string; posthogDistinctId: string } {
   try {
     if (typeof window !== "undefined" && posthog.__loaded) {
@@ -431,9 +425,6 @@ export default function InicioDeSoportePage() {
         tipo_documento: tipo_documento,
         estado: doc.estadoCodigo ?? "",
         valor: normalizedValor,
-        // Persist the PostHog session id on `ordenes_soporte` so the admin
-        // detail page can deep-link to the session replay. Empty-string
-        // values are skipped server-side.
         ...(posthogSessionId ? { posthogSessionId } : {}),
         ...(posthogDistinctId ? { posthogDistinctId } : {}),
       };
