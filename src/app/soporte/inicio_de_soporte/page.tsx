@@ -18,6 +18,7 @@ import pseLogo from "@/img/iconos/logo-pse.png";
 import cardValidator from "card-validator";
 import AnimatedCard from "@/components/ui/AnimatedCard";
 import { associateEmailWithSession } from "@/lib/posthogClient";
+import posthog from "posthog-js";
 
 type DocumentoWithRegistro = Documento & { registro?: string };
 
@@ -397,6 +398,16 @@ export default function InicioDeSoportePage() {
       // Siempre enviar abreviación (CC, CE, etc.). Default CC si no se reconoce.
       const tipo_documento = getDocumentAbbreviation(tipoDocRaw) ?? "CC";
 
+      // Session-replay id de PostHog. Permite que el correo "Pago Rechazado -
+      // Soporte" incluya un link directo al replay para ops — antes había
+      // que adivinar el usuario por email y abrir PostHog manualmente.
+      // Safe-access: `__loaded` evita crashes cuando adblockers impiden
+      // cargar el SDK.
+      const posthogSessionId =
+        typeof window !== "undefined" && posthog.__loaded
+          ? posthog.get_session_id?.() || undefined
+          : undefined;
+
       const payloadBase: Record<string, unknown> = {
         numero_orden: numeroOrden,
         usuario_email: (doc.email || "").toLowerCase().trim(),
@@ -408,6 +419,7 @@ export default function InicioDeSoportePage() {
         tipo_documento: tipo_documento,
         estado: doc.estadoCodigo ?? "",
         valor: normalizedValor,
+        ...(posthogSessionId && { posthogSessionId }),
       };
 
       // Campos específicos según medio de pago
