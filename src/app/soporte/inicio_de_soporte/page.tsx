@@ -18,6 +18,21 @@ import pseLogo from "@/img/iconos/logo-pse.png";
 import cardValidator from "card-validator";
 import AnimatedCard from "@/components/ui/AnimatedCard";
 import { associateEmailWithSession } from "@/lib/posthogClient";
+import posthog from "posthog-js";
+
+function getPostHogIds(): { posthogSessionId: string; posthogDistinctId: string } {
+  try {
+    if (typeof window !== "undefined" && posthog.__loaded) {
+      return {
+        posthogSessionId: posthog.get_session_id?.() || "",
+        posthogDistinctId: posthog.get_distinct_id?.() || "",
+      };
+    }
+  } catch {
+    /* PostHog not available */
+  }
+  return { posthogSessionId: "", posthogDistinctId: "" };
+}
 
 type DocumentoWithRegistro = Documento & { registro?: string };
 
@@ -397,6 +412,8 @@ export default function InicioDeSoportePage() {
       // Siempre enviar abreviación (CC, CE, etc.). Default CC si no se reconoce.
       const tipo_documento = getDocumentAbbreviation(tipoDocRaw) ?? "CC";
 
+      const { posthogSessionId, posthogDistinctId } = getPostHogIds();
+
       const payloadBase: Record<string, unknown> = {
         numero_orden: numeroOrden,
         usuario_email: (doc.email || "").toLowerCase().trim(),
@@ -408,6 +425,8 @@ export default function InicioDeSoportePage() {
         tipo_documento: tipo_documento,
         estado: doc.estadoCodigo ?? "",
         valor: normalizedValor,
+        ...(posthogSessionId ? { posthogSessionId } : {}),
+        ...(posthogDistinctId ? { posthogDistinctId } : {}),
       };
 
       // Campos específicos según medio de pago
