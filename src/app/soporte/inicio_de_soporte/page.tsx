@@ -1141,14 +1141,14 @@ export default function InicioDeSoportePage() {
                     </div>
                     <div className="flex gap-1">
                       <Image
-                        src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg"
+                        src="/images/visa-logo.svg"
                         alt="Visa"
                         width={28}
                         height={18}
                         className="object-contain"
                       />
                       <Image
-                        src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg"
+                        src="/images/mastercard-logo.svg"
                         alt="Mastercard"
                         width={28}
                         height={18}
