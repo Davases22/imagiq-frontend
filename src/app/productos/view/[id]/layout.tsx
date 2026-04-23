@@ -9,7 +9,7 @@ interface Props {
 }
 
 interface ProductSeoOverride {
-  sku: string;
+  codigoMarket: string;
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
@@ -23,19 +23,20 @@ interface ProductSeoOverride {
 
 /**
  * Fetch per-product SEO overrides from the product_seo side table. Returns
- * null when the product has no overrides (the common case).
+ * null when the product has no overrides (the common case). Keyed by
+ * `codigoMarket` — one row per product group, shared across all variants.
  */
 async function fetchProductSeoOverride(
-  sku: string,
+  codigoMarket: string,
 ): Promise<ProductSeoOverride | null> {
   try {
     const res = await fetch(
-      `${API_URL}/api/products/seo/overrides/${encodeURIComponent(sku)}`,
+      `${API_URL}/api/products/seo/overrides/${encodeURIComponent(codigoMarket)}`,
       { next: { revalidate: 300 } }, // 5 min ISR cache
     );
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data || !data.sku) return null;
+    if (!data || !data.codigoMarket) return null;
     return data as ProductSeoOverride;
   } catch {
     return null;
@@ -45,25 +46,22 @@ async function fetchProductSeoOverride(
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
 
+  // The route param `id` is the product's `codigoMarket` (see
+  // /productos/view/[id]). We fire the override lookup against that key
+  // directly and the product fetch in parallel — no need to wait on the
+  // product to resolve the override key anymore.
+  const [productRes, override] = await Promise.all([
+    fetch(`${API_URL}/api/products/${id}`, { next: { revalidate: 3600 } }),
+    fetchProductSeoOverride(id),
+  ]);
+
   try {
-    const res = await fetch(`${API_URL}/api/products/${id}`, {
-      next: { revalidate: 3600 },
-    });
+    if (!productRes.ok) return {};
 
-    if (!res.ok) return {};
-
-    const data = await res.json();
+    const data = await productRes.json();
     const product = data?.product || data;
 
     if (!product?.nombre) return {};
-
-    // Load per-product SEO overrides (if any) using the product's sku. The
-    // route param is usually codigoMarket, which is different from sku, so
-    // we must wait on the product fetch before we can issue the override
-    // lookup.
-    const override = product.sku
-      ? await fetchProductSeoOverride(product.sku)
-      : null;
 
     // Derived defaults from the catalog data
     const defaultTitle = `${product.nombre}${product.marca ? ` - ${product.marca}` : ""}`;
