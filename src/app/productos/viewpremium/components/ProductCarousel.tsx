@@ -149,8 +149,14 @@ const ProductCarousel = forwardRef<HTMLDivElement, ProductCarouselProps>(({
     const distance = touchStartX.current - touchEndX.current;
     const minSwipeDistance = 50; // Distancia mínima para considerar un swipe
 
-    // Determinar qué imágenes usar
-    const currentImages = showStickyCarousel ? premiumImages : productImages;
+    // Determinar qué imágenes usar.
+    // Si el carrusel sticky (premium) está activo pero el producto no tiene
+    // contenido premium, caemos a las imágenes del color seleccionado para
+    // que el carrusel nunca quede vacío. Mismo criterio que en el render.
+    const currentImages =
+      showStickyCarousel && premiumImages.length > 0
+        ? premiumImages
+        : productImages;
 
     if (currentImages.length <= 1) return;
 
@@ -174,12 +180,15 @@ const ProductCarousel = forwardRef<HTMLDivElement, ProductCarouselProps>(({
       {/* Carrusel premium - estilo Samsung más grande */}
       <div className={`relative w-full pt-8 md:pt-6 transition-all duration-700 ease-in-out ${showStickyCarousel ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
         {(() => {
-          // Determinar qué imágenes usar según el estado del scroll
-          // Para el carrusel premium, usar SOLO las imágenes del API (sin contenido mockeado)
-          const currentImages = showStickyCarousel
-            ? premiumImages
-            : productImages;
-          const currentImageSet = showStickyCarousel ? 'premium' : 'product';
+          // Determinar qué imágenes usar según el estado del scroll.
+          // Si el producto no tiene contenido premium (allVideos/allImages
+          // vacíos en useProductLogic.getPremiumImages), el carrusel sticky
+          // cae a productImages para que nunca quede vacío.
+          const hasPremium = premiumImages.length > 0;
+          const currentImages =
+            showStickyCarousel && hasPremium ? premiumImages : productImages;
+          const currentImageSet =
+            showStickyCarousel && hasPremium ? 'premium' : 'product';
 
           return currentImages.length > 0 ? (() => {
             const currentSrc = currentImages[currentImageIndex];
