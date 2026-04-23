@@ -19,35 +19,41 @@ export default function Banner({ config, className = "" }: Readonly<BannerProps>
     return null;
   }
 
+  // Dimensiones por defecto cuando el CMS/config no las informa. Mantener
+  // una proporción aproximada evita CLS hasta que la imagen carga y el
+  // navegador reemplaza el placeholder con las dimensiones reales.
+  const desktopWidth = config.imageWidth ?? 1440;
+  const desktopHeight = config.imageHeight ?? 560;
+  const mobileWidth = config.imageWidthMobile ?? config.imageWidth ?? 828;
+  const mobileHeight = config.imageHeightMobile ?? config.imageHeight ?? 620;
+
   const content = (
     <div
       className={`relative w-full overflow-hidden rounded-lg ${className}`}
-      style={{
-        backgroundColor: config.backgroundColor || "#000000",
-        height: config.heightMobile || "180px",
-      }}
+      style={{ backgroundColor: config.backgroundColor || "transparent" }}
     >
-      {/* Desktop Image */}
-      <div
-        className="hidden md:block relative w-full h-full"
-        style={{ height: config.height || "280px" }}
-      >
+      {/* Desktop — se muestra en su proporción natural, sin crop */}
+      <div className="hidden md:block w-full">
         <Image
           src={config.imageUrl}
           alt={config.title || "Banner"}
-          fill
-          className="object-cover"
+          width={desktopWidth}
+          height={desktopHeight}
+          sizes="100vw"
+          className="block w-full h-auto"
           priority
         />
       </div>
 
-      {/* Mobile Image */}
-      <div className="md:hidden relative w-full h-full">
+      {/* Mobile — idem, preserva aspect ratio del archivo */}
+      <div className="md:hidden w-full">
         <Image
           src={config.imageUrlMobile || config.imageUrl}
           alt={config.title || "Banner"}
-          fill
-          className="object-cover"
+          width={mobileWidth}
+          height={mobileHeight}
+          sizes="100vw"
+          className="block w-full h-auto"
           priority
         />
       </div>
