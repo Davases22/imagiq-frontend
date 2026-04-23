@@ -62,31 +62,28 @@ const TRANSFORM_CONFIGS: Record<ImageTransformType, string> = {
   // Comparación - 400x400, calidad óptima
   comparison: 'f_auto,q_90,c_pad,g_auto,w_400,h_400,b_auto:predominant',
 
-  // Hero/Banner legacy - 1600x800, alta calidad (mantener para compatibilidad)
-  hero: 'f_auto,q_95,c_pad,g_auto,w_1600,h_800,fl_progressive',
+  // Hero/Banner legacy - capado a 1600 de ancho, sin crop (mantener para compatibilidad).
+  // c_limit: NO hace upscale ni crop; baja-escala sólo si el original excede el cap.
+  hero: 'f_auto,q_100,c_limit,w_1600,fl_progressive',
 
-  // Banner Hero/Principal - 1440x810, calidad premium para banners principales
-  // c_fill: Relleno completo evitando espacios vacíos
-  // g_auto: Auto-enfoque en contenido importante
-  'hero-banner': 'f_auto,q_95,c_fill,g_auto,w_1440,h_810,fl_progressive',
+  // Banner Hero/Principal - sirve la imagen en su proporción natural.
+  // c_limit + w_2880: cap retina-friendly para desktops 4K, sin recortar.
+  // Sin g_auto porque ya no recortamos — la composición queda intacta.
+  'hero-banner': 'f_auto,q_100,c_limit,w_2880,fl_progressive',
 
-  // Banner Catálogo HORIZONTAL - 800x600, banners intercalados en grids de productos
-  // Calidad balanceada para múltiples banners por página
-  'catalog-banner': 'f_auto,q_90,c_fill,g_auto,w_800,h_600,fl_progressive',
+  // Banner Catálogo HORIZONTAL - banners intercalados en grids de productos.
+  // Cap 1600 suficiente para la posición que ocupan dentro del grid.
+  'catalog-banner': 'f_auto,q_100,c_limit,w_1600,fl_progressive',
 
-  // Banner VERTICAL - 600x1067 (aspect ratio 9:16), banners verticales tipo stories
-  // c_fit: Mantiene imagen completa sin recortar, escala para caber dentro de las dimensiones
-  // Sin g_auto porque c_fit no necesita gravity
-  'vertical-banner': 'f_auto,q_90,c_fit,w_600,h_1067,fl_progressive',
+  // Banner VERTICAL - banners verticales tipo stories.
+  // c_fit mantiene la imagen completa dentro del cap.
+  'vertical-banner': 'f_auto,q_100,c_limit,w_1200,fl_progressive',
 
-  // Banner Landing - 1210x310px, dimensiones del dashboard
-  // c_fill: Escala y recorta para llenar exactamente 1210x310, enfocando contenido importante
-  // g_auto: Auto-enfoque en contenido importante para recorte inteligente
-  'landing-banner': 'f_auto,q_100,c_pad,w_2520,h_620,fl_progressive',
+  // Banner Landing - cap de 2520 para pantallas anchas.
+  'landing-banner': 'f_auto,q_100,c_limit,w_2520,fl_progressive',
 
-  // Banner Mobile - 414x310px, dimensiones del dashboard
-  // c_fill: Escala y recorta para llenar exactamente las dimensiones móviles
-  'mobile-banner': 'f_auto,q_100,c_pad,w_828,h_620,fl_progressive',
+  // Banner Mobile - cap 1200 para dispositivos con DPR 3x (iPhones de 390dp ~ 1170 reales).
+  'mobile-banner': 'f_auto,q_100,c_limit,w_1200,fl_progressive',
 
   // Original - alta calidad sin transformación de tamaño
   original: 'f_auto,q_95,fl_progressive',
