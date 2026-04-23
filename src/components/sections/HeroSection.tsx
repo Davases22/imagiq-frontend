@@ -571,14 +571,14 @@ export default function HeroSection() {
                 )}
               </div>
 
-              {/* Mobile media */}
-              <div className="block md:hidden w-full h-screen relative">
+              {/* Mobile media — alto automático según aspect del archivo (no se recorta) */}
+              <div className="block md:hidden w-full relative">
                 {shouldShowVideoMobile ? (
                   <>
                     {/* Mobile video */}
                     <video
                       key={`hero-mobile-video-${index}`}
-                      className="block w-full h-full object-cover"
+                      className="block w-full h-auto"
                       autoPlay={isActive}
                       muted
                       loop={config.loop}
@@ -598,7 +598,7 @@ export default function HeroSection() {
                       <img
                         src={getCloudinaryUrl(config.mobileImageSrc, 'mobile-banner')}
                         alt={config.heading || "Banner"}
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="block absolute inset-0 w-full h-full object-contain"
                         style={{
                           opacity: bannerVideoEnded ? 1 : 0,
                           transition: "opacity 0.5s ease-in-out",
@@ -613,7 +613,7 @@ export default function HeroSection() {
                       key={`hero-mobile-image-${index}`}
                       src={getCloudinaryUrl(config.mobileImageSrc, 'mobile-banner')}
                       alt={config.heading || "Banner"}
-                      className="block w-full h-full object-cover"
+                      className="block w-full h-auto"
                     />
                   )
                 )}

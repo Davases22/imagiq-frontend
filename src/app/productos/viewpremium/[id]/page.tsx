@@ -324,37 +324,12 @@ export default function ProductViewPage({ params }) {
     (seg) => seg?.toUpperCase() === "PREMIUM"
   );
 
-  // Validar que tenga contenido premium (imagenPremium o videoPremium)
-  // Verificar tanto en apiProduct como en los colores del producto
-  // imagenPremium/videoPremium vienen como string[][] (array de arrays)
-  const checkArrayOfArrays = (arr?: string[][]): boolean => {
-    if (!arr || !Array.isArray(arr)) return false;
-    return arr.some((innerArray: string[]) => {
-      if (!Array.isArray(innerArray) || innerArray.length === 0) return false;
-      return innerArray.some(item => item && typeof item === 'string' && item.trim() !== '');
-    });
-  };
-
-  const hasPremiumContent =
-    // Verificar en apiProduct (imagenPremium/videoPremium o sus alias)
-    checkArrayOfArrays(productToUse.apiProduct?.imagenPremium) ||
-    checkArrayOfArrays(productToUse.apiProduct?.videoPremium) ||
-    checkArrayOfArrays(productToUse.apiProduct?.imagen_premium) ||
-    checkArrayOfArrays(productToUse.apiProduct?.video_premium) ||
-    // Verificar en los colores del producto (imagen_premium/video_premium)
-    // En los colores vienen como string[] (array simple)
-    productToUse.colors?.some(color => {
-      const hasColorImages = color.imagen_premium && Array.isArray(color.imagen_premium) &&
-        color.imagen_premium.length > 0 &&
-        color.imagen_premium.some(img => img && typeof img === 'string' && img.trim() !== '');
-      const hasColorVideos = color.video_premium && Array.isArray(color.video_premium) &&
-        color.video_premium.length > 0 &&
-        color.video_premium.some(vid => vid && typeof vid === 'string' && vid.trim() !== '');
-      return hasColorImages || hasColorVideos;
-    }) || false;
-
-  // Si NO es PREMIUM o NO tiene contenido premium, redirigir a la vista normal
-  if (!isPremiumProduct || !hasPremiumContent) {
+  // Nota: antes redirigíamos a /productos/view cuando el producto no tenía
+  // imagenPremium/videoPremium, pero eso causaba que productos PREMIUM sin
+  // assets premium no mostraran imágenes. Ahora el ProductCarousel cae a las
+  // imágenes del color seleccionado si premiumImages está vacío, así que el
+  // único gate que queda es el segmento PREMIUM del producto.
+  if (!isPremiumProduct) {
     router.replace(`/productos/view/${id}`);
     return <ViewPremiumSkeleton />;
   }
@@ -433,8 +408,11 @@ export default function ProductViewPage({ params }) {
             />
           </div>
 
-          {/* Columna derecha: Información del producto con márgenes normales - SCROLLEABLE */}
-          <div className="lg:col-span-3 px-4 md:px-6 lg:px-12 mt-0 lg:mt-0 lg:min-h-[200vh]">
+          {/* Columna derecha: Información del producto con márgenes normales - SCROLLEABLE.
+              lg:min-h-[120vh]: colchón para que el sticky (lg:sticky lg:top-24) de la
+              columna izquierda tenga recorrido sin generar un gap vacío gigante antes
+              de la sección Flixmedia (antes era 200vh, quedaban 800-1200px en blanco). */}
+          <div className="lg:col-span-3 px-4 md:px-6 lg:px-12 mt-0 lg:mt-0 lg:min-h-[120vh]">
             <div className="max-w-7xl mx-auto">
               <ProductInfo
                 ref={specsRef}

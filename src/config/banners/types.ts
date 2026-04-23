@@ -14,7 +14,18 @@ export interface BannerConfig {
   backgroundColor?: string;
   textColor?: string;
   enabled: boolean;
+  /**
+   * Natural dimensions of the uploaded banner. Used to reserve aspect-ratio
+   * space (avoids CLS) and let the image render at its real proportion
+   * instead of a fixed height crop.
+   */
+  imageWidth?: number;
+  imageHeight?: number;
+  imageWidthMobile?: number;
+  imageHeightMobile?: number;
+  /** @deprecated Use natural image dimensions; kept for backwards compatibility. */
   height?: string;
+  /** @deprecated Use natural image dimensions; kept for backwards compatibility. */
   heightMobile?: string;
 }
 
