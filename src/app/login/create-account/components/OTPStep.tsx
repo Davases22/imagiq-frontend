@@ -470,7 +470,7 @@ export function OTPStep({
                   }`}
               >
                 <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/512px-Gmail_icon_%282020%29.svg.png"
+                  src="/images/gmail-icon.svg"
                   alt="Email"
                   className="w-6 h-auto object-contain"
                 />
@@ -500,7 +500,7 @@ export function OTPStep({
               {sendMethod === 'email' ? (
                 <>
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/512px-Gmail_icon_%282020%29.svg.png"
+                    src="/images/gmail-icon.svg"
                     alt="Email"
                     className="w-5 h-auto inline"
                   />
