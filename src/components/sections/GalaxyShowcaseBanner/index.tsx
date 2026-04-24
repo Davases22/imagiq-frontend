@@ -21,11 +21,11 @@ export default function GalaxyShowcaseBanner() {
 
   return (
     <section
-      className="w-full relative bg-white"
+      className="w-full relative bg-white px-4 md:px-6 lg:px-8"
       aria-label="Galaxy Z Flip7 y Watch8 Showcase"
     >
       {/* Main Banner - Aspect ratio 1440x816 (16:9 aprox) */}
-      <div className="relative w-full h-[600px] md:h-[500px] lg:h-[816px] max-w-[1440px] mx-auto overflow-hidden bg-white">
+      <div className="relative w-full h-[600px] md:h-[500px] lg:h-[816px] max-w-[1440px] mx-auto overflow-hidden bg-white rounded-lg">
         {/* Background Image */}
         <BannerImage images={images} />
 

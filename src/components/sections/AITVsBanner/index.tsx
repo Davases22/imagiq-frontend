@@ -32,11 +32,11 @@ export default function AITVsBanner() {
 
   return (
     <section
-      className="w-full relative"
+      className="w-full relative px-4 md:px-6 lg:px-8"
       aria-label="Nuevos AI TVs 2025 Showcase"
     >
       {/* Main Banner */}
-      <div className="relative w-full h-[680px] md:h-[500px] lg:h-[810px] max-w-[1440px] mx-auto overflow-hidden">
+      <div className="relative w-full h-[680px] md:h-[500px] lg:h-[810px] max-w-[1440px] mx-auto overflow-hidden rounded-lg">
         {/* Background Image */}
         <BannerImage images={images} />
 

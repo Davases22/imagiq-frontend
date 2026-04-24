@@ -32,11 +32,11 @@ export default function BespokeAIBanner() {
 
   return (
     <section
-      className="w-full relative flex justify-center"
+      className="w-full relative flex justify-center px-4 md:px-6 lg:px-8"
       aria-label="Lavadora Secadora Bespoke AI Showcase"
     >
       {/* Main Banner */}
-      <div className="relative w-full h-[680px] md:h-[500px] lg:h-[810px]" style={{ maxWidth: "1440px" }}>
+      <div className="relative w-full h-[680px] md:h-[500px] lg:h-[810px] overflow-hidden rounded-lg" style={{ maxWidth: "1440px" }}>
         {/* Background Image */}
         <BannerImage images={images} />
 
