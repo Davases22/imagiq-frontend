@@ -244,6 +244,13 @@ function ContentBlocksOverlay({
               left: `${position.x}%`,
               top: `${position.y}%`,
               transform: `translate(${transformX}, -50%)`,
+              // Impide que el bloque crezca más ancho que el viewport.
+              // Sin esto, títulos largos con fontSize mobile grande
+              // (ej. "Galaxy S26 Ultra | Buds4 Pro") se salían por los
+              // costados y el `overflow-hidden` del banner los recortaba
+              // — reportado como "se ve cortado" en celulares Android
+              // ~360px. Con cap + break-word el texto envuelve.
+              maxWidth: isMobile ? 'calc(100vw - 32px)' : '90%',
             }}
           >
             <div
@@ -257,6 +264,8 @@ function ContentBlocksOverlay({
                     ...titleStyles,
                     margin: 0,
                     whiteSpace: 'pre-line',
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-word',
                     textAlign,
                   }}
                 >
