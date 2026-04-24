@@ -11,7 +11,7 @@
  * - Indicadores de navegación
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDynamicBanner } from "@/hooks/useDynamicBanner";
 import { useCarouselController } from "@/hooks/useCarouselController";
@@ -186,6 +186,79 @@ function BannerContent({
 }
 
 /**
+ * Título con auto-fit: mide el ancho natural del texto contra el ancho
+ * disponible de su bloque contenedor (el wrapper marcado con
+ * `data-contentblock="true"`) y reduce el fontSize proporcionalmente si
+ * no cabe en una sola línea.
+ *
+ * Importante:
+ * - Mantiene `whiteSpace: 'pre'` para preservar `\n` explícitos del admin
+ *   sin permitir wrap automático — la estructura visual del diseño se
+ *   respeta tal cual fue pensada por el admin.
+ * - El shrink es proporcional: `fontSize * (available / natural) * 0.95`,
+ *   dejando 5% de safety buffer contra redondeos del measurement.
+ * - Solo actúa cuando el texto efectivamente se sale; en viewports donde
+ *   el admin-fontSize ya cabe, no hace nada.
+ * - Re-ejecuta en resize via ResizeObserver para rotaciones y zooms.
+ */
+function AutoFitTitle({
+  text,
+  baseStyle,
+  rawFontSize,
+  textAlign,
+}: Readonly<{
+  text: string;
+  baseStyle: React.CSSProperties;
+  rawFontSize: string | number;
+  textAlign: React.CSSProperties['textAlign'];
+}>) {
+  const ref = useRef<HTMLHeadingElement | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const block = el.closest('[data-contentblock="true"]') as HTMLElement | null;
+    if (!block) return;
+
+    const baseFontSize =
+      typeof rawFontSize === 'number' ? `${rawFontSize}px` : rawFontSize;
+
+    const fit = () => {
+      // Reset al fontSize del admin para poder medir el "natural"
+      el.style.fontSize = baseFontSize;
+      const natural = el.scrollWidth;
+      const available = block.clientWidth;
+      if (natural > available && natural > 0) {
+        const currentPx = parseFloat(window.getComputedStyle(el).fontSize);
+        if (currentPx > 0) {
+          const scaled = currentPx * (available / natural) * 0.95;
+          el.style.fontSize = `${scaled}px`;
+        }
+      }
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(block);
+    return () => ro.disconnect();
+  }, [text, rawFontSize]);
+
+  return (
+    <h2
+      ref={ref}
+      style={{
+        ...baseStyle,
+        margin: 0,
+        whiteSpace: 'pre',
+        textAlign,
+      }}
+    >
+      {text}
+    </h2>
+  );
+}
+
+/**
  * Componente para renderizar bloques de contenido
  */
 function ContentBlocksOverlay({
@@ -225,20 +298,13 @@ function ContentBlocksOverlay({
           transformX = '-100%'; // Derecha: el punto está en el borde derecho
         }
 
-        // Estilos del título: usar mobile si existe, sino desktop
+        // Estilos del título: usar mobile si existe, sino desktop.
+        // `rawFontSize` es lo que configuró el admin; `AutoFitTitle` se
+        // encarga de reducirlo si el texto no cabe en el ancho del bloque.
         const rawTitleFontSize =
           (isMobile && block.title_mobile?.fontSize) || block.title?.fontSize || '2rem';
-        // En mobile: capa el fontSize contra un valor relativo al viewport
-        // para que títulos largos (ej. "Galaxy S26 Ultra | Buds4 Pro") se
-        // auto-reduzcan en vez de salirse por los costados. `min()` toma
-        // el menor entre lo que configuró el admin y `6.5vw`, así en
-        // desktop/tablets anchas queda tal cual y sólo encoge cuando el
-        // viewport es demasiado angosto para el valor admin.
-        const titleFontSize = isMobile
-          ? `min(${rawTitleFontSize}, 6.5vw)`
-          : rawTitleFontSize;
         const titleStyles = block.title && {
-          fontSize: titleFontSize,
+          fontSize: rawTitleFontSize,
           fontWeight: (isMobile && block.title_mobile?.fontWeight) || block.title.fontWeight || '700',
           color: (isMobile && block.title_mobile?.color) || block.title.color || '#ffffff',
           lineHeight: (isMobile && block.title_mobile?.lineHeight) || block.title.lineHeight || '1.2',
@@ -251,17 +317,15 @@ function ContentBlocksOverlay({
           <div
             key={block.id}
             className={visibilityClass}
+            data-contentblock="true"
             style={{
               left: `${position.x}%`,
               top: `${position.y}%`,
               transform: `translate(${transformX}, -50%)`,
-              // Cap: el bloque no puede crecer más ancho que el viewport.
-              // Combinado con el `min()` del fontSize del título y
-              // `whiteSpace: 'pre'` del `<h2>`, garantiza que el título
-              // mantenga SU estructura (una sola línea, o las líneas
-              // explícitas que el admin puso con \n) pero se auto-reduzca
-              // en celulares angostos en vez de salirse y ser clippeado
-              // por el `overflow-hidden` del banner.
+              // Cap: el bloque no puede crecer más ancho que el viewport
+              // (gutter 32px consistente con el `px-4` del banner outer).
+              // `AutoFitTitle` usa `block.clientWidth` para medir cuánto
+              // puede crecer el título y escalarlo proporcionalmente.
               maxWidth: isMobile ? 'calc(100vw - 32px)' : '90%',
             }}
           >
@@ -270,21 +334,13 @@ function ContentBlocksOverlay({
               style={{ gap }}
             >
               {/* Título */}
-              {block.title && (
-                <h2
-                  style={{
-                    ...titleStyles,
-                    margin: 0,
-                    // `pre` (no `pre-line`) para preservar \n explícitos del
-                    // admin pero SIN wrap automático — así la estructura
-                    // visual del diseño se mantiene; cuando no cabe, el
-                    // fontSize encoge vía `min(adminValue, 6.5vw)`.
-                    whiteSpace: 'pre',
-                    textAlign,
-                  }}
-                >
-                  {block.title.text}
-                </h2>
+              {block.title && titleStyles && (
+                <AutoFitTitle
+                  text={block.title.text}
+                  baseStyle={titleStyles}
+                  rawFontSize={rawTitleFontSize}
+                  textAlign={textAlign as React.CSSProperties['textAlign']}
+                />
               )}
 
               {/* Subtítulo */}
