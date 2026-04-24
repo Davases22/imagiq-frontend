@@ -527,7 +527,7 @@ export default function DynamicBannerClean({
   const hasCTAsInBlocks = contentBlocks.some(block => block.cta);
 
   const content = (
-    <div className={`relative w-full overflow-hidden max-w-[1440px] mx-auto ${className}`}>
+    <div className={`relative w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 ${className}`}>
       <div className="relative w-full min-h-[580px] md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden">
         {showOverlay && <div className="absolute inset-0 bg-black/30 z-10" />}
 
