@@ -98,21 +98,14 @@ export const useProductLogic = (product: ProductCardProps | null) => {
     return premiumImages;
   };
 
-  // Obtener imágenes del producto del color seleccionado (carrusel secundario)
-  // Usa la imagen preview en lugar de las imágenes detail
-  const getProductImages = () => {
-    if (!product || !selectedColor) return [];
-
-    // Usar la imagen preview del color seleccionado
-    const selectedColorData = product.colors?.find(c => c.name === selectedColor);
-    if (selectedColorData?.imagePreviewUrl) {
-      return [selectedColorData.imagePreviewUrl];
-    }
-
-    return [];
-  };
-
-  // Obtener imágenes detail para el modal "Ver más"
+  // Galería completa del color seleccionado: varias fotos del producto en
+  // distintos ángulos/posiciones. Fuente de verdad para el carrusel
+  // secundario y el modal "Ver más".
+  //
+  // Cascade de resolución:
+  //   1. imageDetailsUrls[variantIndex] (array de arrays del API)
+  //   2. imageDetailsUrls plano + filtro por nombre del color en la URL
+  //   3. imagePreviewUrl del color como último recurso
   const getDetailImages = () => {
     if (!product || !selectedColor) return [];
 
@@ -167,6 +160,20 @@ export const useProductLogic = (product: ProductCardProps | null) => {
 
     return [];
   };
+
+  // Imágenes para el carrusel secundario (el que muestra el teléfono en el
+  // color seleccionado).
+  //
+  // Histórico: entre may-2025 y oct-2025 esta función devolvía la galería
+  // completa del color — varios ángulos/posiciones. El commit e319c4f5
+  // (2025-10-23) la restringió a `[imagePreviewUrl]` y movió la galería
+  // completa a `getDetailImages()`, que solo se usaba en el modal "Ver más".
+  // Eso dejó el carrusel secundario con una sola foto por color, regresión
+  // reportada por negocio.
+  //
+  // Ahora el carrusel y el modal comparten la misma fuente — lo cual tiene
+  // sentido semántico: el modal es el mismo contenido en grande.
+  const getProductImages = getDetailImages;
 
   const premiumImages = getPremiumImages();
   const productImages = getProductImages();
