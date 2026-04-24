@@ -226,8 +226,19 @@ function ContentBlocksOverlay({
         }
 
         // Estilos del título: usar mobile si existe, sino desktop
+        const rawTitleFontSize =
+          (isMobile && block.title_mobile?.fontSize) || block.title?.fontSize || '2rem';
+        // En mobile: capa el fontSize contra un valor relativo al viewport
+        // para que títulos largos (ej. "Galaxy S26 Ultra | Buds4 Pro") se
+        // auto-reduzcan en vez de salirse por los costados. `min()` toma
+        // el menor entre lo que configuró el admin y `6.5vw`, así en
+        // desktop/tablets anchas queda tal cual y sólo encoge cuando el
+        // viewport es demasiado angosto para el valor admin.
+        const titleFontSize = isMobile
+          ? `min(${rawTitleFontSize}, 6.5vw)`
+          : rawTitleFontSize;
         const titleStyles = block.title && {
-          fontSize: (isMobile && block.title_mobile?.fontSize) || block.title.fontSize || '2rem',
+          fontSize: titleFontSize,
           fontWeight: (isMobile && block.title_mobile?.fontWeight) || block.title.fontWeight || '700',
           color: (isMobile && block.title_mobile?.color) || block.title.color || '#ffffff',
           lineHeight: (isMobile && block.title_mobile?.lineHeight) || block.title.lineHeight || '1.2',
@@ -244,6 +255,14 @@ function ContentBlocksOverlay({
               left: `${position.x}%`,
               top: `${position.y}%`,
               transform: `translate(${transformX}, -50%)`,
+              // Cap: el bloque no puede crecer más ancho que el viewport.
+              // Combinado con el `min()` del fontSize del título y
+              // `whiteSpace: 'pre'` del `<h2>`, garantiza que el título
+              // mantenga SU estructura (una sola línea, o las líneas
+              // explícitas que el admin puso con \n) pero se auto-reduzca
+              // en celulares angostos en vez de salirse y ser clippeado
+              // por el `overflow-hidden` del banner.
+              maxWidth: isMobile ? 'calc(100vw - 32px)' : '90%',
             }}
           >
             <div
@@ -256,7 +275,11 @@ function ContentBlocksOverlay({
                   style={{
                     ...titleStyles,
                     margin: 0,
-                    whiteSpace: 'pre-line',
+                    // `pre` (no `pre-line`) para preservar \n explícitos del
+                    // admin pero SIN wrap automático — así la estructura
+                    // visual del diseño se mantiene; cuando no cabe, el
+                    // fontSize encoge vía `min(adminValue, 6.5vw)`.
+                    whiteSpace: 'pre',
                     textAlign,
                   }}
                 >
