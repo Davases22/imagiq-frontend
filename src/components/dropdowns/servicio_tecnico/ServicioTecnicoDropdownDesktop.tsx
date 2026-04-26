@@ -11,7 +11,7 @@ export default function ServicioTecnicoDropdownDesktop({ onItemClick }: Props) {
   return (
     <div className="bg-white shadow-lg rounded-b-lg border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-8 py-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           {SERVICIO_TECNICO_MENU_ITEMS.map((item) => {
             const IconComponent = item.icon;
 
@@ -20,20 +20,19 @@ export default function ServicioTecnicoDropdownDesktop({ onItemClick }: Props) {
                 key={item.title}
                 href={item.href}
                 onClick={() => onItemClick(item.title, item.href)}
-                className="block text-left w-full"
+                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
               >
-                <div className="flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                    <IconComponent className="w-6 h-6 text-gray-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-black transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                      {item.description}
-                    </p>
-                  </div>
+                <IconComponent
+                  className="flex-shrink-0 w-5 h-5 text-gray-500 mt-0.5 group-hover:text-black transition-colors"
+                  strokeWidth={1.75}
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                    {item.description}
+                  </p>
                 </div>
               </Link>
             );
