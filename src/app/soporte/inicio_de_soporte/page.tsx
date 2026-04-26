@@ -1461,12 +1461,24 @@ export default function InicioDeSoportePage() {
                     />
                   </label>
 
-                  {/* Selector de banco */}
+                </div>
+              </div>
+
+              {/* Banco + Celular en la misma fila cuando ambos aplican.
+                  Queda justo arriba del botón "Pagar" para que el cliente vea
+                  juntos los dos campos pendientes antes de actuar. */}
+              {(paymentMethod === "pse" || needsMovilInput) && (
+                <div className={cn(
+                  "mb-3",
+                  paymentMethod === "pse" && needsMovilInput
+                    ? "flex flex-row gap-3"
+                    : ""
+                )}>
                   {paymentMethod === "pse" && (
-                    <div className="mt-2 ml-7">
+                    <div className="flex-1 min-w-0">
                       <label
                         htmlFor="bank-select"
-                        className="block text-xs font-medium text-gray-700 mb-1"
+                        className="block text-sm font-semibold text-gray-800 mb-1.5"
                       >
                         Selecciona tu banco
                       </label>
@@ -1476,7 +1488,7 @@ export default function InicioDeSoportePage() {
                           value={selectedBank}
                           onChange={(e) => setSelectedBank(e.target.value)}
                           disabled={isLoadingBanks}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black bg-white appearance-none cursor-pointer text-sm"
+                          className="w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-white appearance-none cursor-pointer text-sm"
                         >
                           <option value="">
                             {isLoadingBanks
@@ -1493,42 +1505,38 @@ export default function InicioDeSoportePage() {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Captura de celular cuando el SOAP no trae uno válido (PSE/CC requieren celular).
-                  Posicionado justo arriba del botón "Pagar" para que el cliente lo vea
-                  inmediatamente cuando esté listo a pagar. */}
-              {needsMovilInput && (
-                <div className="mb-3">
-                  <label
-                    htmlFor="user-movil"
-                    className="block text-sm font-semibold text-gray-800 mb-1.5"
-                  >
-                    Celular de contacto
-                  </label>
-                  <input
-                    id="user-movil"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    value={userMovil}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      setUserMovil(digits);
-                      if (movilError) setMovilError(null);
-                    }}
-                    placeholder="3001234567"
-                    className={cn(
-                      "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
-                      movilError ? "border-red-500" : "border-gray-400"
-                    )}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
-                  </p>
-                  {movilError && (
-                    <p className="text-red-500 text-xs mt-0.5">{movilError}</p>
+                  {needsMovilInput && (
+                    <div className="flex-1 min-w-0">
+                      <label
+                        htmlFor="user-movil"
+                        className="block text-sm font-semibold text-gray-800 mb-1.5"
+                      >
+                        Celular de contacto
+                      </label>
+                      <input
+                        id="user-movil"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        value={userMovil}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setUserMovil(digits);
+                          if (movilError) setMovilError(null);
+                        }}
+                        placeholder="3001234567"
+                        className={cn(
+                          "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
+                          movilError ? "border-red-500" : "border-gray-400"
+                        )}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
+                      </p>
+                      {movilError && (
+                        <p className="text-red-500 text-xs mt-0.5">{movilError}</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
