@@ -96,6 +96,8 @@ export default function InicioDeSoportePage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [submittedCedula, setSubmittedCedula] = useState<string | null>(null);
   const [submittedOrder, setSubmittedOrder] = useState<string | null>(null);
+  const [userMovil, setUserMovil] = useState("");
+  const [movilError, setMovilError] = useState<string | null>(null);
   const { pay } = usePaySupportTicket();
   const { logout, user } = useAuthContext();
   const router = useRouter();
@@ -155,6 +157,20 @@ export default function InicioDeSoportePage() {
 
   // Silent user ensure state (invisible to user)
   const [ensuredUserId, setEnsuredUserId] = useState<string | null>(null);
+
+  // ePayco PSE rejects "0", empty or non-Colombian-mobile phones with E006
+  // ("Teléfono o Celular Requerido"). Treat anything that isn't a 10-digit
+  // number starting with 3 as missing and ask the customer to provide it.
+  const isValidColombianMobile = (s: string | null | undefined): boolean => {
+    if (!s) return false;
+    return /^3\d{9}$/.test(s.replace(/\D/g, ""));
+  };
+  const soapMovil =
+    result?.obtenerDocumentosResult?.documentos?.[0]?.movil || "";
+  const needsMovilInput = !isValidColombianMobile(soapMovil);
+  const effectiveMovil = needsMovilInput
+    ? userMovil.replace(/\D/g, "")
+    : soapMovil.replace(/\D/g, "");
 
   // Read support verification results from query params (status, orderId)
   const searchParams = useSearchParams();
@@ -348,7 +364,6 @@ export default function InicioDeSoportePage() {
 
     const missingFields: string[] = [];
     if (!doc.email?.trim()) missingFields.push("email");
-    if (!doc.movil?.trim()) missingFields.push("teléfono");
     if (!doc.estadoCodigo?.trim()) missingFields.push("estado del documento");
     if (!doc.cliente?.trim()) missingFields.push("nombre del cliente");
     if (!cedulaDigits) missingFields.push("documento de identidad");
@@ -360,6 +375,12 @@ export default function InicioDeSoportePage() {
       );
       return;
     }
+
+    if (!isValidColombianMobile(effectiveMovil)) {
+      setMovilError("Ingresa un celular colombiano válido (10 dígitos, empieza por 3).");
+      return;
+    }
+    setMovilError(null);
 
     setIsProcessingPayment(true);
 
@@ -419,7 +440,7 @@ export default function InicioDeSoportePage() {
         usuario_email: (doc.email || "").toLowerCase().trim(),
         nombre_cliente: doc.cliente || "",
         concepto: doc.concepto || "Pago soporte",
-        movil_usuario: doc.movil || "",
+        movil_usuario: effectiveMovil,
         medio_pago: paymentMethod === "tarjeta" ? 2 : 3,
         documento_usuario: cedulaDigits,
         tipo_documento: tipo_documento,
@@ -514,6 +535,8 @@ export default function InicioDeSoportePage() {
     setSelectedBank("");
     resetCardForm();
     setEnsuredUserId(null);
+    setUserMovil("");
+    setMovilError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -622,6 +645,7 @@ export default function InicioDeSoportePage() {
     if (!submittedCedula) return false;
     // Also require that a orden was submitted
     if (!submittedOrder) return false;
+    if (!isValidColombianMobile(effectiveMovil)) return false;
     if (paymentMethod === "pse" && !selectedBank) return false;
     if (paymentMethod === "tarjeta") {
       // Verificar que todos los campos de tarjeta estén completos
@@ -1110,6 +1134,41 @@ export default function InicioDeSoportePage() {
                   </span>
                 </div>
               </div>
+
+              {/* Captura de celular cuando el SOAP no trae uno válido (PSE/CC requieren celular) */}
+              {needsMovilInput && (
+                <div className="mb-4">
+                  <label
+                    htmlFor="user-movil"
+                    className="block text-xs font-medium text-gray-700 mb-1"
+                  >
+                    Celular de contacto
+                  </label>
+                  <input
+                    id="user-movil"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    value={userMovil}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setUserMovil(digits);
+                      if (movilError) setMovilError(null);
+                    }}
+                    placeholder="3001234567"
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
+                      movilError ? "border-red-500" : "border-gray-300"
+                    )}
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
+                  </p>
+                  {movilError && (
+                    <p className="text-red-500 text-xs mt-0.5">{movilError}</p>
+                  )}
+                </div>
+              )}
 
               {/* Opciones de pago */}
               <div className="space-y-2 mb-4">
