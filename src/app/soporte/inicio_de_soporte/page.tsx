@@ -378,6 +378,12 @@ export default function InicioDeSoportePage() {
 
     if (!isValidColombianMobile(effectiveMovil)) {
       setMovilError("Ingresa un celular colombiano válido (10 dígitos, empieza por 3).");
+      // Focus the input so the customer sees where to act
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          document.getElementById("user-movil")?.focus();
+        });
+      }
       return;
     }
     setMovilError(null);
@@ -640,12 +646,15 @@ export default function InicioDeSoportePage() {
   };
 
   // Verificar si el pago está habilitado
+  // NOTE: deliberately NOT checking effectiveMovil here — when the customer
+  // had to type their phone (needsMovilInput) and forgot, we want the click
+  // to fire so handleProcessPayment can flag the input red instead of
+  // leaving the user wondering why "Pagar" is grey.
   const isPaymentEnabled = () => {
     // Require that a cedula was submitted with the support-order before allowing payment
     if (!submittedCedula) return false;
     // Also require that a orden was submitted
     if (!submittedOrder) return false;
-    if (!isValidColombianMobile(effectiveMovil)) return false;
     if (paymentMethod === "pse" && !selectedBank) return false;
     if (paymentMethod === "tarjeta") {
       // Verificar que todos los campos de tarjeta estén completos
@@ -1140,7 +1149,7 @@ export default function InicioDeSoportePage() {
                 <div className="mb-4">
                   <label
                     htmlFor="user-movil"
-                    className="block text-xs font-medium text-gray-700 mb-1"
+                    className="block text-sm font-semibold text-gray-800 mb-1.5"
                   >
                     Celular de contacto
                   </label>
@@ -1158,10 +1167,10 @@ export default function InicioDeSoportePage() {
                     placeholder="3001234567"
                     className={cn(
                       "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
-                      movilError ? "border-red-500" : "border-gray-300"
+                      movilError ? "border-red-500" : "border-gray-400"
                     )}
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
                   </p>
                   {movilError && (
