@@ -8,7 +8,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useHeroBanner } from "@/hooks/useHeroBanner";
 import { useHeroContext } from "@/contexts/HeroContext";
-import { positionToCSS, parseTextStyles } from "@/utils/bannerCoordinates";
+import { positionToCSS, parseTextStyles, fluidFontSize, fluidPadding } from "@/utils/bannerCoordinates";
 import Link from "next/link";
 import type { HeroBannerConfig, ContentBlock } from "@/types/banner";
 import { getCloudinaryUrl } from "@/lib/cloudinary";
@@ -124,16 +124,21 @@ function ContentBlocksOverlay({
               opacity: videoEnded ? 1 : 0,
               transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s",
               pointerEvents: videoEnded ? "auto" : "none",
+              maxWidth: isMobile ? 'min(92vw, 460px)' : 'min(90vw, 720px)',
+              paddingLeft: isMobile ? '12px' : '24px',
+              paddingRight: isMobile ? '12px' : '24px',
+              boxSizing: 'border-box',
             }}
           >
             <div
               className="flex flex-col"
-              style={{ gap }}
+              style={{ gap, overflowWrap: 'break-word', wordBreak: 'break-word' }}
             >
               {/* Título */}
               {block.title && (() => {
+                const rawTitleSize = (isMobile && block.title_mobile?.fontSize) || block.title.fontSize || '2rem';
                 const titleStyles = {
-                  fontSize: (isMobile && block.title_mobile?.fontSize) || block.title.fontSize || '2rem',
+                  fontSize: isMobile ? fluidFontSize(rawTitleSize) : rawTitleSize,
                   fontWeight: (isMobile && block.title_mobile?.fontWeight) || block.title.fontWeight || '700',
                   color: (isMobile && block.title_mobile?.color) || block.title.color || '#ffffff',
                   lineHeight: (isMobile && block.title_mobile?.lineHeight) || block.title.lineHeight || '1.2',
@@ -157,8 +162,9 @@ function ContentBlocksOverlay({
 
               {/* Subtítulo */}
               {block.subtitle && (() => {
+                const rawSubtitleSize = (isMobile && block.subtitle_mobile?.fontSize) || block.subtitle.fontSize || '1.5rem';
                 const subtitleStyles = {
-                  fontSize: (isMobile && block.subtitle_mobile?.fontSize) || block.subtitle.fontSize || '1.5rem',
+                  fontSize: isMobile ? fluidFontSize(rawSubtitleSize) : rawSubtitleSize,
                   fontWeight: (isMobile && block.subtitle_mobile?.fontWeight) || block.subtitle.fontWeight || '600',
                   color: (isMobile && block.subtitle_mobile?.color) || block.subtitle.color || '#ffffff',
                   lineHeight: (isMobile && block.subtitle_mobile?.lineHeight) || block.subtitle.lineHeight || '1.3',
@@ -180,8 +186,9 @@ function ContentBlocksOverlay({
 
               {/* Descripción */}
               {block.description && (() => {
+                const rawDescSize = (isMobile && block.description_mobile?.fontSize) || block.description.fontSize || '1rem';
                 const descriptionStyles = {
-                  fontSize: (isMobile && block.description_mobile?.fontSize) || block.description.fontSize || '1rem',
+                  fontSize: isMobile ? fluidFontSize(rawDescSize) : rawDescSize,
                   fontWeight: (isMobile && block.description_mobile?.fontWeight) || block.description.fontWeight || '400',
                   color: (isMobile && block.description_mobile?.color) || block.description.color || '#ffffff',
                   lineHeight: (isMobile && block.description_mobile?.lineHeight) || block.description.lineHeight || '1.5',
@@ -202,12 +209,14 @@ function ContentBlocksOverlay({
 
               {/* CTA */}
               {block.cta && (() => {
+                const rawCtaSize = (isMobile && block.cta_mobile?.fontSize) || block.cta.fontSize || '1rem';
+                const rawCtaPadding = (isMobile && block.cta_mobile?.padding) || block.cta.padding || '12px 24px';
                 const ctaStyles = {
-                  fontSize: (isMobile && block.cta_mobile?.fontSize) || block.cta.fontSize || '1rem',
+                  fontSize: isMobile ? fluidFontSize(rawCtaSize) : rawCtaSize,
                   fontWeight: (isMobile && block.cta_mobile?.fontWeight) || block.cta.fontWeight || '600',
                   backgroundColor: (isMobile && block.cta_mobile?.backgroundColor) || block.cta.backgroundColor || '#ffffff',
                   color: (isMobile && block.cta_mobile?.color) || block.cta.color || '#000000',
-                  padding: (isMobile && block.cta_mobile?.padding) || block.cta.padding || '12px 24px',
+                  padding: isMobile ? fluidPadding(rawCtaPadding) : rawCtaPadding,
                   borderRadius: (isMobile && block.cta_mobile?.borderRadius) || block.cta.borderRadius || '8px',
                   border: (isMobile && block.cta_mobile?.border) || block.cta.border || 'none',
                   // Efecto glassmorphism
