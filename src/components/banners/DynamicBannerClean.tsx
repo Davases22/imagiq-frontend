@@ -542,7 +542,7 @@ export default function DynamicBannerClean({
 
   const content = (
     <div className={`relative w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 ${className}`}>
-      <div className="relative w-full min-h-[580px] md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden bg-white">
+      <div className="relative w-full aspect-[21/29] md:aspect-auto md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden">
         {showOverlay && <div className="absolute inset-0 bg-black/30 z-10" />}
 
         {/* Todos los banners en posición absoluta con transición fade + slide */}
@@ -618,7 +618,7 @@ export default function DynamicBannerClean({
                 playsInline
                 preload="metadata"
                 poster={optimizedMobilePoster}
-                className="w-full h-full object-contain object-top md:object-cover"
+                className="w-full h-full object-cover"
                 onEnded={isActive ? controller.handleVideoEnd : undefined}
                 key={`mobile-video-${banner.id}-${index}`}
               >
@@ -633,7 +633,7 @@ export default function DynamicBannerClean({
               <img
                 src={optimizedMobileImageUrl}
                 alt={banner.name || 'Banner'}
-                className="w-full h-full object-contain object-top md:object-cover"
+                className="w-full h-full object-cover"
                 key={`mobile-image-${banner.id}-${index}`}
               />
             );
