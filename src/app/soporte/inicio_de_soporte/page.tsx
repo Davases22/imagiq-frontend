@@ -1144,41 +1144,6 @@ export default function InicioDeSoportePage() {
                 </div>
               </div>
 
-              {/* Captura de celular cuando el SOAP no trae uno válido (PSE/CC requieren celular) */}
-              {needsMovilInput && (
-                <div className="mb-4">
-                  <label
-                    htmlFor="user-movil"
-                    className="block text-sm font-semibold text-gray-800 mb-1.5"
-                  >
-                    Celular de contacto
-                  </label>
-                  <input
-                    id="user-movil"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    value={userMovil}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      setUserMovil(digits);
-                      if (movilError) setMovilError(null);
-                    }}
-                    placeholder="3001234567"
-                    className={cn(
-                      "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
-                      movilError ? "border-red-500" : "border-gray-400"
-                    )}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
-                  </p>
-                  {movilError && (
-                    <p className="text-red-500 text-xs mt-0.5">{movilError}</p>
-                  )}
-                </div>
-              )}
-
               {/* Opciones de pago */}
               <div className="space-y-2 mb-4">
                 {/* Tarjeta de crédito/débito */}
@@ -1531,48 +1496,96 @@ export default function InicioDeSoportePage() {
                 </div>
               </div>
 
-              {/* Botones */}
-              <div className="flex flex-col gap-2">
-                <Button
-                  onClick={() => handleProcessPayment(getDocumentoConValor()!)}
-                  disabled={!isPaymentEnabled() || isProcessingPayment}
-                  className="w-full h-11 bg-gray-900 text-white rounded-lg font-semibold text-sm cursor-pointer hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessingPayment ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                        ></path>
-                      </svg>
-                      Procesando...
-                    </span>
-                  ) : (
-                    `Pagar $${formatCurrency(
-                      getDocumentoConValor()?.valor || "0"
-                    )}`
+              {/* Captura de celular cuando el SOAP no trae uno válido (PSE/CC requieren celular).
+                  Posicionado justo arriba del botón "Pagar" para que el cliente lo vea
+                  inmediatamente cuando esté listo a pagar. */}
+              {needsMovilInput && (
+                <div className="mb-3">
+                  <label
+                    htmlFor="user-movil"
+                    className="block text-sm font-semibold text-gray-800 mb-1.5"
+                  >
+                    Celular de contacto
+                  </label>
+                  <input
+                    id="user-movil"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    value={userMovil}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setUserMovil(digits);
+                      if (movilError) setMovilError(null);
+                    }}
+                    placeholder="3001234567"
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-sm",
+                      movilError ? "border-red-500" : "border-gray-400"
+                    )}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    No tenemos tu celular registrado. Lo necesitamos para procesar el pago.
+                  </p>
+                  {movilError && (
+                    <p className="text-red-500 text-xs mt-0.5">{movilError}</p>
                   )}
-                </Button>
+                </div>
+              )}
 
-                <Button
-                  onClick={handleBackToResumen}
-                  variant="outline"
-                  className="w-full text-sm md:text-base"
-                >
-                  Volver
-                </Button>
-              </div>
+              {/* Botones — stacked en mobile (Pagar arriba), lado a lado en desktop
+                  con Pagar a la derecha (acción primaria) y Volver a la izquierda */}
+              {(() => {
+                const payDisabled = !isPaymentEnabled() || isProcessingPayment;
+                return (
+                  <div className="flex flex-col md:flex-row-reverse gap-2 md:gap-3">
+                    <Button
+                      onClick={() => handleProcessPayment(getDocumentoConValor()!)}
+                      disabled={payDisabled}
+                      className={cn(
+                        "w-full md:flex-1 h-11 rounded-lg font-semibold text-sm transition-colors",
+                        payDisabled
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                          : "bg-green-500 hover:bg-green-600 text-white cursor-pointer shadow-sm"
+                      )}
+                    >
+                      {isProcessingPayment ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            ></path>
+                          </svg>
+                          Procesando...
+                        </span>
+                      ) : (
+                        `Pagar $${formatCurrency(
+                          getDocumentoConValor()?.valor || "0"
+                        )}`
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleBackToResumen}
+                      variant="outline"
+                      className="w-full md:flex-1 h-11 text-sm md:text-base"
+                    >
+                      Volver
+                    </Button>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
