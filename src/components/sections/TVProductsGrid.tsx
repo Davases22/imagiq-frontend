@@ -108,7 +108,7 @@ export default function TVProductsGrid({ initialProducts }: TVProductsGridProps 
     return (
       <section className="w-full flex justify-center bg-white pt-[25px] pb-0">
         <div className="w-full" style={{ maxWidth: "1440px" }}>
-          <div className="hidden md:grid md:grid-cols-4 gap-[25px]">
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
             {Array.from({ length: 4 }, (_, i) => (
               <div key={`skeleton-${i}`} className="w-full">
                 <SkeletonCard />
@@ -137,7 +137,7 @@ export default function TVProductsGrid({ initialProducts }: TVProductsGridProps 
   return (
     <section className="w-full flex justify-center bg-white pt-[25px] pb-0">
       <div className="w-full" style={{ maxWidth: "1440px" }}>
-        <div className="hidden md:grid md:grid-cols-4 gap-[25px]">
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
           {tvProducts.map((product) => (
             <ProductCard
               key={product.id}
