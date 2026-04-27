@@ -226,9 +226,11 @@ function ContentBlocksOverlay({
         }
 
         // Estilos del título: usar mobile si existe, sino desktop
+        // fluidFontSize con `cqi` escala con el ancho del @container/banner
+        // (referencia: 420px mobile preview / 1440px desktop max-w del frontend)
         const rawTitleSize = block.title && ((isMobile && block.title_mobile?.fontSize) || block.title.fontSize || '2rem');
         const titleStyles = block.title && {
-          fontSize: isMobile ? fluidFontSize(rawTitleSize) : rawTitleSize,
+          fontSize: isMobile ? fluidFontSize(rawTitleSize, 420) : fluidFontSize(rawTitleSize, 1440, 0.5),
           fontWeight: (isMobile && block.title_mobile?.fontWeight) || block.title.fontWeight || '700',
           color: (isMobile && block.title_mobile?.color) || block.title.color || '#ffffff',
           lineHeight: (isMobile && block.title_mobile?.lineHeight) || block.title.lineHeight || '1.2',
@@ -278,7 +280,7 @@ function ContentBlocksOverlay({
               {block.subtitle && (() => {
                 const rawSubtitleSize = (isMobile && block.subtitle_mobile?.fontSize) || block.subtitle.fontSize || '1.5rem';
                 const subtitleStyles = {
-                  fontSize: isMobile ? fluidFontSize(rawSubtitleSize) : rawSubtitleSize,
+                  fontSize: isMobile ? fluidFontSize(rawSubtitleSize, 420) : fluidFontSize(rawSubtitleSize, 1440, 0.5),
                   fontWeight: (isMobile && block.subtitle_mobile?.fontWeight) || block.subtitle.fontWeight || '600',
                   color: (isMobile && block.subtitle_mobile?.color) || block.subtitle.color || '#ffffff',
                   lineHeight: (isMobile && block.subtitle_mobile?.lineHeight) || block.subtitle.lineHeight || '1.3',
@@ -302,7 +304,7 @@ function ContentBlocksOverlay({
               {block.description && (() => {
                 const rawDescSize = (isMobile && block.description_mobile?.fontSize) || block.description.fontSize || '1rem';
                 const descriptionStyles = {
-                  fontSize: isMobile ? fluidFontSize(rawDescSize) : rawDescSize,
+                  fontSize: isMobile ? fluidFontSize(rawDescSize, 420) : fluidFontSize(rawDescSize, 1440, 0.5),
                   fontWeight: (isMobile && block.description_mobile?.fontWeight) || block.description.fontWeight || '400',
                   color: (isMobile && block.description_mobile?.color) || block.description.color || '#ffffff',
                   lineHeight: (isMobile && block.description_mobile?.lineHeight) || block.description.lineHeight || '1.5',
@@ -327,11 +329,11 @@ function ContentBlocksOverlay({
                 const rawCtaSize = (isMobile && block.cta_mobile?.fontSize) || block.cta.fontSize || '1rem';
                 const rawCtaPadding = (isMobile && block.cta_mobile?.padding) || block.cta.padding || '12px 24px';
                 const ctaStyles = {
-                  fontSize: isMobile ? fluidFontSize(rawCtaSize) : rawCtaSize,
+                  fontSize: isMobile ? fluidFontSize(rawCtaSize, 420) : fluidFontSize(rawCtaSize, 1440, 0.5),
                   fontWeight: (isMobile && block.cta_mobile?.fontWeight) || block.cta.fontWeight || '600',
                   backgroundColor: (isMobile && block.cta_mobile?.backgroundColor) || block.cta.backgroundColor || '#ffffff',
                   color: (isMobile && block.cta_mobile?.color) || block.cta.color || '#000000',
-                  padding: isMobile ? fluidPadding(rawCtaPadding) : rawCtaPadding,
+                  padding: isMobile ? fluidPadding(rawCtaPadding, 420) : fluidPadding(rawCtaPadding, 1440, 0.5),
                   borderRadius: (isMobile && block.cta_mobile?.borderRadius) || block.cta.borderRadius || '8px',
                   border: (isMobile && block.cta_mobile?.border) || block.cta.border || 'none',
                   textTransform: (isMobile && block.cta_mobile?.textTransform) || block.cta.textTransform || 'none',
@@ -542,7 +544,7 @@ export default function DynamicBannerClean({
 
   const content = (
     <div className={`relative w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 ${className}`}>
-      <div className="relative w-full aspect-[21/29] md:aspect-auto md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden">
+      <div className="relative w-full aspect-[21/29] md:aspect-auto md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden @container/banner">
         {showOverlay && <div className="absolute inset-0 bg-black/30 z-10" />}
 
         {/* Todos los banners en posición absoluta con transición fade + slide */}

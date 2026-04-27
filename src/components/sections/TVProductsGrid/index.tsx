@@ -35,7 +35,7 @@ export default function TVProductsGrid() {
       <div className="w-full bg-white pt-8 pb-0">
         <div className="w-full mx-auto" style={{ maxWidth: "1440px" }}>
           {/* Desktop: Grid 4 columnas */}
-          <div className="hidden md:grid md:grid-cols-4 gap-[25px]">
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
             {Array.from({ length: 4 }, (_, i) => (
               <div key={`skeleton-${i}`} className="w-full">
                 <SkeletonCard />
@@ -70,7 +70,7 @@ export default function TVProductsGrid() {
     <div className="w-full bg-white pt-8 pb-0">
       <div className="w-full mx-auto" style={{ maxWidth: "1440px" }}>
         {/* Desktop: Grid 4 columnas */}
-        <div className="hidden md:grid md:grid-cols-4 gap-[25px]">
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
           {displayProducts.map((product) => (
             <ProductCard
               key={product.id}
