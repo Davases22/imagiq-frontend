@@ -58,15 +58,48 @@ export interface FacebookCookies {
   fbc: string | null;
 }
 
+/** Vigencia de la cookie _fbc: 90 días (igual que Meta). */
+const FBC_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+
+/** fbclid plausible: tokens URL-safe que usa Meta (evita basura/inyección). */
+function isValidFbclid(value: string): boolean {
+  return /^[\w.\-]{1,512}$/.test(value);
+}
+
 /**
- * Extrae cookies de Facebook del navegador
+ * Escribe la cookie `_fbc` en el formato exacto de Meta (`fb.1.{ts}.{fbclid}`)
+ * para que el Pixel y CAPI converjan en el MISMO valor (dedup) y las
+ * conversiones posteriores sigan atribuyendo tras navegar fuera de la URL del
+ * anuncio. Persistencia ≈ 90 días, primera‑parte.
+ */
+function writeFbcCookie(value: string): void {
+  try {
+    const host = window.location.hostname;
+    const onImagiq = /(^|\.)imagiq\.com$/.test(host);
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    const domain = onImagiq ? '; domain=.imagiq.com' : '';
+    document.cookie = `_fbc=${value}; path=/; max-age=${FBC_MAX_AGE_SECONDS}; SameSite=Lax${secure}${domain}`;
+  } catch {
+    // no-op: si la escritura falla igual devolvemos el valor sintetizado
+  }
+}
+
+/**
+ * Extrae cookies de Facebook del navegador.
+ *
+ * `fbc`: si NO existe la cookie `_fbc` pero la URL trae `?fbclid=` (clic de
+ * anuncio), se sintetiza `fb.1.{ts}.{fbclid}` y se persiste como cookie `_fbc`
+ * (formato Meta). El Pixel de este sitio carga async y tras consentimiento, así
+ * que sin este fallback los clics de anuncio perdían `fbc` (atribución rota).
+ * Nunca se sobrescribe una cookie `_fbc` existente (el Pixel gestiona el
+ * refresh de un clic nuevo).
  *
  * @returns Objeto con fbp y fbc (o null si no existen)
  *
  * @example
  * ```typescript
  * const { fbp, fbc } = getFacebookCookies();
- * // { fbp: 'fb.1.xxx', fbc: 'fb.2.yyy' }
+ * // { fbp: 'fb.1.xxx', fbc: 'fb.1.{ts}.{fbclid}' }
  * ```
  */
 export function getFacebookCookies(): FacebookCookies {
@@ -82,8 +115,22 @@ export function getFacebookCookies(): FacebookCookies {
     return acc;
   }, {});
 
-  return {
-    fbp: cookies['_fbp'] ?? null,
-    fbc: cookies['_fbc'] ?? null,
-  };
+  const fbp = cookies['_fbp'] ?? null;
+  let fbc = cookies['_fbc'] ?? null;
+
+  if (!fbc && typeof window !== 'undefined') {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('fbclid');
+      const fbclid = raw ? raw.trim() : '';
+      if (fbclid && isValidFbclid(fbclid)) {
+        const synthesized = `fb.1.${Date.now()}.${fbclid}`;
+        writeFbcCookie(synthesized);
+        fbc = synthesized;
+      }
+    } catch {
+      // no-op: ante cualquier error de parseo, fbc queda null
+    }
+  }
+
+  return { fbp, fbc };
 }
