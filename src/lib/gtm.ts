@@ -108,7 +108,7 @@ export function gtmPurchase(transactionData: {
   gtmPush({
     event: 'purchase',
     ecommerce: {
-      currency: transactionData.currency || 'USD',
+      currency: transactionData.currency || 'COP',
       transaction_id: transactionData.transaction_id,
       value: transactionData.value,
       tax: transactionData.tax || 0,
@@ -223,7 +223,7 @@ export function gtmBeginCheckout(checkoutData: {
   gtmPush({
     event: 'begin_checkout',
     ecommerce: {
-      currency: checkoutData.currency || 'USD',
+      currency: checkoutData.currency || 'COP',
       value: checkoutData.value,
       items: checkoutData.items,
     },

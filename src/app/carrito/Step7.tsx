@@ -34,6 +34,8 @@ import { productEndpoints, deliveryEndpoints, tradeInEndpoints } from "@/lib/api
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
 import RegisterGuestPasswordModal from "./components/RegisterGuestPasswordModal";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 declare global {
   interface Window {
@@ -1191,6 +1193,15 @@ export default function Step7({ onBack }: Step7Props) {
           (data.MessageType === "profile.completed" && data.Status === false)
         ) {
           console.error("❌ [Step7] 3DS Fallido/Rechazado:", data);
+          fbqTrackCustom("ThreeDSFailed", {
+            value: calculations?.total || 0,
+            currency: "COP",
+            reason: "auth_failed",
+          });
+          posthogUtils.capture("three_ds_failed", {
+            value: calculations?.total || 0,
+            reason: "auth_failed",
+          });
           toast.error("La autenticación 3D Secure falló. Por favor intenta con otro medio de pago.");
           localStorage.removeItem('pending_order_id');
           setIsProcessing(false);
@@ -1248,6 +1259,19 @@ export default function Step7({ onBack }: Step7Props) {
         }, 100); // Verificar cada 100ms
       });
     }
+
+    const reviewTotal = calculations?.total || 0;
+    fbqTrackCustom("CheckoutReviewCompleted", {
+      value: reviewTotal,
+      currency: "COP",
+      step: 7,
+      payment_method: paymentData?.method || "unknown",
+    });
+    posthogUtils.capture("checkout_step7_pay_clicked", {
+      value: reviewTotal,
+      payment_method: paymentData?.method || "unknown",
+      step: 7,
+    });
 
     setIsProcessing(true);
     let waiting3DS = false;
@@ -1649,6 +1673,16 @@ export default function Step7({ onBack }: Step7Props) {
               // console.log("📦 RESPUESTA COMPLETA DEL BACKEND:", JSON.stringify(res, null, 2));
 
               const data3DS = res.data3DS as { resultCode?: string; ref_payco?: number; franquicia?: string; '3DS'?: { success: boolean; data: unknown } };
+
+              fbqTrackCustom("ThreeDSStarted", {
+                value: calculations?.total || 0,
+                currency: "COP",
+                franchise: data3DS?.franquicia || "unknown",
+              });
+              posthogUtils.capture("three_ds_started", {
+                value: calculations?.total || 0,
+                franchise: data3DS?.franquicia || "unknown",
+              });
 
               // Guardar orderId para verificación posterior
               const orderId = res.orderId || "";

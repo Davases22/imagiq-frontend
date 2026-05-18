@@ -90,7 +90,7 @@ export function fbqViewContent(params: {
 }): void {
   safeFbq('track', 'ViewContent', {
     content_type: params.content_type || 'product',
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -107,7 +107,7 @@ export function fbqSearch(params: {
   currency?: string;
 }): void {
   safeFbq('track', 'Search', {
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -125,7 +125,7 @@ export function fbqAddToCart(params: {
 }): void {
   safeFbq('track', 'AddToCart', {
     content_type: params.content_type || 'product',
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -142,7 +142,7 @@ export function fbqAddToWishlist(params: {
   currency?: string;
 }): void {
   safeFbq('track', 'AddToWishlist', {
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -159,7 +159,7 @@ export function fbqInitiateCheckout(params: {
   currency?: string;
 }): void {
   safeFbq('track', 'InitiateCheckout', {
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -175,7 +175,7 @@ export function fbqAddPaymentInfo(params: {
   currency?: string;
 }): void {
   safeFbq('track', 'AddPaymentInfo', {
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -204,7 +204,7 @@ export function fbqPurchase(params: {
 }): void {
   safeFbq('track', 'Purchase', {
     content_type: params.content_type || 'product',
-    currency: params.currency || 'USD',
+    currency: params.currency || 'COP',
     ...params,
   });
 }
@@ -220,7 +220,7 @@ export function fbqLead(params?: {
   currency?: string;
 }): void {
   safeFbq('track', 'Lead', {
-    currency: params?.currency || 'USD',
+    currency: params?.currency || 'COP',
     ...params,
   });
 }
@@ -236,7 +236,7 @@ export function fbqCompleteRegistration(params?: {
   currency?: string;
 }): void {
   safeFbq('track', 'CompleteRegistration', {
-    currency: params?.currency || 'USD',
+    currency: params?.currency || 'COP',
     ...params,
   });
 }
@@ -259,7 +259,7 @@ export function fbqSubscribe(params?: {
   predicted_ltv?: number;
 }): void {
   safeFbq('track', 'Subscribe', {
-    currency: params?.currency || 'USD',
+    currency: params?.currency || 'COP',
     ...params,
   });
 }

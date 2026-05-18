@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
+import { fbqTrackCustom, fbqAddPaymentInfo } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 export default function Step4({
   onBack,
@@ -26,7 +28,7 @@ export default function Step4({
 }) {
   const router = useRouter();
   const authContext = useAuthContext();
-  const { products } = useCart();
+  const { products, calculations } = useCart();
   const {
     isProcessing,
     paymentMethod,
@@ -336,6 +338,42 @@ export default function Step4({
     setIsValidatingCard(false); // Reset here in case validation failed or we are just moving on
     if (isValid && onContinue) {
       // console.log("💳 [Step4] isValid is true, calling onContinue()");
+      const cartValue = calculations?.total || calculations?.subtotal || 0;
+
+      // AddPaymentInfo REAL — aquí sí el usuario está en el paso de pago
+      fbqAddPaymentInfo({
+        value: cartValue,
+        currency: "COP",
+        content_ids: products?.map((p) => p.sku || p.id) || [],
+      });
+
+      fbqTrackCustom("SelectPaymentMethod", {
+        payment_method: paymentMethod,
+        step: 4,
+        value: cartValue,
+        currency: "COP",
+        is_saved_card: !!selectedCardId && !useNewCard,
+      });
+
+      if (paymentMethod === "addi") {
+        fbqTrackCustom("ADDIFinancingSelected", { value: cartValue, currency: "COP" });
+      }
+
+      if (paymentMethod === "pse" && selectedBank) {
+        fbqTrackCustom("PSEBankSelected", {
+          bank: selectedBank,
+          value: cartValue,
+          currency: "COP",
+        });
+      }
+
+      posthogUtils.capture("checkout_step4_payment_method_selected", {
+        payment_method: paymentMethod,
+        is_saved_card: !!selectedCardId && !useNewCard,
+        step: 4,
+        value: cartValue,
+      });
+
       onContinue();
     } else {
       console.warn("💳 [Step4] Validation failed or onContinue missing", { isValid, hasOnContinue: !!onContinue });

@@ -16,6 +16,8 @@ import { useCardsCache } from "@/app/carrito/hooks/useCardsCache";
 import CardBrandLogo from "@/components/ui/CardBrandLogo";
 import pseLogo from "@/img/iconos/logo-pse.png";
 import addiLogo from "@/img/iconos/addi_negro.png";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +107,30 @@ function ErrorCheckoutContent() {
       titleRef.current.focus();
     }
   }, [mounted]);
+
+  // Analytics: un evento por rechazo de pago (solo al montar)
+  useEffect(() => {
+    fbqTrackCustom("PaymentRejected", {
+      error_code: rawCode || "unknown",
+      error_category: errorInfo.category,
+      can_retry: errorInfo.canRetry,
+      currency: "COP",
+    });
+
+    posthogUtils.capture("payment_rejected", {
+      error_code: rawCode || "unknown",
+      error_category: errorInfo.category,
+      error_title: errorInfo.title,
+      can_retry: errorInfo.canRetry,
+      primary_action: errorInfo.primaryCta.action,
+      currency: "COP",
+      $set: {
+        last_payment_rejection_code: rawCode || "unknown",
+        last_payment_rejection_category: errorInfo.category,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleAction(action: string) {
     switch (action as CtaAction) {

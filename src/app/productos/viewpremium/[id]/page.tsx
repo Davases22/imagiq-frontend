@@ -14,6 +14,7 @@ import fallbackImage from "@/img/dispositivosmoviles/cel1.png";
 import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
 import { useTradeInPrefetch } from "@/hooks/useTradeInPrefetch";
+import { useAnalytics } from "@/lib/analytics/hooks/useAnalytics";
 
 // Componentes
 import ProductCarousel from "../components/ProductCarousel";
@@ -114,6 +115,28 @@ export default function ProductViewPage({ params }) {
 
   // Usar producto del API si está listo, sino usar el inicial de localStorage
   const product = apiProduct || initialProduct;
+
+  // 🔥 Track View Item (ViewContent) apenas carga el producto premium — PDP principal
+  const { trackViewItem } = useAnalytics();
+  React.useEffect(() => {
+    if (product && !loading) {
+      const productPrice =
+        typeof product.price === "number"
+          ? product.price
+          : Number.parseFloat(String(product.price)) || 0;
+      if (!productPrice) return;
+
+      trackViewItem({
+        item_id: product.id,
+        item_name: product.name,
+        item_brand: "Samsung",
+        item_category: product.apiProduct?.categoria || "Sin categoría",
+        price: productPrice,
+        currency: "COP",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, loading]);
 
   const [showContent, setShowContent] = React.useState(false);
 

@@ -21,7 +21,8 @@ import {
   getTradeInValidationMessage,
 } from "./utils/validateTradeIn";
 import { toast } from "sonner";
-import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
+import { associateEmailWithSession, identifyEmailEarly, posthogUtils } from "@/lib/posthogClient";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +120,9 @@ export default function Step2({
 
   // Estado para verificar si ya se registró como invitado
   const [isRegisteredAsGuest, setIsRegisteredAsGuest] = useState(false);
+
+  // Analytics: garantiza un único evento CheckoutStep2 por avance del paso 2
+  const step2TrackedRef = useRef(false);
 
   // Estados para el flujo OTP
   const [guestStep, setGuestStep] = useState<'form' | 'otp' | 'verified'>('form');
@@ -749,6 +753,22 @@ export default function Step2({
     }
   }, [cartProducts]);
 
+  // Analytics: Step2 NO tiene AddPaymentInfo — solo tracking de progreso (una vez)
+  const trackStep2Completed = () => {
+    if (step2TrackedRef.current) return;
+    step2TrackedRef.current = true;
+    const userType = isRegisteredAsGuest ? "guest" : "registered";
+    fbqTrackCustom("CheckoutStep2_UserData", {
+      user_type: userType,
+      step: 2,
+      currency: "COP",
+    });
+    posthogUtils.capture("checkout_step2_completed", {
+      user_type: userType,
+      step: 2,
+    });
+  };
+
   // Wrapper function to handle both form validation and continue action
   const handleContinue = async () => {
     // Validar Trade-In antes de continuar
@@ -762,6 +782,7 @@ export default function Step2({
     // Esto cubre tanto usuarios invitados como regulares que agregaron dirección
     if (hasAddedAddress && typeof onContinue === "function") {
       // console.log("✅ [STEP2 handleContinue] Usuario con dirección agregada, avanzando a Step3");
+      trackStep2Completed();
       onContinue();
       return;
     }
@@ -1314,6 +1335,7 @@ export default function Step2({
         setHasAddedAddress(true);
         setIsSavingAddress(false);
         if (typeof onContinue === "function") {
+          trackStep2Completed();
           onContinue();
         }
         return;
@@ -1429,6 +1451,7 @@ export default function Step2({
 
       if (typeof onContinue === "function") {
         // console.log("✅ Avanzando automáticamente a Step3");
+        trackStep2Completed();
         onContinue();
       } else {
         console.warn("⚠️ No se puede avanzar - onContinue no es una función");
@@ -1446,6 +1469,7 @@ export default function Step2({
       setHasAddedAddress(true);
       setIsSavingAddress(false);
       if (typeof onContinue === "function") {
+        trackStep2Completed();
         onContinue();
       }
     }

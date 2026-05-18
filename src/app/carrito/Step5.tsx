@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { CheckZeroInterestResponse } from "./types";
 import { DBCard } from "@/features/profile/types";
 import CardBrandLogo from "@/components/ui/CardBrandLogo";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 interface Step5Props {
   onBack?: () => void;
@@ -295,6 +297,31 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
 
     // Guardar cuotas seleccionadas en localStorage
     localStorage.setItem("checkout-installments", selectedInstallments.toString());
+
+    const hasZeroInterest =
+      selectedInstallments !== null &&
+      selectedInstallments > 1 &&
+      isInstallmentEligibleForZeroInterest(selectedInstallments);
+
+    fbqTrackCustom("InstallmentsSelected", {
+      installments: selectedInstallments || 1,
+      zero_interest: hasZeroInterest,
+      currency: "COP",
+      step: 5,
+    });
+
+    if (hasZeroInterest && selectedInstallments && selectedInstallments > 1) {
+      fbqTrackCustom("CeroInteresActivated", {
+        installments: selectedInstallments,
+        currency: "COP",
+      });
+    }
+
+    posthogUtils.capture("checkout_step5_installments_selected", {
+      installments: selectedInstallments || 1,
+      zero_interest: hasZeroInterest,
+      step: 5,
+    });
 
     if (onContinue) {
       onContinue();

@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import { apiPost } from "@/lib/api-client";
 import type { CartProduct, CouponRequirements } from "@/hooks/useCart";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 interface CouponValidationResponse {
   couponCode: string;
@@ -47,6 +49,18 @@ export default function CouponInput({
         eligibleIdentifiers: result.eligibleIdentifiers || [],
         requiredCompanionIdentifiers: result.requiredCompanionIdentifiers || [],
       });
+
+      fbqTrackCustom("CouponApplied", {
+        coupon_code: result.couponCode,
+        discount_amount: result.discountAmount || 0,
+        currency: "COP",
+      });
+      posthogUtils.capture("coupon_applied", {
+        coupon_code: result.couponCode,
+        discount_amount: result.discountAmount || 0,
+        currency: "COP",
+      });
+
       setCode("");
       setError(null);
       setIsOpen(false);
