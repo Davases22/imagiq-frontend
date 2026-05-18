@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, Suspense, use, useMemo } from "react";
+import { useEffect, Suspense, use, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { posthogUtils } from "@/lib/posthogClient";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
@@ -71,6 +71,13 @@ function CategoriaPageContent({ categoria }: CategoriaPageContentProps) {
   // Padding manejado centralmente en CategorySection para evitar acumulación
   const devicePaddingClass = "px-0";
 
+  // ViewItemList debe dispararse UNA sola vez por categoría. Este effect se
+  // re-ejecuta cuando activeSection/device cambian tras el primer render
+  // (device se resuelve en cliente, activeSection cuando carga currentMenu),
+  // lo que disparaba ViewItemList 2 veces con datos idénticos. Deduplicamos
+  // por el nombre de la categoría: re-dispara solo al cambiar de categoría.
+  const viewItemListFiredForRef = useRef<string | null>(null);
+
   // Tracking de vista de página (debe estar antes de returns condicionales)
   useEffect(() => {
     if (dynamicCategory) {
@@ -80,10 +87,13 @@ function CategoriaPageContent({ categoria }: CategoriaPageContentProps) {
         section: activeSection,
         device,
       });
-      fbqTrackCustom("ViewItemList", {
-        content_category: dynamicCategory.nombre,
-        currency: "COP",
-      });
+      if (viewItemListFiredForRef.current !== dynamicCategory.nombre) {
+        viewItemListFiredForRef.current = dynamicCategory.nombre;
+        fbqTrackCustom("ViewItemList", {
+          content_category: dynamicCategory.nombre,
+          currency: "COP",
+        });
+      }
     }
   }, [dynamicCategory, activeSection, device]);
 
