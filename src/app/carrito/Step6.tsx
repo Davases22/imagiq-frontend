@@ -13,7 +13,8 @@ import AddNewAddressForm from "./components/AddNewAddressForm";
 import { MapPin, Plus, Check, Trash2 } from "lucide-react";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 import { useCart } from "@/hooks/useCart";
-import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
+import { associateEmailWithSession, identifyEmailEarly, posthogUtils } from "@/lib/posthogClient";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { toast } from "sonner";
 
@@ -594,6 +595,27 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
       if (billingToSave.email) {
         associateEmailWithSession(billingToSave.email, {
           $name: billingToSave.nombre,
+        });
+      }
+
+      fbqTrackCustom("BillingTypeSelected", {
+        billing_type: billingType,
+        is_b2b: billingType === "juridica",
+        step: 6,
+        currency: "COP",
+      });
+
+      posthogUtils.capture("checkout_step6_billing_selected", {
+        billing_type: billingType,
+        is_b2b: billingType === "juridica",
+        step: 6,
+        $set: { billing_type_preference: billingType },
+      });
+
+      if (billingType === "juridica") {
+        fbqTrackCustom("B2BCheckoutStarted", { step: 6, currency: "COP" });
+        posthogUtils.capture("b2b_checkout_started", {
+          $set: { is_b2b_checkout: true },
         });
       }
 

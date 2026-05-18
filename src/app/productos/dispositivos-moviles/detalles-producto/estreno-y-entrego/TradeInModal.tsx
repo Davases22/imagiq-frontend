@@ -14,6 +14,8 @@ import { useTradeInDataFromCache } from "@/hooks/useTradeInPrefetch";
 import { useTradeInValue } from "./hooks/useTradeInValue";
 import { useTradeInHandlers } from "./hooks/useTradeInHandlers";
 import { isStepValid } from "./utils/stepValidation";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 
 interface TradeInModalProps {
   readonly isOpen: boolean;
@@ -94,6 +96,26 @@ export default function TradeInModal({
     productSku,
   });
 
+  // Analytics: rastrear Trade-In completado justo antes de notificar al padre
+  const handleCompleteTradeIn = (deviceName: string, value: number) => {
+    fbqTrackCustom("TradeInCompleted", {
+      device_name: deviceName,
+      trade_in_value: value,
+      currency: "COP",
+    });
+    posthogUtils.capture("trade_in_completed", {
+      device_name: deviceName,
+      trade_in_value: value,
+      currency: "COP",
+      $set: {
+        has_used_trade_in: true,
+        last_trade_in_value: value,
+        last_trade_in_device: deviceName,
+      },
+    });
+    onCompleteTradeIn?.(deviceName, value);
+  };
+
   const { handleClose, getStepTitle, getContinueHandler, getBackHandler } =
     useTradeInHandlers({
       setCurrentStep,
@@ -103,7 +125,7 @@ export default function TradeInModal({
       onClose,
       onContinue,
       onCancelWithoutCompletion,
-      onCompleteTradeIn,
+      onCompleteTradeIn: handleCompleteTradeIn,
       tradeInValue,
       imeiInput,
       selectedBrand: formState.selectedBrand,
@@ -126,6 +148,13 @@ export default function TradeInModal({
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Analytics: Trade-In iniciado al abrir el modal
+  useEffect(() => {
+    if (!isOpen) return;
+    fbqTrackCustom("TradeInStarted", { currency: "COP" });
+    posthogUtils.capture("trade_in_started", { source: "product_detail_page" });
+  }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 

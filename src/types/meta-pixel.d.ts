@@ -8,16 +8,19 @@ declare global {
     /**
      * Meta Pixel (Facebook Pixel) global function
      */
+    // NOTE: This shape must stay structurally identical to the Window.fbq
+    // declaration in src/lib/analytics/types/dataLayer.ts. TypeScript merges
+    // both global augmentations; divergent shapes break emit.meta.ts.
     fbq?: {
-  (command: 'track', eventName: string, parameters?: MetaPixelEventParams): void;
-  (command: 'trackCustom', eventName: string, parameters?: MetaPixelEventParams): void;
-  (command: 'init', pixelId: string, options?: { [key: string]: string | number | boolean | undefined }): void;
+      (command: 'track', eventName: string, parameters?: Record<string, unknown>, options?: Record<string, unknown>): void;
+      (command: 'trackCustom', eventName: string, parameters?: Record<string, unknown>, options?: Record<string, unknown>): void;
+      (command: 'init', pixelId: string, options?: Record<string, unknown>): void;
       (command: 'consent', action: 'grant' | 'revoke'): void;
-  callMethod?: (...args: [command: string, ...params: unknown[]]) => void;
-  queue?: [command: string, ...params: unknown[]][];
-  loaded?: boolean;
-  version?: string;
-  push?: (...args: [command: string, ...params: unknown[]]) => void;
+      callMethod?: (...args: unknown[]) => void;
+      queue?: unknown[];
+      loaded?: boolean;
+      version?: string;
+      push?: (...args: unknown[]) => void;
     };
 
     /**
