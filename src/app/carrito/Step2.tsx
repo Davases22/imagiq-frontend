@@ -1638,7 +1638,7 @@ export default function Step2({
   }, [cartProducts]);
 
   return (
-    <div className="w-full bg-white flex flex-col items-center py-8 px-2 md:px-0 pb-40 md:pb-16 relative">
+    <div className="w-full bg-white flex flex-col items-center py-8 px-2 md:px-0 pb-40 lg:pb-16 relative">
       {/* Fondo blanco sólido para cubrir cualquier animación de fondo */}
       <div className="fixed inset-0 bg-white -z-10 pointer-events-none" />
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
@@ -2023,8 +2023,8 @@ export default function Step2({
         </aside>
       </div>
 
-      {/* Sticky Bottom Bar - Solo Mobile */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+      {/* Sticky Bottom Bar - Mobile y tablet (hasta lg, donde aparece el sidebar) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
         <div className="p-4 pb-8 flex items-center justify-between gap-4">
           {/* Izquierda: Total y descuentos */}
           <div className="flex-1 min-w-0">
