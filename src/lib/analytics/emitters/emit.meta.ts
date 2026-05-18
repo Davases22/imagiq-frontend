@@ -2,10 +2,134 @@
  * Emisor de eventos para Meta Pixel (Facebook Pixel)
  *
  * Envía eventos a Meta Pixel usando fbq() cuando el consentimiento de ads está activo.
+ *
+ * Resiliencia ante carrera de carga: el pixel de Meta (fbevents.js) se inyecta
+ * de forma asíncrona y SOLO tras el consentimiento de marketing. Eventos que
+ * disparan temprano (p.ej. InitiateCheckout en el mount de /carrito/step1)
+ * pueden ejecutarse antes de que `fbq` exista o antes de que el consentimiento
+ * esté resuelto. Antes esos eventos se descartaban silenciosamente; ahora se
+ * encolan y se reintentan (acotado) hasta que `fbq` esté disponible Y el
+ * consentimiento sea afirmativo.
+ *
+ * Privacidad: un evento encolado SOLO se entrega cuando canSendAds() es true en
+ * el momento de entrega (se revalida cada intento). Si el consentimiento se
+ * deniega o nunca se concede, el evento expira en memoria sin enviarse jamás.
  */
 
 import type { MetaEvent } from '../mappers';
 import { canSendAds, logConsentBlocked } from '../utils';
+
+interface PendingMetaEvent {
+  /** Nombre del evento (para logs) */
+  label: string;
+  /** Realiza el envío real vía fbq() — solo se invoca con fbq listo + consentimiento */
+  send: () => void;
+  /** Intentos restantes antes de expirar */
+  attemptsLeft: number;
+}
+
+const RETRY_INTERVAL_MS = 400;
+const MAX_ATTEMPTS = 25; // ~10s: cubre resolución de consentimiento + carga async de fbevents.js
+
+const pendingMetaEvents: PendingMetaEvent[] = [];
+let flushTimer: ReturnType<typeof setInterval> | null = null;
+let consentListenerAttached = false;
+
+/** ¿Está el pixel de Meta listo (cargado + consentimiento) para enviar ahora? */
+function isMetaReady(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.fbq === 'function' &&
+    canSendAds()
+  );
+}
+
+function stopFlushTimer(): void {
+  if (flushTimer !== null) {
+    clearInterval(flushTimer);
+    flushTimer = null;
+  }
+}
+
+/** Intenta entregar la cola; revalida consentimiento en cada intento. */
+function flushPendingMetaEvents(): void {
+  if (pendingMetaEvents.length === 0) {
+    stopFlushTimer();
+    return;
+  }
+
+  if (isMetaReady()) {
+    while (pendingMetaEvents.length > 0) {
+      const item = pendingMetaEvents.shift() as PendingMetaEvent;
+      try {
+        item.send();
+      } catch (error) {
+        console.error('[Meta Pixel] Failed to send queued event:', item.label, error);
+      }
+    }
+    stopFlushTimer();
+    return;
+  }
+
+  // Aún no listo: decrementar intentos y expirar los agotados.
+  for (let i = pendingMetaEvents.length - 1; i >= 0; i--) {
+    pendingMetaEvents[i].attemptsLeft -= 1;
+    if (pendingMetaEvents[i].attemptsLeft <= 0) {
+      // Distinguir "sin consentimiento" (telemetría) de "pixel nunca cargó".
+      if (!canSendAds()) {
+        logConsentBlocked('Meta Pixel', pendingMetaEvents[i].label);
+      } else {
+        console.warn(
+          '[Meta Pixel] Dropping event (fbq never became available):',
+          pendingMetaEvents[i].label,
+        );
+      }
+      pendingMetaEvents.splice(i, 1);
+    }
+  }
+
+  if (pendingMetaEvents.length === 0) {
+    stopFlushTimer();
+  }
+}
+
+function ensureFlushScheduled(): void {
+  if (typeof window === 'undefined') return;
+
+  if (flushTimer === null && pendingMetaEvents.length > 0) {
+    flushTimer = setInterval(flushPendingMetaEvents, RETRY_INTERVAL_MS);
+  }
+
+  // Flush inmediato cuando cambia el consentimiento (MetaPixelScript reinyecta
+  // el pixel ante 'consentChange'): evita esperar al próximo tick.
+  if (!consentListenerAttached) {
+    consentListenerAttached = true;
+    window.addEventListener('consentChange', () => {
+      setTimeout(flushPendingMetaEvents, 50); // defer: deja que fbevents.js termine de inyectarse
+    });
+  }
+}
+
+/**
+ * Entrega ahora si Meta está listo (camino rápido, sin cambio de comportamiento
+ * para el caso común); si no, encola y reintenta de forma acotada hasta que
+ * `fbq` + consentimiento estén disponibles.
+ */
+function deliverOrQueue(label: string, send: () => void): void {
+  if (typeof window === 'undefined') return; // SSR: no-op
+
+  if (isMetaReady()) {
+    try {
+      send();
+    } catch (error) {
+      console.error('[Meta Pixel] Failed to send event:', label, error);
+    }
+    return;
+  }
+
+  pendingMetaEvents.push({ label, send, attemptsLeft: MAX_ATTEMPTS });
+  ensureFlushScheduled();
+}
 
 /**
  * Envía un evento a Meta Pixel vía fbq()
@@ -13,50 +137,22 @@ import { canSendAds, logConsentBlocked } from '../utils';
  * @param event - Evento formateado para Meta Pixel
  * @param eventId - Event ID para deduplicación con CAPI
  * @param userData - Datos de usuario hasheados para Advanced Matching (opcional)
- *
- * @example
- * ```typescript
- * const metaEvent = toMetaEvent(dlEvent, eventId);
- * const userData = await hashUserData({ email: 'user@example.com' });
- * sendMeta(metaEvent, eventId, userData);
- * ```
  */
 export function sendMeta(
   event: MetaEvent,
   eventId: string,
   userData?: Record<string, string>
 ): void {
-  // Verificar consentimiento
-  if (!canSendAds()) {
-    logConsentBlocked('Meta Pixel', event.name);
-    return;
-  }
-
-  // Verificar que fbq esté disponible
-  if (typeof window === 'undefined' || typeof window.fbq !== 'function') {
-    console.warn('[Meta Pixel] fbq() not available, skipping event:', event.name);
-    return;
-  }
-
-  try {
-    // Preparar opciones con eventID para deduplicación
-    const options: Record<string, unknown> = {
-      eventID: eventId,
-    };
-
-    // Si hay datos de usuario, añadir para Advanced Matching
+  deliverOrQueue(event.name, () => {
+    const fbq = typeof window !== 'undefined' ? window.fbq : undefined;
+    if (typeof fbq !== 'function') return;
+    const options: Record<string, unknown> = { eventID: eventId };
     if (userData && Object.keys(userData).length > 0) {
-      // fbq espera user_data en el tercer parámetro
-      // pero también puede ir en el segundo parámetro como parte de custom_data
-      // Para Advanced Matching, lo mejor es usar fbq('track', event, data, { eventID, em, ph, ... })
+      // Para Advanced Matching: fbq('track', event, data, { eventID, em, ph, ... })
       Object.assign(options, userData);
     }
-
-    // Enviar evento
-    window.fbq('track', event.name, event.data, options);
-  } catch (error) {
-    console.error('[Meta Pixel] Failed to send event:', event.name, error);
-  }
+    fbq('track', event.name, event.data, options);
+  });
 }
 
 /**
@@ -71,19 +167,9 @@ export function sendMetaCustom(
   data: Record<string, unknown>,
   eventId: string
 ): void {
-  if (!canSendAds()) {
-    logConsentBlocked('Meta Pixel', eventName);
-    return;
-  }
-
-  if (typeof window === 'undefined' || typeof window.fbq !== 'function') {
-    console.warn('[Meta Pixel] fbq() not available');
-    return;
-  }
-
-  try {
-    window.fbq('trackCustom', eventName, data, { eventID: eventId });
-  } catch (error) {
-    console.error('[Meta Pixel] Failed to send custom event:', eventName, error);
-  }
+  deliverOrQueue(eventName, () => {
+    const fbq = typeof window !== 'undefined' ? window.fbq : undefined;
+    if (typeof fbq !== 'function') return;
+    fbq('trackCustom', eventName, data, { eventID: eventId });
+  });
 }

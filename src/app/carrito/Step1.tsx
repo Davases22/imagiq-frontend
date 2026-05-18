@@ -31,6 +31,12 @@ import { useTradeInVerification } from "@/hooks/useTradeInVerification";
  * Paso 1 del carrito de compras
  * Recibe onContinue para avanzar al paso 2
  */
+// InitiateCheckout (Meta) debe dispararse UNA sola vez al ENTRAR al checkout
+// (mount de Step1 con carrito), no en cada clic de "Continuar". Guard a nivel
+// de módulo: sobrevive remounts/StrictMode dentro del mismo contexto JS; un
+// reload completo cuenta como una nueva sesión de checkout.
+let initiateCheckoutFired = false;
+
 export default function Step1({
   onContinue,
 }: {
@@ -467,6 +473,32 @@ export default function Step1({
   // Usar cálculos del hook centralizado
   const total = calculations.total;
 
+  // InitiateCheckout: una sola vez por sesión de checkout. Se dispara al
+  // montar Step1 cuando el carrito ya tiene items + total (lo que el Pixel de
+  // Meta espera al entrar al checkout — antes solo disparaba en el clic de
+  // "Continuar", por eso Pixel Helper solo mostraba PageView en /carrito/step1).
+  // Los clics de "Continuar" reutilizan este helper guardado: si ya disparó en
+  // mount son no-op (sin doble disparo); si Step1 no llegó a montar (p.ej.
+  // usuarios autenticados que saltan a step3) sirven de fallback.
+  const fireInitiateCheckoutOnce = useCallback(() => {
+    if (initiateCheckoutFired) return;
+    if (cartProducts.length === 0 || !total) return;
+    initiateCheckoutFired = true;
+    trackBeginCheckout(
+      cartProducts.map((p) => ({
+        item_id: p.sku,
+        item_name: p.name,
+        price: Number(p.price),
+        quantity: p.quantity,
+      })),
+      total
+    );
+  }, [cartProducts, total, trackBeginCheckout]);
+
+  useEffect(() => {
+    fireInitiateCheckoutOnce();
+  }, [fireInitiateCheckoutOnce]);
+
   // Calcular ahorro total por descuentos de productos (para mostrar en sticky bar mobile)
   const productSavings = useMemo(() => {
     return cartProducts.reduce((acc, product) => {
@@ -657,22 +689,12 @@ export default function Step1({
         // Validar Trade-In antes de continuar
         const validation = validateTradeInProducts(cartProducts);
         if (validation.isValid) {
-          // Track del evento begin_checkout para analytics
-          trackBeginCheckout(
-            cartProducts.map((p) => ({
-              item_id: p.sku,
-              item_name: p.name,
-              price: Number(p.price),
-              quantity: p.quantity,
-            })),
-            total
-          );
-          
+          fireInitiateCheckoutOnce();
           onContinue();
         }
       }
     },
-    [userClickedWhileLoading, cartProducts, total, onContinue, trackBeginCheckout]
+    [userClickedWhileLoading, cartProducts, onContinue, fireInitiateCheckoutOnce]
   );
 
   // Función para manejar el click en continuar pago
@@ -697,15 +719,7 @@ export default function Step1({
     }
 
     // Si ya se calculó o no está cargando, continuar normalmente
-    trackBeginCheckout(
-      cartProducts.map((p) => ({
-        item_id: p.sku,
-        item_name: p.name,
-        price: Number(p.price),
-        quantity: p.quantity,
-      })),
-      total
-    );
+    fireInitiateCheckoutOnce();
 
     onContinue();
   };
@@ -1064,16 +1078,7 @@ export default function Step1({
                 return;
               }
 
-              // Track del evento begin_checkout para analytics
-              trackBeginCheckout(
-                cartProducts.map((p) => ({
-                  item_id: p.sku,
-                  item_name: p.name,
-                  price: Number(p.price),
-                  quantity: p.quantity,
-                })),
-                total
-              );
+              fireInitiateCheckoutOnce();
 
               onContinue();
             }}
