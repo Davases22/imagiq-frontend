@@ -116,27 +116,10 @@ export default function ProductViewPage({ params }) {
   // Usar producto del API si está listo, sino usar el inicial de localStorage
   const product = apiProduct || initialProduct;
 
-  // 🔥 Track View Item (ViewContent) apenas carga el producto premium — PDP principal
+  // ViewContent se dispara más abajo, cuando productSelection ya resolvió el
+  // precio/SKU de la variante (el API premium NO expone product.price).
   const { trackViewItem } = useAnalytics();
-  React.useEffect(() => {
-    if (product && !loading) {
-      const productPrice =
-        typeof product.price === "number"
-          ? product.price
-          : Number.parseFloat(String(product.price)) || 0;
-      if (!productPrice) return;
-
-      trackViewItem({
-        item_id: product.id,
-        item_name: product.name,
-        item_brand: "Samsung",
-        item_category: product.apiProduct?.categoria || "Sin categoría",
-        price: productPrice,
-        currency: "COP",
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, loading]);
+  const viewContentFiredRef = React.useRef<string | null>(null);
 
   const [showContent, setShowContent] = React.useState(false);
 
@@ -198,6 +181,29 @@ export default function ProductViewPage({ params }) {
       skuPostback: [],
     }
   );
+
+  // 🔥 ViewContent: una vez por producto, cuando productSelection resuelve el
+  // precio de la variante. El producto premium del API NO tiene product.price
+  // (expone arrays precioNormal/precioeccommerce); la fuente real del precio
+  // es productSelection.selectedPrice, igual que usa handleAddToCart. El
+  // effect anterior leía product.price → 0 → early-return → ViewContent nunca
+  // disparaba. Gated por precio + ref guard por producto (no doble disparo).
+  React.useEffect(() => {
+    if (!product?.id) return;
+    if (viewContentFiredRef.current === product.id) return;
+    const price = Number(productSelection.selectedPrice) || 0;
+    if (!price) return; // esperar a que resuelva el precio de la variante
+    viewContentFiredRef.current = product.id;
+    trackViewItem({
+      item_id: productSelection.selectedSku || product.id,
+      item_name: product.name,
+      item_brand: "Samsung",
+      item_category: product.apiProduct?.categoria || "Sin categoría",
+      price,
+      currency: "COP",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, productSelection.selectedPrice, productSelection.selectedSku, trackViewItem]);
 
   // Hooks para carrito y navegación
   const { addProduct } = useCartContext();
