@@ -12,7 +12,8 @@ import {
 import Step4OrderSummary from "./components/Step4OrderSummary";
 import TradeInCompletedSummary from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInCompletedSummary";
 import type { Address } from "@/types/address";
-import { useAnalyticsWithUser } from "@/lib/analytics";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { posthogUtils } from "@/lib/posthogClient";
 import { tradeInEndpoints } from "@/lib/api";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { useTradeInVerification } from "@/hooks/useTradeInVerification";
@@ -35,7 +36,6 @@ export default function Step3({
 }) {
   const router = useRouter();
   const { products, calculations } = useCart();
-  const { trackAddPaymentInfo } = useAnalyticsWithUser();
   const { user, login } = useAuthContext();
   const { selectedAddress, selectAddress } = useCheckoutAddress();
 
@@ -1028,22 +1028,24 @@ export default function Step3({
         }
       }
 
-      // Track del evento add_payment_info para analytics
-      trackAddPaymentInfo(
-        products.map((p) => ({
-          item_id: p.sku,
-          item_name: p.name,
-          price: Number(p.price),
-          quantity: p.quantity,
-        })),
-        calculations.subtotal
-      );
+      // Correcto: aquí el usuario confirma ENVÍO, no ingresa datos de pago
+      fbqTrackCustom('SelectDeliveryMethod', {
+        delivery_method: deliveryMethod || 'domicilio',
+        step: 3,
+        value: calculations.subtotal,
+        currency: 'COP',
+      });
+      posthogUtils.capture('checkout_step3_delivery_selected', {
+        delivery_method: deliveryMethod || 'domicilio',
+        value: calculations.subtotal,
+        step: 3,
+      });
 
       if (typeof onContinue === "function") {
         onContinue();
       }
     }
-  }, [isWaitingForCanPickUp, storesLoading, products, deliveryMethod, calculations.subtotal, onContinue, trackAddPaymentInfo]);
+  }, [isWaitingForCanPickUp, storesLoading, products, deliveryMethod, calculations.subtotal, onContinue]);
 
   // UX: Navegación al siguiente paso
   // Estado para validación de Trade-In
@@ -1129,16 +1131,18 @@ export default function Step3({
       }
     }
 
-    // Track del evento add_payment_info para analytics
-    trackAddPaymentInfo(
-      products.map((p) => ({
-        item_id: p.sku,
-        item_name: p.name,
-        price: Number(p.price),
-        quantity: p.quantity,
-      })),
-      calculations.subtotal
-    );
+    // Correcto: aquí el usuario confirma ENVÍO, no ingresa datos de pago
+    fbqTrackCustom('SelectDeliveryMethod', {
+      delivery_method: deliveryMethod || 'domicilio',
+      step: 3,
+      value: calculations.subtotal,
+      currency: 'COP',
+    });
+    posthogUtils.capture('checkout_step3_delivery_selected', {
+      delivery_method: deliveryMethod || 'domicilio',
+      value: calculations.subtotal,
+      step: 3,
+    });
 
     if (typeof onContinue === "function") {
       onContinue();

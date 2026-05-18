@@ -20,6 +20,7 @@ import { Heart, Loader } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { posthogUtils } from "@/lib/posthogClient";
 import { useAnalytics } from "@/lib/analytics/hooks/useAnalytics";
+import { fbqAddToWishlist } from "@/lib/meta-pixel";
 import { useCloudinaryImage } from "@/hooks/useCloudinaryImage";
 import { useProductSelection, type ActiveFilterHints } from "@/hooks/useProductSelection";
 import { useChatbot } from "@/contexts/ChatbotContext";
@@ -434,6 +435,18 @@ export default function ProductCard({
       product_name: name,
       action: isFavorite ? "remove" : "add",
     });
+
+    // Meta AddToWishlist solo cuando se AGREGA (isFavorite refleja el estado previo al click)
+    const willBeAdded = !isFavorite;
+    if (willBeAdded) {
+      fbqAddToWishlist({
+        content_name: name,
+        content_ids: [currentSku || id],
+        content_category: apiProduct?.categoria || "Samsung",
+        value: currentPrice || 0,
+        currency: "COP",
+      });
+    }
   };
 
   const handleRequestStockNotification = async (email: string) => {

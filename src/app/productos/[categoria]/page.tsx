@@ -10,6 +10,7 @@
 import { useEffect, Suspense, use, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { posthogUtils } from "@/lib/posthogClient";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { useDeviceType } from "@/components/responsive";
 import { useCurrentMenu } from "@/hooks/useCurrentMenu";
 import { useVisibleCategories } from "@/hooks/useVisibleCategories";
@@ -78,6 +79,10 @@ function CategoriaPageContent({ categoria }: CategoriaPageContentProps) {
         categoria: dynamicCategory.nombre,
         section: activeSection,
         device,
+      });
+      fbqTrackCustom("ViewItemList", {
+        content_category: dynamicCategory.nombre,
+        currency: "COP",
       });
     }
   }, [dynamicCategory, activeSection, device]);
