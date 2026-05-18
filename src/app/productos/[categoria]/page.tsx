@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, Suspense, use, useMemo, useRef } from "react";
+import { useEffect, Suspense, use, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { posthogUtils } from "@/lib/posthogClient";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
@@ -19,6 +19,15 @@ import { findCategoryBySlug } from "./utils/slugUtils";
 import CategorySection from "./components/CategorySection";
 import OfertasSection from "./components/OfertasSection";
 
+
+// ViewItemList debe dispararse UNA sola vez por categoría. Un useRef por
+// instancia NO basta: CategoriaPageContent se re-monta (Suspense +
+// useSearchParams vuelve a commitear, doble-invoke de React) y cada montaje
+// resetea el ref → disparo doble con datos idénticos. Este guard a nivel de
+// módulo sobrevive remounts dentro del mismo contexto JS; re-dispara al
+// cambiar de categoría y un reload completo (contexto JS nuevo) cuenta como
+// view nuevo. Es la única fuente de ViewItemList en todo el codebase.
+let lastViewItemListCategory: string | null = null;
 
 interface CategoriaPageContentProps {
   readonly categoria: string;
@@ -71,13 +80,6 @@ function CategoriaPageContent({ categoria }: CategoriaPageContentProps) {
   // Padding manejado centralmente en CategorySection para evitar acumulación
   const devicePaddingClass = "px-0";
 
-  // ViewItemList debe dispararse UNA sola vez por categoría. Este effect se
-  // re-ejecuta cuando activeSection/device cambian tras el primer render
-  // (device se resuelve en cliente, activeSection cuando carga currentMenu),
-  // lo que disparaba ViewItemList 2 veces con datos idénticos. Deduplicamos
-  // por el nombre de la categoría: re-dispara solo al cambiar de categoría.
-  const viewItemListFiredForRef = useRef<string | null>(null);
-
   // Tracking de vista de página (debe estar antes de returns condicionales)
   useEffect(() => {
     if (dynamicCategory) {
@@ -87,8 +89,11 @@ function CategoriaPageContent({ categoria }: CategoriaPageContentProps) {
         section: activeSection,
         device,
       });
-      if (viewItemListFiredForRef.current !== dynamicCategory.nombre) {
-        viewItemListFiredForRef.current = dynamicCategory.nombre;
+      // Dedupe a nivel de módulo (ver lastViewItemListCategory arriba):
+      // robusto frente a remounts/doble-invoke; re-dispara al cambiar de
+      // categoría.
+      if (lastViewItemListCategory !== dynamicCategory.nombre) {
+        lastViewItemListCategory = dynamicCategory.nombre;
         fbqTrackCustom("ViewItemList", {
           content_category: dynamicCategory.nombre,
           currency: "COP",
