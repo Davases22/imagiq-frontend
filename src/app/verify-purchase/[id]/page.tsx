@@ -4,8 +4,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const API_BASE_URL = "";
-const MAX_RETRIES = 6; // 6 × 5 seg = 30 seg max polling
 const POLL_INTERVAL_MS = 5000;
+// Synchronous card/3DS flows resolve quickly. ADDI and PSE confirm
+// asynchronously (server-to-server callback / webhook / cron) and can take
+// noticeably longer, so they get a larger polling budget before we fall back
+// to an informational (NOT error) page.
+const MAX_RETRIES_CARD = 6; // ~30 s
+const MAX_RETRIES_ASYNC = 18; // ~90 s (ADDI / PSE / unknown)
 
 interface OrderStatusResponse {
   orderStatus: string;
@@ -39,61 +44,102 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
     fetch(`${API_BASE_URL}/api/orders/verify/${orderId}`, { keepalive: true }).catch(() => {});
   }, [orderId]);
 
-  // Poll order status from DB (lightweight, no ePayco API call)
+  // Poll order status from DB (lightweight, no ePayco API call).
+  //
+  // Robustness contract: a SINGLE non-200 / network failure must NEVER declare
+  // the payment failed. ADDI/PSE confirm asynchronously (server-to-server
+  // callback / webhook / cron), so the order may legitimately still be PENDING
+  // when the shopper returns. We keep polling within a method-aware budget and,
+  // only when that budget is exhausted, fall back to an INFORMATIONAL page for
+  // async methods (the payment is most likely already captured) instead of a
+  // scary "payment failed" error.
   const pollOrderStatus = useCallback(async () => {
     if (!orderId) return;
 
+    const scheduleRetryOrFallback = () => {
+      retryCountRef.current += 1;
+      const method = paymentMethodRef.current;
+      const maxRetries =
+        method === "credit_card" ? MAX_RETRIES_CARD : MAX_RETRIES_ASYNC;
+
+      if (retryCountRef.current < maxRetries) {
+        setTimeout(() => pollOrderStatus(), POLL_INTERVAL_MS);
+        return;
+      }
+
+      // Budget exhausted while still unresolved.
+      if (method === "pse") {
+        router.push("/error-checkout?code=PSE_TIMEOUT");
+      } else if (method === "credit_card") {
+        router.push(
+          "/error-checkout?message=" +
+            encodeURIComponent(
+              "La validación del pago tardó demasiado. Intenta de nuevo.",
+            ) +
+            "&code=185",
+        );
+      } else {
+        // ADDI (or method still unknown): asynchronous approval — inform the
+        // user it's being confirmed rather than falsely declaring a failure.
+        router.push("/error-checkout?code=ADDI_PENDING");
+      }
+    };
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orders/status/${orderId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/orders/status/${orderId}`,
+      );
 
       if (!response.ok) {
-        // If status endpoint fails, fall back to error
-        router.push("/error-checkout");
+        // Transient: 404 during a deploy, 5xx, gateway hiccup. Do NOT declare
+        // the payment failed — retry within the polling budget.
+        scheduleRetryOrFallback();
         return;
       }
 
       const data: OrderStatusResponse = await response.json();
 
-      // Store payment method for timeout decision
+      // Store payment method for the timeout / budget decision
       if (!paymentMethodRef.current && data.paymentMethod) {
         paymentMethodRef.current = data.paymentMethod;
       }
 
-      if (data.orderStatus === "APPROVED") {
+      const status = (data.orderStatus || "").toUpperCase();
+
+      if (status === "APPROVED") {
         router.push(`/success-checkout/${orderId}`);
         return;
       }
 
-      if (data.orderStatus === "REJECTED") {
-        router.push(`/error-checkout?message=${encodeURIComponent("Tu pago fue rechazado por el banco.")}`);
+      if (status === "REJECTED" || status === "DECLINED") {
+        router.push(
+          `/error-checkout?message=${encodeURIComponent(
+            "Tu pago fue rechazado por el banco.",
+          )}`,
+        );
         return;
       }
 
-      // Still pending — retry or timeout
-      if (data.orderStatus === "PENDING" || data.orderStatus === "PENDING_PAYMENT" || data.orderStatus === "Pendiente") {
-        retryCountRef.current += 1;
-
-        if (retryCountRef.current >= MAX_RETRIES) {
-          const method = paymentMethodRef.current || data.paymentMethod;
-
-          if (method === "pse") {
-            // PSE: informational page, NOT an error — the webhook/cron will handle it
-            router.push("/error-checkout?code=PSE_TIMEOUT");
-          } else {
-            // Credit card / 3DS timeout
-            router.push("/error-checkout?message=" + encodeURIComponent("La validación del pago tardó demasiado. Intenta de nuevo.") + "&code=185");
-          }
-          return;
-        }
-
-        setTimeout(() => pollOrderStatus(), POLL_INTERVAL_MS);
+      if (status === "ABANDONED" || status === "CANCELLED") {
+        router.push(
+          `/error-checkout?message=${encodeURIComponent(
+            "El pago no se completó. Puedes intentarlo de nuevo.",
+          )}`,
+        );
         return;
       }
 
-      // Unknown state — show generic error
-      router.push("/error-checkout");
+      if (status === "INTERNAL_ERROR" || status === "REVERSED") {
+        router.push("/error-checkout?code=96");
+        return;
+      }
+
+      // PENDING / PENDING_PAYMENT / PENDIENTE / any other non-terminal state:
+      // keep polling — the ADDI callback / PSE webhook / cron will resolve it.
+      scheduleRetryOrFallback();
     } catch {
-      router.push("/error-checkout");
+      // Network error — transient. Retry within budget instead of erroring out.
+      scheduleRetryOrFallback();
     }
   }, [orderId, router]);
 
