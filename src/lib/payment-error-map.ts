@@ -159,6 +159,21 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     tip: 'No intentes pagar de nuevo. Si el pago fue exitoso en tu banco, recibirás la confirmación por correo electrónico.',
   },
 
+  // --- Addi specific ----------------------------------------------------------
+  'ADDI_PENDING': {
+    category: 'auth',
+    title: 'Estamos confirmando tu pago con Addi',
+    description:
+      'Tu solicitud con Addi se está procesando. Si Addi aprobó tu crédito, la confirmación llegará automáticamente y verás tu pedido reflejado. Esto puede tomar unos minutos.',
+    icon: 'clock',
+    primaryCta: { label: 'Ver mis pedidos', action: 'viewOrders' },
+    secondaryCta: { label: 'Volver al inicio', action: 'goHome' },
+    colorScheme: 'blue',
+    canRetry: false,
+    helpLink: null,
+    tip: 'No vuelvas a pagar. Si Addi aprobó tu crédito, recibirás la confirmación por correo electrónico.',
+  },
+
   // --- 3D Secure / Authentication (amber) ------------------------------------
   '185': {
     category: 'auth',
