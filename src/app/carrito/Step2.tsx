@@ -73,7 +73,9 @@ export default function Step2({
     apellido: "",
     cedula: "",
     celular: "",
-    tipo_documento: "",
+    // Por defecto "CC" (cédula de ciudadanía), el caso más común, para que el
+    // botón no quede bloqueado si el usuario olvida abrir el selector.
+    tipo_documento: "CC",
   });
 
   // Estado para validación y UX
@@ -887,7 +889,7 @@ export default function Step2({
         apellido: savedUser.apellido || "",
         cedula: savedUser.numero_documento || "",
         celular: savedUser.telefono || "",
-        tipo_documento: savedUser.tipo_documento || "",
+        tipo_documento: savedUser.tipo_documento || "CC",
       });
 
       // Marcar como registrado como invitado (ya verificado)

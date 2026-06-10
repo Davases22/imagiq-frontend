@@ -108,11 +108,14 @@ export const AddressSelector: React.FC<AddressSelectorProps> = ({
     setAddressToDelete(null);
   };
 
-  // Si no hay dirección seleccionada, seleccionar por defecto la marcada
+  // Si no hay dirección seleccionada, seleccionar por defecto la marcada.
+  // IMPORTANTE: excluir las direcciones de FACTURACION — no deben usarse como
+  // dirección de ENVÍO (si no, la última factura agregada se cuela como envío).
   useEffect(() => {
     if (!address && addresses.length > 0) {
+      const enviables = addresses.filter((a) => a.tipo !== "FACTURACION");
       const defaultAddr =
-        addresses.find((a) => a.esPredeterminada) || addresses[0];
+        enviables.find((a) => a.esPredeterminada) || enviables[0];
       if (defaultAddr) onAddressChange(defaultAddr);
     }
   }, [address, addresses, onAddressChange]);
@@ -148,13 +151,13 @@ export const AddressSelector: React.FC<AddressSelectorProps> = ({
   };
 
   return (
-    <Modal isOpen={addressEdit} onClose={handleCloseModal} size="lg" showCloseButton={false}>
+    <Modal isOpen={addressEdit} onClose={handleCloseModal} size="lg" showCloseButton={true}>
       <div className="space-y-6">
         {/* Vista de selección de direcciones */}
         {!showAddForm && (
           <>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200 sm:pr-10">
               <h4 className="text-xl font-semibold text-gray-900">
                 Selecciona tu dirección de envío
               </h4>

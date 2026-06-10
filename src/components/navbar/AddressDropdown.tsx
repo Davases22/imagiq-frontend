@@ -700,6 +700,18 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
                             <p className="text-sm text-gray-700 mt-1.5 leading-relaxed">
                               {address.lineaUno || address.direccionFormateada}
                             </p>
+                            {(address.complemento || address.barrio) && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {[
+                                  address.complemento,
+                                  address.barrio
+                                    ? `Barrio: ${address.barrio}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            )}
                             {address.ciudad && (
                               <p className="text-xs text-gray-500 mt-1">
                                 {address.ciudad}

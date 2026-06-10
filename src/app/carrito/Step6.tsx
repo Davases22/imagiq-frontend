@@ -47,7 +47,9 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
   const { products, isLoading: isCartLoading } = useCart();
 
   const [billingType, setBillingType] = useState<BillingType>("natural");
-  const [useShippingData, setUseShippingData] = useState(false);
+  // Por defecto marcado: usa los mismos datos/dirección de envío para facturación
+  // (el caso más común). El usuario puede desmarcarlo si factura con otros datos.
+  const [useShippingData, setUseShippingData] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -646,13 +648,29 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
         billingData.direccion && (
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-sm font-medium text-gray-700">
-              {billingData.direccion.linea_uno}
+              {billingData.direccion.linea_uno ||
+                billingData.direccion.lineaUno ||
+                billingData.direccion.direccionFormateada}
             </p>
-            {billingData.direccion.ciudad && (
-              <p className="text-sm text-gray-600 mt-1">
-                {billingData.direccion.ciudad}
-              </p>
-            )}
+            <div className="flex flex-col text-sm text-gray-600 mt-1">
+              {billingData.direccion.complemento && (
+                <span>{billingData.direccion.complemento}</span>
+              )}
+              {billingData.direccion.barrio && (
+                <span>Barrio: {billingData.direccion.barrio}</span>
+              )}
+              {billingData.direccion.tipoDireccion && (
+                <span className="capitalize">
+                  {billingData.direccion.tipoDireccion}
+                </span>
+              )}
+              {billingData.direccion.departamento && (
+                <span>{billingData.direccion.departamento}</span>
+              )}
+              {billingData.direccion.ciudad && (
+                <span>{billingData.direccion.ciudad}</span>
+              )}
+            </div>
           </div>
         )
       );
@@ -1059,7 +1077,7 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
                   isOpen={isAddAddressModalOpen}
                   onClose={handleCloseAddAddressModal}
                   size="lg"
-                  showCloseButton={false}
+                  showCloseButton={true}
                 >
                   <AddNewAddressForm
                     onAddressAdded={handleAddressAdded}

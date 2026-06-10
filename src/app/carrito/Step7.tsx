@@ -109,6 +109,12 @@ interface BillingData {
     usuario_id: string;
     linea_uno: string;
     ciudad: string;
+    lineaUno?: string;
+    direccionFormateada?: string;
+    barrio?: string;
+    complemento?: string;
+    tipoDireccion?: string;
+    departamento?: string;
   };
   // Campos de persona jurídica
   razonSocial?: string;
@@ -129,6 +135,14 @@ export default function Step7({ onBack }: Step7Props) {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [shippingData, setShippingData] = useState<ShippingData | null>(null);
   const [billingData, setBillingData] = useState<BillingData | null>(null);
+  // Datos del comprador (la persona que hace la compra, de imagiq_user).
+  // Se muestra como tarjeta aparte cuando la facturación es de otra persona.
+  const [compradorData, setCompradorData] = useState<{
+    nombre?: string;
+    apellido?: string;
+    email?: string;
+    telefono?: string;
+  } | null>(null);
   const [recipientData, setRecipientData] = useState<{
     receivedByClient: boolean;
     firstName?: string;
@@ -365,6 +379,23 @@ export default function Step7({ onBack }: Step7Props) {
         setBillingData(parsed);
       } catch (error) {
         console.error("Error parsing billing data:", error);
+      }
+    }
+
+    // Cargar datos del comprador (imagiq_user) para mostrarlos cuando la
+    // facturación corresponde a otra persona.
+    const compradorStr = localStorage.getItem("imagiq_user");
+    if (compradorStr) {
+      try {
+        const u = JSON.parse(compradorStr);
+        setCompradorData({
+          nombre: u.nombre || "",
+          apellido: u.apellido || "",
+          email: u.email || "",
+          telefono: u.telefono || u.celular || "",
+        });
+      } catch (error) {
+        console.error("Error parsing comprador (imagiq_user):", error);
       }
     }
 
@@ -1600,6 +1631,20 @@ export default function Step7({ onBack }: Step7Props) {
       //       console.log("🏠 [Step7] Usuario ID (del contexto):", authContext.user?.id || loggedUser?.id);
       //       console.log("🏠 [Step7] =============================================");
 
+      // Destinatario de envío (step3). Si el cliente desmarcó "Será recibido por
+      // el cliente" y puso a otra persona, lo mandamos para que el backend lo
+      // guarde; si recibe el comprador, solo enviamos el flag.
+      const recipientPayload =
+        recipientData?.receivedByClient === false
+          ? {
+              receivedByClient: false,
+              firstName: recipientData.firstName?.trim() || "",
+              lastName: recipientData.lastName?.trim() || "",
+              email: recipientData.email?.trim() || "",
+              phone: recipientData.phone?.trim() || "",
+            }
+          : { receivedByClient: true };
+
       switch (paymentData?.method) {
         case "tarjeta": {
           //           console.log("💳 [Step7] ========== PAGO CON TARJETA ==========");
@@ -1656,6 +1701,7 @@ export default function Step7({ onBack }: Step7Props) {
             informacion_facturacion,
             beneficios: buildBeneficios(),
             couponCode: appliedCouponCode || undefined,
+            recipientData: recipientPayload,
           });
 
           if ("error" in res) {
@@ -1770,6 +1816,7 @@ export default function Step7({ onBack }: Step7Props) {
             beneficios: buildBeneficios(),
             bankName: paymentData.bankName || "",
             couponCode: appliedCouponCode || undefined,
+            recipientData: recipientPayload,
           });
           if ("error" in res) {
             setError(res.message);
@@ -1823,6 +1870,7 @@ export default function Step7({ onBack }: Step7Props) {
             informacion_facturacion,
             beneficios: buildBeneficios(),
             couponCode: appliedCouponCode || undefined,
+            recipientData: recipientPayload,
           });
           if ("error" in res) {
             setError(res.message);
@@ -2346,6 +2394,20 @@ export default function Step7({ onBack }: Step7Props) {
                                   {shippingData.address}
                                 </span>
                                 <div className="flex flex-col text-xs text-gray-600 mt-1">
+                                  {checkoutAddress?.complemento && (
+                                    <span>{checkoutAddress.complemento}</span>
+                                  )}
+                                  {checkoutAddress?.barrio && (
+                                    <span>Barrio: {checkoutAddress.barrio}</span>
+                                  )}
+                                  {checkoutAddress?.tipoDireccion && (
+                                    <span className="capitalize">
+                                      {checkoutAddress.tipoDireccion}
+                                    </span>
+                                  )}
+                                  {checkoutAddress?.departamento && (
+                                    <span>{checkoutAddress.departamento}</span>
+                                  )}
                                   {shippingData.city && (
                                     <span>{shippingData.city}</span>
                                   )}
@@ -2486,13 +2548,29 @@ export default function Step7({ onBack }: Step7Props) {
                             <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {billingData.direccion.linea_uno}
+                                {billingData.direccion.linea_uno ||
+                                  billingData.direccion.lineaUno ||
+                                  billingData.direccion.direccionFormateada}
                               </p>
-                              {billingData.direccion.ciudad && (
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {billingData.direccion.ciudad}
-                                </p>
-                              )}
+                              <div className="flex flex-col text-xs text-gray-600 mt-1">
+                                {billingData.direccion.complemento && (
+                                  <span>{billingData.direccion.complemento}</span>
+                                )}
+                                {billingData.direccion.barrio && (
+                                  <span>Barrio: {billingData.direccion.barrio}</span>
+                                )}
+                                {billingData.direccion.tipoDireccion && (
+                                  <span className="capitalize">
+                                    {billingData.direccion.tipoDireccion}
+                                  </span>
+                                )}
+                                {billingData.direccion.departamento && (
+                                  <span>{billingData.direccion.departamento}</span>
+                                )}
+                                {billingData.direccion.ciudad && (
+                                  <span>{billingData.direccion.ciudad}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2500,6 +2578,65 @@ export default function Step7({ onBack }: Step7Props) {
                     </div>
                   </div>
                 )}
+
+                {/* Información del comprador: solo cuando la facturación es de otra persona */}
+                {compradorData &&
+                  billingData &&
+                  ((compradorData.email || "").trim().toLowerCase() !==
+                    (billingData.email || "").trim().toLowerCase() ||
+                    `${compradorData.nombre || ""} ${compradorData.apellido || ""}`
+                      .trim()
+                      .toLowerCase() !==
+                      (billingData.nombre || "").trim().toLowerCase()) && (
+                    <div className="bg-white rounded-lg p-4 border border-gray-300">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                          <UserIcon className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-gray-900">
+                            Información del comprador
+                          </h2>
+                          <p className="text-sm text-gray-600">
+                            Quien realiza la compra
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Nombre</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {compradorData.nombre || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Apellido</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {compradorData.apellido || "-"}
+                          </p>
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-xs text-gray-500 mb-1">
+                            Correo electrónico
+                          </p>
+                          <p
+                            className="text-sm font-medium text-gray-900 truncate"
+                            title={compradorData.email || ""}
+                          >
+                            {compradorData.email || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">
+                            Número de celular
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {compradorData.telefono || "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
               </>
             )}
           </div>
