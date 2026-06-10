@@ -793,10 +793,11 @@ export default function AddNewAddressForm({
             ciudad: shippingResponse.ciudad || '',
             pais: shippingResponse.pais || 'Colombia',
             esPredeterminada: true,
-            // Campos adicionales para mostrar detalles en Step3
+            // Campos adicionales para mostrar detalles en Step3/Step7
             localidad: shippingResponse.localidad || '',
             barrio: shippingResponse.barrio || '',
             complemento: shippingResponse.complemento || '',
+            departamento: shippingResponse.departamento || formData.departamento || '',
             instruccionesEntrega: shippingResponse.instruccionesEntrega || '',
             tipoDireccion: shippingResponse.tipoDireccion || '',
             nombreDireccion: shippingResponse.nombreDireccion || '',
@@ -893,9 +894,14 @@ export default function AddNewAddressForm({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    // Si intentan modificar la ciudad y fue auto-completada, no permitirlo
-    if (field === "ciudad" && isCityAutoCompleted) {
-      return;
+    // El autocompletado de la ubicación (geolocalización / Google Places) marca
+    // la ciudad como auto-completada UNA sola vez. En cuanto el usuario edita
+    // CUALQUIER campo a mano, liberamos ese "lock" para permitir edición libre
+    // de todo el formulario (incluida la ciudad). La geolocalización/Google
+    // escriben con setFormData directo, no pasan por aquí, así que el lock solo
+    // se libera ante una edición manual real del usuario.
+    if (isCityAutoCompleted) {
+      setIsCityAutoCompleted(false);
     }
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -1204,7 +1210,11 @@ export default function AddNewAddressForm({
   const formContent = (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Título, indicador de pasos y botón continuar */}
-      <div className="flex items-center justify-between mb-6 gap-4">
+      <div
+        className={`flex items-center justify-between mb-6 gap-4 ${
+          billingOnly ? "pr-10" : ""
+        }`}
+      >
         {/* Título + Indicador de pasos */}
         <div className="flex items-center gap-4">
           {/* Título (si se proporciona) */}
