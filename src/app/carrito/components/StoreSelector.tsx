@@ -102,10 +102,10 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
     : [];
 
   return (
-    <Modal isOpen={storeEdit} onClose={handleCloseModal} size="lg" showCloseButton={false}>
+    <Modal isOpen={storeEdit} onClose={handleCloseModal} size="lg" showCloseButton={true}>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-gray-200 sm:pr-10">
           <h4 className="text-xl font-semibold text-gray-900">
             Selecciona tu tienda
           </h4>

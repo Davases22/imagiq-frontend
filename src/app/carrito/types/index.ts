@@ -1,3 +1,13 @@
+export interface RecipientPayload {
+  // = checkbox "Será recibido por el cliente" del step3.
+  receivedByClient: boolean;
+  // Solo presentes cuando receivedByClient === false (otra persona recibe).
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface BasicPaymentData {
   totalAmount: string;
   shippingAmount: string;
@@ -9,6 +19,7 @@ export interface BasicPaymentData {
   informacion_facturacion: InformacionFacturacion;
   beneficios?: BeneficiosDTO[];
   couponCode?: string;
+  recipientData?: RecipientPayload;
 }
 export interface InformacionFacturacion {
   type: string;

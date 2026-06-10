@@ -235,6 +235,7 @@ export interface Direccion {
   localidad?: string;
   barrio?: string;
   complemento?: string;
+  departamento?: string;
   instruccionesEntrega?: string;
   tipoDireccion?: string;
   nombreDireccion?: string;
