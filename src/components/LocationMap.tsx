@@ -322,7 +322,7 @@ export default function LocationMap({ initialStores }: LocationMapProps = {}) {
 
       {/* Interactive Map Container - Responsive: móvil y desktop/tablet */}
       <div className="relative rounded-xl overflow-hidden z-10 animate-fade-in w-full max-w-[99vw] mx-auto mt-0 md:mt-2 px-1 md:px-0 md:max-w-none md:rounded-2xl flex justify-center items-center">
-        <div className="relative h-[220px] xs:h-[260px] sm:h-[280px] md:h-[500px] lg:h-[600px] md:w-[1200px] lg:w-[1400px] w-full flex justify-center items-center">
+        <div className="relative h-[360px] xs:h-[400px] sm:h-[440px] md:h-[500px] lg:h-[600px] md:w-[1200px] lg:w-[1400px] w-full flex justify-center items-center">
           {/* Mensaje para indicar al usuario que haga clic para interactuar */}
           {!scrollWheelEnabled && (
             <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
