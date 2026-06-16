@@ -1,6 +1,7 @@
 "use client";
 import { AddiPaymentData, CardPaymentData, PsePaymentData, CheckZeroInterestRequest, CheckZeroInterestResponse } from "../types";
 import { apiPost, apiGet } from "@/lib/api-client";
+import { getFacebookCookies } from "@/lib/analytics/utils/anonymize";
 import posthog from "posthog-js";
 
 /** Get PostHog session tracking IDs (safe - returns empty strings if unavailable) */
@@ -16,11 +17,34 @@ function getPostHogIds() {
   return { posthogSessionId: "", posthogDistinctId: "" };
 }
 
+/**
+ * Cookies de Facebook (_fbp/_fbc, fbc se sintetiza desde ?fbclid si falta) y
+ * user-agent. Se persisten con la orden para que el backend dispare el
+ * `Purchase` server-side a Meta CAPI (Advanced Matching + dedup con el píxel).
+ */
+function getFacebookPayload() {
+  try {
+    const { fbp, fbc } = getFacebookCookies();
+    return {
+      _fbp: fbp,
+      _fbc: fbc,
+      client_user_agent:
+        typeof navigator !== "undefined" ? navigator.userAgent : "",
+    };
+  } catch {
+    return { _fbp: null, _fbc: null, client_user_agent: "" };
+  }
+}
+
 export async function payWithAddi(
   props: AddiPaymentData
 ): Promise<{ redirectUrl: string } | { error: string; message: string }> {
   try {
-    const data = await apiPost<{ redirectUrl: string }>('/api/payments/addi/apply', props);
+    const data = await apiPost<{ redirectUrl: string }>('/api/payments/addi/apply', {
+      ...props,
+      ...getPostHogIds(),
+      ...getFacebookPayload(),
+    });
     return data;
   } catch (error) {
     console.error("Error initiating Addi payment:", error);
@@ -39,6 +63,7 @@ export async function payWithCard(
       ...props,
       dues: props.dues.trim() === "" ? "1" : props.dues,
       ...getPostHogIds(),
+      ...getFacebookPayload(),
     });
     return data;
   } catch (error) {
@@ -59,6 +84,7 @@ export async function payWithSavedCard(
       ...props,
       dues: props.dues.trim() === "" ? "1" : props.dues,
       ...getPostHogIds(),
+      ...getFacebookPayload(),
     });
     return data;
   } catch (error) {
@@ -75,6 +101,7 @@ export async function payWithPse(props: PsePaymentData): Promise<{ redirectUrl: 
     const data = await apiPost<{ redirectUrl: string }>('/api/payments/epayco/pse', {
       ...props,
       ...getPostHogIds(),
+      ...getFacebookPayload(),
     });
     return data;
   } catch (error) {

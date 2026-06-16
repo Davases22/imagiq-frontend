@@ -9,6 +9,11 @@ export interface BasicPaymentData {
   informacion_facturacion: InformacionFacturacion;
   beneficios?: BeneficiosDTO[];
   couponCode?: string;
+  // Cookies de Facebook (_fbp/_fbc) y user-agent para Meta CAPI server-side.
+  // Se persisten en la orden y se reusan al disparar el `Purchase` server-side.
+  _fbp?: string | null;
+  _fbc?: string | null;
+  client_user_agent?: string;
 }
 export interface InformacionFacturacion {
   type: string;
