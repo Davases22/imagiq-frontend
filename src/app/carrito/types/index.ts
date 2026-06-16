@@ -1,3 +1,13 @@
+export interface RecipientPayload {
+  // = checkbox "Será recibido por el cliente" del step3.
+  receivedByClient: boolean;
+  // Solo presentes cuando receivedByClient === false (otra persona recibe).
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface BasicPaymentData {
   totalAmount: string;
   shippingAmount: string;
@@ -14,6 +24,7 @@ export interface BasicPaymentData {
   _fbp?: string | null;
   _fbc?: string | null;
   client_user_agent?: string;
+  recipientData?: RecipientPayload;
 }
 export interface InformacionFacturacion {
   type: string;

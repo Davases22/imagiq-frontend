@@ -83,9 +83,12 @@ export function CheckoutAddressProvider({ children }: { children: ReactNode }) {
       setSelectedAddress((prev) => {
         if (prev && all.some((a) => a.id === prev.id)) return prev;
         if (defaultAddr) return defaultAddr;
-        const predeterminada = all.find((a) => a.esPredeterminada);
+        // Excluir direcciones de FACTURACION: nunca deben elegirse como envío
+        // (si no, la última factura agregada —primera del listado— se cuela).
+        const enviables = all.filter((a) => a.tipo !== "FACTURACION");
+        const predeterminada = enviables.find((a) => a.esPredeterminada);
         if (predeterminada) return predeterminada;
-        return all.length > 0 ? all[0] : null;
+        return enviables.length > 0 ? enviables[0] : null;
       });
     } catch (error) {
       console.error("[CheckoutAddress] Error fetching addresses:", error);
