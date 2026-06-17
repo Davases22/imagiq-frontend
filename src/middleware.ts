@@ -116,6 +116,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/og/") ||
     pathname.startsWith("/ingest") ||
     pathname.startsWith("/static") ||
     pathname.includes(".") ||

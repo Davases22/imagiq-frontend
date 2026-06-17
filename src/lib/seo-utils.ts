@@ -298,34 +298,40 @@ export async function buildProductMetadata(
       index: !(override?.seo_no_index ?? false),
       follow: !(override?.seo_no_follow ?? false),
     },
-    // Twitter is conflict-free via the typed field.
+    // Standard OG via the TYPED openGraph field so Next renders them as
+    // `property="og:*"` (Facebook ignores `name="og:*"`). A child openGraph
+    // object replaces the root layout's generic one, so the product values win.
+    // `type: "product"` is cast because Next's union doesn't list it, but Next
+    // renders the string verbatim → property="og:type" content="product".
+    openGraph: {
+      // Cast: Next's OpenGraph type union omits "product"; Next renders the
+      // string verbatim → <meta property="og:type" content="product">.
+      type: "product" as unknown as "website",
+      url: canonical,
+      title: ogTitle,
+      description: ogDescription,
+      siteName: "Samsung Store",
+      locale: "es_CO",
+      images: [
+        { url: ogImage, width: 1200, height: 630, alt: meta.name },
+      ],
+    },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description: ogDescription,
       images: [ogImage],
     },
-    // Full OG + product namespace emitted manually for deterministic og:type
-    // and the Meta-catalog `product:*` tags. All URLs absolute.
+    // The `product:*` namespace for Meta's catalog. Next emits these via `other`
+    // as `name="product:*"`; the canonical catalog source is the merchant feed,
+    // so these are supplementary signals (price/stock are live from the catalog).
     other: {
-      "og:type": "product",
-      "og:title": ogTitle,
-      "og:description": ogDescription,
-      "og:url": canonical,
-      "og:site_name": "Samsung Store",
-      "og:locale": "es_CO",
-      "og:image": ogImage,
-      "og:image:secure_url": ogImage,
-      "og:image:width": "1200",
-      "og:image:height": "630",
-      "og:image:alt": meta.name,
       "product:price:amount": String(meta.price),
       "product:price:currency": meta.currency,
       "product:availability": availability,
       "product:retailer_item_id": meta.sku,
       "product:brand": meta.brand,
       "product:condition": meta.condition,
-      // Some scrapers read the legacy og:price:* pair too.
       "og:price:amount": String(meta.price),
       "og:price:currency": meta.currency,
     },
