@@ -145,7 +145,7 @@ export default function RootLayout({
   }
   return (
     <html
-      lang="es"
+      lang="es-CO"
       suppressHydrationWarning
       className={`${samsungSharpSans.variable}`}
       style={
@@ -185,6 +185,23 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(
               buildSiteNavigationJsonLd(process.env.NEXT_PUBLIC_SITE_URL || "https://imagiq.com")
+            ),
+          }}
+        />
+        {/* JSON-LD: Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              buildOrganizationJsonLd({
+                site_name: "Samsung Store - iMagiQ Colombia",
+                site_url: process.env.NEXT_PUBLIC_SITE_URL || "https://imagiq.com",
+                title_template: "",
+                default_title: "",
+                default_description: "",
+                default_og_image: "",
+                google_verification: "",
+              })
             ),
           }}
         />
