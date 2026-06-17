@@ -304,9 +304,12 @@ export async function buildProductMetadata(
     // `type: "product"` is cast because Next's union doesn't list it, but Next
     // renders the string verbatim → property="og:type" content="product".
     openGraph: {
-      // Cast: Next's OpenGraph type union omits "product"; Next renders the
-      // string verbatim → <meta property="og:type" content="product">.
-      type: "product" as unknown as "website",
+      // Must be a valid Next OpenGraph type — an invalid value (e.g. "product")
+      // makes Next's metadata resolver throw and drops ALL metadata. og:type is
+      // not critical for link previews and the Meta catalog uses the merchant
+      // feed, so "website" is fine here. These render as property="og:*" and
+      // replace the root layout's generic OG → previews show the product.
+      type: "website",
       url: canonical,
       title: ogTitle,
       description: ogDescription,
