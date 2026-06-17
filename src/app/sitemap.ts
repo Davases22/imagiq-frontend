@@ -67,5 +67,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-  return [...staticPages, ...cmsPages, ...categoryPages];
+  // Product pages — one canonical URL per product group (codigoMarket). Best
+  // effort: defensively parse the catalog response, dedupe, and cap to stay
+  // well under the 50k-URL sitemap limit. Never breaks the sitemap on error.
+  const catalog = await fetchJson<any>(`${API_URL}/api/products`, []);
+  const catalogArr: any[] = Array.isArray(catalog)
+    ? catalog
+    : catalog?.products || catalog?.data || [];
+  const seenCm = new Set<string>();
+  const productPages: MetadataRoute.Sitemap = [];
+  for (const p of catalogArr) {
+    const cm = String(p?.codigoMarket || p?.codigo_market || '').trim();
+    if (!cm || seenCm.has(cm)) continue;
+    seenCm.add(cm);
+    productPages.push({
+      url: `${baseUrl}/productos/view/${encodeURIComponent(cm)}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.7,
+    });
+    if (productPages.length >= 20000) break;
+  }
+
+  return [...staticPages, ...cmsPages, ...categoryPages, ...productPages];
 }
