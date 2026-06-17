@@ -7,17 +7,18 @@ interface Props {
   children: React.ReactNode;
 }
 
-// Server-side metadata. The route param `id` is the product's codigoMarket
-// (or a SKU). `buildProductMetadata` resolves canonical product data + manual
-// SEO overrides, emits og:type=product + product:* for the Meta catalog, and
-// points og:image to the dynamic branded 1200×630 OG image. Returns {} only
-// when the product can't be resolved (keeps the generic root metadata).
+// Premium PDP variant. Was client-only with no metadata → generic preview.
+// Server layout adds product-specific metadata + product:* + JSON-LD, sharing
+// the same central helper as /view and /multimedia.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   return (await buildProductMetadata(id)) ?? {};
 }
 
-export default async function ProductViewLayout({ params, children }: Props) {
+export default async function ProductViewPremiumLayout({
+  params,
+  children,
+}: Props) {
   const { id } = await params;
   return (
     <>

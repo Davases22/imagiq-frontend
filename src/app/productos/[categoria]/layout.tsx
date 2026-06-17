@@ -12,6 +12,7 @@
  */
 
 import type { Metadata } from "next";
+import { buildItemListJsonLd } from "@/lib/seo-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://imagiq.com";
@@ -106,6 +107,52 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   };
 }
 
-export default function CategoriaLayout({ children }: LayoutProps) {
-  return children;
+/** Best-effort ItemList JSON-LD for the category listing (AC#4). Defensive:
+ * any failure (unknown category, fetch error, unexpected shape) just renders
+ * children with no ItemList — never breaks the page. */
+async function fetchCategoryItemList(
+  categoria: string,
+): Promise<Array<{ name: string; url: string }>> {
+  try {
+    const data = await findCategoriaBySlug(categoria);
+    const key = data?.nombre || categoria;
+    const res = await fetch(
+      `${API_URL}/api/products/filtered?categoria=${encodeURIComponent(key)}`,
+      { next: { revalidate: 600 } },
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const arr: any[] = Array.isArray(json) ? json : json?.products || json?.data || [];
+    const seen = new Set<string>();
+    const items: Array<{ name: string; url: string }> = [];
+    for (const p of arr) {
+      const cm = String(p?.codigoMarket || p?.codigo_market || "").trim();
+      const name = String(p?.nombreMarket || p?.nombre || p?.name || "").trim();
+      if (!cm || !name || seen.has(cm)) continue;
+      seen.add(cm);
+      items.push({ name, url: `${SITE_URL}/productos/view/${encodeURIComponent(cm)}` });
+      if (items.length >= 30) break;
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+export default async function CategoriaLayout({ children, params }: LayoutProps) {
+  const { categoria } = await params;
+  const items = await fetchCategoryItemList(categoria);
+  return (
+    <>
+      {items.length > 0 ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(buildItemListJsonLd(items)),
+          }}
+        />
+      ) : null}
+      {children}
+    </>
+  );
 }
