@@ -88,7 +88,10 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       type: "website",
-      locale: "es_CO",
+      // Facebook usa su propio enum de locales: español de Latinoamérica es
+      // es_LA (es_CO NO es válido e invalida todo el objeto OG). El <html lang>
+      // sí usa es-CO (BCP-47 para Google/hreflang).
+      locale: "es_LA",
       url: s.site_url,
       siteName: s.site_name,
       title: s.default_title,
