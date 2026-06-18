@@ -78,7 +78,8 @@ export async function GET(
           fontFamily: "sans-serif",
         }}
       >
-        {/* Left: product photo on white */}
+        {/* Left: product photo on a clean white panel (matches the right side,
+            no visible "background" — Samsung-style). */}
         <div
           style={{
             width: "560px",
@@ -86,7 +87,7 @@ export async function GET(
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#f4f6fb",
+            backgroundColor: "#ffffff",
           }}
         >
           {photo ? (
