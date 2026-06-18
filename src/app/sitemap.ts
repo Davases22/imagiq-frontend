@@ -78,10 +78,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const productPages: MetadataRoute.Sitemap = [];
   for (const p of catalogArr) {
     const cm = String(p?.codigoMarket || p?.codigo_market || '').trim();
-    if (!cm || seenCm.has(cm)) continue;
-    seenCm.add(cm);
+    // Slug sin slash (codigoMarket de AV/DA trae '/'): el base resuelve igual y
+    // evita %2F en la URL. Dedup por base.
+    const slug = cm.split('/')[0].trim();
+    if (!slug || seenCm.has(slug)) continue;
+    seenCm.add(slug);
     productPages.push({
-      url: `${baseUrl}/productos/view/${encodeURIComponent(cm)}`,
+      url: `${baseUrl}/productos/view/${encodeURIComponent(slug)}`,
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.7,

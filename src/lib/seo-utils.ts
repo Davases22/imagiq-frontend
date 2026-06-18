@@ -246,16 +246,25 @@ export async function fetchProductSeoOverride(
   }
 }
 
+/** Slug de URL de producto SIN slash. Muchos codigoMarket de AV/DA traen '/'
+ * (ej. "HW-B400F/ZL"); un '/' en el path se vuelve %2F y rompe el match del
+ * segmento [id] de Next → metadata genérica. El base (parte antes del '/')
+ * resuelve igual en el backend (getProductMeta y filtered aceptan codigo_market_base)
+ * y se usa de forma consistente en canónico, og:image, feed y sitemap. */
+export function productSlug(codigoMarket: string): string {
+  return (codigoMarket || "").split("/")[0].trim();
+}
+
 /** URL of the dynamic branded OG image (next/og route). Lives OUTSIDE `/api/*`
  * because next.config rewrites `/api/*` to the backend, which would shadow it. */
 export function productOgImageUrl(codigoMarket: string): string {
-  return `${SITE_URL}/og/product/${encodeURIComponent(codigoMarket)}`;
+  return `${SITE_URL}/og/product/${encodeURIComponent(productSlug(codigoMarket))}`;
 }
 
-/** Canonical product URL — one per product group, regardless of which PDP
- * variant route (view/multimedia/viewpremium) the user landed on. */
+/** Canonical product URL — one per product group (slug sin slash), regardless of
+ * which PDP variant route (view/multimedia/viewpremium) the user landed on. */
 export function productCanonicalUrl(codigoMarket: string): string {
-  return `${SITE_URL}/productos/view/${encodeURIComponent(codigoMarket)}`;
+  return `${SITE_URL}/productos/view/${encodeURIComponent(productSlug(codigoMarket))}`;
 }
 
 /**
