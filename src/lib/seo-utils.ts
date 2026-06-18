@@ -314,7 +314,9 @@ export async function buildProductMetadata(
       title: ogTitle,
       description: ogDescription,
       siteName: "Samsung Store",
-      locale: "es_CO",
+      // es_LA = locale de Facebook para LatAm (es_CO no es válido e invalida el
+      // objeto OG, lo que bloqueaba fb:app_id). El <html lang> usa es-CO.
+      locale: "es_LA",
       images: [
         { url: ogImage, width: 1200, height: 630, alt: meta.name },
       ],
