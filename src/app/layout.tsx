@@ -156,6 +156,10 @@ export default function RootLayout({
       }
     >
       <head>
+        {/* fb:app_id — silencia la advertencia del Sharing Debugger y asocia los
+            compartidos del dominio a la app de Meta del negocio (Conversions API
+            Application). Debe ser property= (Facebook ignora name=). */}
+        <meta property="fb:app_id" content="3411213019157026" />
         {/* Optimización Flixmedia: DNS prefetch, preconnect y preload para carga ultra-rápida */}
         <link rel="dns-prefetch" href="//media.flixfacts.com" />
         <link rel="dns-prefetch" href="//media.flixcar.com" />
