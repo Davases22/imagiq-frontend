@@ -7,6 +7,8 @@
  * - Bearer Token (Authorization): Autenticación del usuario (desde localStorage)
  */
 
+import { getCachedClientIp, primeClientIp } from "@/lib/client-ip";
+
 // Browser: use relative URLs so requests go through Next.js rewrites.
 // Server (SSR): use the full backend URL since relative URLs don't work.
 // We use a non-NEXT_PUBLIC_ env var for server-side to avoid Turbopack inlining.
@@ -57,6 +59,18 @@ export async function apiClient(
     ...(authToken && { Authorization: `Bearer ${authToken}` }),
     ...options.headers,
   });
+
+  // IP real del cliente para flujos de pago / orden. Las peticiones van por el
+  // rewrite de Vercel, así que el backend no puede ver la IP del navegador en
+  // x-forwarded-for (ve la de Vercel/AWS). Enviamos la IP pública obtenida vía
+  // ipify en un header dedicado que el gateway prioriza. Ver lib/client-ip.ts.
+  if (typeof window !== "undefined") {
+    void primeClientIp(); // resuelve y cachea una sola vez por sesión
+    if (/^\/api\/(payments|orders)\b/.test(endpoint)) {
+      const clientIp = getCachedClientIp();
+      if (clientIp) headers.set("x-imagiq-client-ip", clientIp);
+    }
+  }
 
   try {
     const response = await fetch(url, {
