@@ -515,8 +515,9 @@ export default function ProductCard({
       closeChat();
     }
 
-    // Navega primero a la página multimedia con contenido Flixmedia
-    router.push(`/productos/multimedia/${id}`);
+    // Navega primero a la página multimedia con contenido Flixmedia.
+    // Slug sin slash: codigoMarket de AV/DA trae '/' y rompe el route de Next.
+    router.push(`/productos/multimedia/${String(id).split("/")[0]}`);
     posthogUtils.capture("product_more_info_click", {
       product_id: id,
       product_name: name,
