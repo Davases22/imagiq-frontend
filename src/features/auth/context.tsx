@@ -20,6 +20,7 @@ import { apiClient } from "@/lib/api";
 import { User } from "@/types/user";
 import { addressesService } from "@/services/addresses.service";
 import { setPosthogUserId, posthogUtils } from "@/lib/posthogClient";
+import { mergeSearchHistoryOnLogin } from "@/lib/searchHistory";
 
 interface AuthContextType {
   user: User | null;
@@ -183,6 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       telefono: userData.telefono,
       role: userRole,
     });
+
+    // Merge del historial de búsqueda anónimo → usuario (reasigna las búsquedas
+    // pre-login al usuario; espejo del identify() de PostHog). Best-effort.
+    mergeSearchHistoryOnLogin(userData.id);
 
     // ✅ NUEVO: Cargar dirección predeterminada del usuario
     try {
