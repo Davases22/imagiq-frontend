@@ -152,11 +152,22 @@ export default function SuccessCheckoutPage({
           const orderData = orderResponse.data;
           const items = orderData.order_items || [];
 
-          // Calcular el valor total usando precios reales
-          const totalValue = orderData.total_amount || items.reduce(
-            (sum, item) => sum + (Number(item.unit_price || item.precio) || 0) * (item.quantity || item.cantidad || 1),
-            0
-          );
+          // Valor total REAL de la orden, en unidades COP y SIEMPRE numérico.
+          // `total_amount` puede llegar como string (numeric de pg, p.ej.
+          // "1699900.00"); Number() lo normaliza. Solo si falta/es 0 caemos a la
+          // suma de líneas. Un valor no numérico rompía el píxel y el CAPI
+          // (guard `typeof === 'number'`) → Purchase sin precio.
+          const parsedTotal = Number(orderData.total_amount);
+          const totalValue =
+            Number.isFinite(parsedTotal) && parsedTotal > 0
+              ? parsedTotal
+              : items.reduce(
+                  (sum, item) =>
+                    sum +
+                    (Number(item.unit_price || item.precio) || 0) *
+                      (item.quantity || item.cantidad || 1),
+                  0
+                );
 
           const mappedItems = items.map((item) => ({
             item_id: item.sku || "unknown",

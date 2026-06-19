@@ -41,6 +41,7 @@ export function useAnalyticsWithUser() {
     if (!isAuthenticated || !user) return undefined;
 
     return {
+      id: user.id,
       email: user.email,
       phone: user.telefono,
       firstName: user.nombre,
