@@ -136,22 +136,50 @@ function deliverOrQueue(label: string, send: () => void): void {
  *
  * @param event - Evento formateado para Meta Pixel
  * @param eventId - Event ID para deduplicación con CAPI
- * @param userData - Datos de usuario hasheados para Advanced Matching (opcional)
+ *
+ * Nota: el Advanced Matching NO se pasa en las opciones del `track` (Meta lo
+ * ignora ahí). Se configura aparte vía {@link setMetaAdvancedMatching}, que llama
+ * `fbq('init', pixelId, {...})`.
  */
-export function sendMeta(
-  event: MetaEvent,
-  eventId: string,
-  userData?: Record<string, string>
-): void {
+export function sendMeta(event: MetaEvent, eventId: string): void {
   deliverOrQueue(event.name, () => {
     const fbq = typeof window !== 'undefined' ? window.fbq : undefined;
     if (typeof fbq !== 'function') return;
-    const options: Record<string, unknown> = { eventID: eventId };
-    if (userData && Object.keys(userData).length > 0) {
-      // Para Advanced Matching: fbq('track', event, data, { eventID, em, ph, ... })
-      Object.assign(options, userData);
+    fbq('track', event.name, event.data, { eventID: eventId });
+  });
+}
+
+/**
+ * Configura el Advanced Matching MANUAL del píxel para un usuario conocido.
+ *
+ * Mecanismo correcto de Meta: `fbq('init', pixelId, { em, ph, fn, ln, external_id })`.
+ * El píxel hashea (SHA-256) internamente, así que `userData` debe venir en
+ * PLAINTEXT NORMALIZADO (ver normalizeUserDataForPixel). El pixelId vive en el
+ * backend; el bootstrap expone `window.__imagiqSetMetaAM(d)` que hace el init.
+ *
+ * - Consent-gated: usa deliverOrQueue ⇒ solo se aplica con fbq listo + consentimiento.
+ * - Idempotente por usuario: solo re-aplica cuando cambian los datos.
+ * - Degradación elegante: si el bootstrap viejo no expuso el helper, es no-op.
+ */
+let lastAppliedAMKey = '';
+
+export function setMetaAdvancedMatching(userData: Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+  if (!userData || Object.keys(userData).length === 0) return;
+
+  const key = JSON.stringify(userData);
+  if (key === lastAppliedAMKey) return; // ya aplicado para este usuario
+
+  deliverOrQueue('advanced-matching', () => {
+    const setAM = (
+      window as unknown as {
+        __imagiqSetMetaAM?: (d: Record<string, string>) => void;
+      }
+    ).__imagiqSetMetaAM;
+    if (typeof setAM === 'function') {
+      setAM(userData);
+      lastAppliedAMKey = key; // marcar solo tras aplicar realmente
     }
-    fbq('track', event.name, event.data, options);
   });
 }
 

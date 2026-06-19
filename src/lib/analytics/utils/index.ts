@@ -10,5 +10,6 @@ export {
   hashEmail,
   hashPhone,
   hashUserData,
+  normalizeUserDataForPixel,
 } from './hash';
 export { canSendAnalytics, canSendAds, logConsentBlocked } from './consent';
