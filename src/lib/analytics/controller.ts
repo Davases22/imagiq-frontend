@@ -22,6 +22,10 @@ import { generateEventIdForEvent, handleAbandonTracking } from './helpers/event-
  * Interfaz unificada para datos de usuario en analytics
  */
 export interface AnalyticsUserData {
+  /** ID interno del usuario (usuarios.id). Se usa como `external_id` en Meta,
+   *  idéntico al que envía el server-side (payments-ms usa order.usuario_id),
+   *  para que cliente y servidor compartan el mismo identificador. */
+  id?: string;
   email?: string;
   phone?: string;
   firstName?: string;

@@ -137,7 +137,13 @@ async function buildFullUserData(
     client_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     fbp: fbp ?? undefined,
     fbc: fbc ?? undefined,
-    external_id: userData?.email ? await hashSingleValue(userData.email) : undefined,
+    // external_id: preferimos el usuario_id en crudo (idéntico al server-side)
+    // y caemos al email hasheado solo si no hay id. Consistencia cliente/servidor.
+    external_id: userData?.id
+      ? userData.id
+      : userData?.email
+        ? await hashSingleValue(userData.email)
+        : undefined,
   };
 }
 
