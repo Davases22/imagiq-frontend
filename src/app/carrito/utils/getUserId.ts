@@ -3,6 +3,8 @@
  * Busca en múltiples fuentes para asegurar que siempre se encuentre el userId
  */
 
+import { setPosthogUserId } from "@/lib/posthogClient";
+
 /**
  * Obtiene el userId del usuario actual (invitado o registrado)
  * Busca en este orden de prioridad:
@@ -128,6 +130,23 @@ export function saveUserId(userId: string, userEmail?: string, clearPrevious: bo
       if (userEmail) address.email = userEmail;
       localStorage.setItem('checkout-address', JSON.stringify(address));
       // console.log('✅ [saveUserId] UserId guardado en checkout-address:', userId);
+    }
+
+    // PASO 4: Identificar en PostHog con el MISMO id que usa el server-side
+    // (order.usuario_id). posthog.identify une el distinct_id anónimo actual a
+    // esta persona ⇒ los eventos anónimos previos (ViewContent, etc.) quedan
+    // bajo la misma persona que la compra (capturada server-side con
+    // distinctId=usuario_id). Sin esto, el checkout de INVITADO quedaba anónimo
+    // y el stitching fallaba → "primer evento = compra" → tiempo-a-compra 0h.
+    // (Los logueados ya se identifican vía auth context; aquí cerramos el gap.)
+    // NO hacemos reset(): orfanaría los eventos anónimos. Reset solo en logout.
+    try {
+      setPosthogUserId(userId, {
+        customer_id: userId,
+        ...(userEmail ? { $email: userEmail } : {}),
+      });
+    } catch (e) {
+      console.warn('⚠️ [saveUserId] No se pudo identificar en PostHog:', e);
     }
 
     // console.log('✅ [saveUserId] UserId guardado exitosamente:', userId);
