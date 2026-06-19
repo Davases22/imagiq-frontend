@@ -5,6 +5,7 @@ import { useCartContext } from "@/features/cart/CartContext";
 import { useNavbarVisibility } from "@/features/layout/NavbarVisibilityContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { posthogUtils } from "@/lib/posthogClient";
+import { recordSearch } from "@/lib/searchHistory";
 import { navbarRoutes } from "@/routes/navbarRoutes";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -268,6 +269,12 @@ export function useNavbarLogic() {
         query: searchQuery.trim(),
         source: "navbar",
         results_count: searchResults.length,
+      });
+      // Historial: recientes en localStorage (UX) + log al backend (data de
+      // demanda). Best-effort, no bloquea la navegación.
+      recordSearch(searchQuery.trim(), {
+        resultCount: searchResults.length,
+        source: "navbar",
       });
       window.location.href = `/productos?q=${encodeURIComponent(
         searchQuery.trim()
