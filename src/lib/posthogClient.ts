@@ -154,15 +154,6 @@ export const initPostHog = () => {
   try {
     posthog.init(POSTHOG_KEY, posthogConfig);
     console.log("PostHog initialized successfully");
-    
-    // 🧪 Evento de prueba al inicializar - puedes eliminarlo después de verificar
-    posthog.capture("posthog_test_event", {
-      test: true,
-      timestamp: new Date().toISOString(),
-      source: "posthog_initialization",
-      message: "PostHog se ha inicializado correctamente en Imagiq"
-    });
-    console.log("🧪 PostHog test event captured: posthog_test_event");
   } catch (error) {
     console.error("Error initializing PostHog:", error);
   }
