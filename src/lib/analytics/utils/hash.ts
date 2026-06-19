@@ -27,22 +27,24 @@ export function normalizeEmail(email: string): string {
 }
 
 /**
- * Normaliza un teléfono según estándares de Meta/TikTok
- * 1. Remove all non-numeric characters EXCEPT leading +
- * 2. Must include country code (e.g., +57 for Colombia)
+ * Normaliza un teléfono al formato de hashing de Meta/TikTok:
+ * solo dígitos, con indicativo de país, SIN '+' (Meta hashea sin el símbolo).
+ * Asume Colombia (57) para móviles locales de 10 dígitos. Idéntico al
+ * normalizePhone del server-side (payments-ms) para que el hash cliente↔servidor
+ * coincida y Meta empareje el teléfono.
  *
  * @param phone - Teléfono sin normalizar
- * @returns Teléfono normalizado (solo dígitos con + opcional)
+ * @returns Teléfono normalizado (dígitos con indicativo, sin '+')
  *
  * @example
- * normalizePhone('+57 (300) 123-4567') // => '+573001234567'
- * normalizePhone('300 123 4567')       // => '3001234567' (falta country code!)
+ * normalizePhone('+57 (300) 123-4567') // => '573001234567'
+ * normalizePhone('300 123 4567')       // => '573001234567' (agrega indicativo)
  */
 export function normalizePhone(phone: string): string {
-  // Preservar el + inicial si existe
-  const hasPlus = phone.trim().startsWith('+');
-  const digits = phone.replace(/[^\d]/g, '');
-  return hasPlus ? `+${digits}` : digits;
+  let digits = phone.replace(/[^\d]/g, '');
+  // Colombia: agregar indicativo 57 a móviles locales de 10 dígitos.
+  if (digits.length === 10) digits = `57${digits}`;
+  return digits;
 }
 
 /**
@@ -116,9 +118,9 @@ export async function hashPhone(phone: string): Promise<string> {
   if (!phone || phone.trim() === '') return '';
   const normalized = normalizePhone(phone);
 
-  // Validar que tenga country code (debe empezar con +)
-  if (!normalized.startsWith('+')) {
-    console.warn('[Analytics] Phone number missing country code, hash may be invalid:', phone);
+  // Validar que incluya indicativo de país (Colombia E.164 = 12 dígitos).
+  if (normalized.length < 11) {
+    console.warn('[Analytics] Phone number may be missing country code, hash may be invalid:', phone);
   }
 
   return sha256Hex(normalized);
@@ -236,4 +238,35 @@ export async function hashUserData(user: {
   }
 
   return hashed;
+}
+
+/**
+ * Normaliza (SIN hashear) los datos de usuario para Advanced Matching manual del
+ * **píxel** vía `fbq('init', pixelId, {...})`.
+ *
+ * IMPORTANTE: el píxel hashea (SHA-256) internamente lo que le pasamos, así que
+ * aquí enviamos PLAINTEXT NORMALIZADO (em/ph/fn/ln). Pasar valores ya hasheados
+ * provocaría un doble-hash y el match fallaría. `external_id` va en crudo (el
+ * píxel no lo hashea) — el mismo `usuario_id` que usa el server-side, para
+ * consistencia. La pata CAPI sigue enviando SHA-256 (ver hashUserData).
+ *
+ * @returns Objeto con solo los campos presentes; vacío si no hay datos.
+ */
+export function normalizeUserDataForPixel(user: {
+  id?: string;
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+}): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (user.email && user.email.trim()) out.em = normalizeEmail(user.email);
+  if (user.phone && user.phone.trim()) {
+    const ph = normalizePhone(user.phone);
+    if (ph) out.ph = ph;
+  }
+  if (user.firstName && user.firstName.trim()) out.fn = user.firstName.trim().toLowerCase();
+  if (user.lastName && user.lastName.trim()) out.ln = user.lastName.trim().toLowerCase();
+  if (user.id) out.external_id = user.id; // crudo, idéntico al server-side
+  return out;
 }

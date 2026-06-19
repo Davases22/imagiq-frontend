@@ -60,6 +60,8 @@ export function toMetaEvent(
           content_type: 'product',
           content_name: event.ecommerce.items[0]?.item_name,
           contents: mapContents(event.ecommerce.items),
+          // value del producto visto (unidades COP) para optimización por valor
+          value: event.ecommerce.items[0]?.price,
           currency: 'COP',
         },
       };

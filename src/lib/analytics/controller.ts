@@ -12,9 +12,10 @@
 import type { DlAny } from './types';
 import { toGa4Event, toMetaEvent, toTiktokEvent } from './mappers';
 import type { MetaEvent, TikTokEvent } from './mappers';
-import { sendGa4, sendMeta, sendTiktok, sendMetaCapi, sendTikTokCapi } from './emitters';
+import { sendGa4, sendMeta, sendTiktok, sendMetaCapi, sendTikTokCapi, setMetaAdvancedMatching } from './emitters';
 import type { GA4UserData } from './emitters/emit.ga4';
 import type { MetaCapiCustomData, TikTokEventsProperties } from './types/capi';
+import { normalizeUserDataForPixel } from './utils';
 import { resolveCartAbandon, resolveCheckoutAbandon } from './abandon';
 import { generateEventIdForEvent, handleAbandonTracking } from './helpers/event-processing';
 
@@ -97,6 +98,20 @@ export async function processAnalyticsEvent(
 
     // 4. CLIENT-SIDE: Enviar a pixels (solo si hay consentimiento)
     await sendGa4(ga4Event, ga4UserData);
+    // Advanced Matching manual del píxel para usuario conocido: sube el EMQ de
+    // todos los eventos del píxel (ViewContent/AddToCart/...). Plaintext
+    // normalizado (el píxel hashea). El AAM automático está desactivado por
+    // autoConfig=false, así que este es el mecanismo de coincidencia avanzada.
+    if (user) {
+      const pixelAM = normalizeUserDataForPixel({
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+      if (Object.keys(pixelAM).length > 0) setMetaAdvancedMatching(pixelAM);
+    }
     sendMeta(metaEvent, eventId);
     sendTiktok(tiktokEvent, eventId);
 

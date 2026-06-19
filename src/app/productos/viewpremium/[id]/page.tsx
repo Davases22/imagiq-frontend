@@ -14,7 +14,7 @@ import fallbackImage from "@/img/dispositivosmoviles/cel1.png";
 import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
 import { useTradeInPrefetch } from "@/hooks/useTradeInPrefetch";
-import { useAnalytics } from "@/lib/analytics/hooks/useAnalytics";
+import { useAnalyticsWithUser } from "@/lib/analytics";
 
 // Componentes
 import ProductCarousel from "../components/ProductCarousel";
@@ -118,7 +118,7 @@ export default function ProductViewPage({ params }) {
 
   // ViewContent se dispara más abajo, cuando productSelection ya resolvió el
   // precio/SKU de la variante (el API premium NO expone product.price).
-  const { trackViewItem } = useAnalytics();
+  const { trackViewItem } = useAnalyticsWithUser();
   const viewContentFiredRef = React.useRef<string | null>(null);
 
   const [showContent, setShowContent] = React.useState(false);

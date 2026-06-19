@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 import { useFavorites } from "@/features/products/useProducts";
-import { useAnalytics } from "@/lib/analytics/hooks/useAnalytics";
+import { useAnalyticsWithUser } from "@/lib/analytics";
 
 // Tipo para resultados de búsqueda
 export interface SearchResult {
@@ -50,7 +50,7 @@ export function useNavbarLogic() {
   const isMultimedia = pathname?.startsWith("/productos/multimedia") ?? false; // ¿Está en multimedia?
   const debouncedSearch = useDebounce(searchQuery, 300); // Query de búsqueda con debounce
   const { cart: cartItems, itemCount } = useCartContext();
-  const { trackSearch, trackCategoryClick } = useAnalytics();
+  const { trackSearch, trackCategoryClick } = useAnalyticsWithUser();
   // Derivar cartCount con useMemo para evitar stale closures
   // Usa itemCount como fuente de verdad para garantizar sincronización con el estado global del carrito
   const cartCount = useMemo(() => {

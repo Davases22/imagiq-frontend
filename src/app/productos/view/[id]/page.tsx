@@ -16,7 +16,7 @@ import ProductDetailSkeleton from "@/app/productos/dispositivos-moviles/detalles
 import AddToCartButton from "../../viewpremium/components/AddToCartButton";
 import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
-import { useAnalytics } from "@/lib/analytics/hooks/useAnalytics";
+import { useAnalyticsWithUser } from "@/lib/analytics";
 import { useTradeInPrefetch } from "@/hooks/useTradeInPrefetch";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import QuickNavBar from "../../viewpremium/[id]/components/QuickNavBar";
@@ -208,7 +208,7 @@ export default function ProductViewPage({ params }) {
   const [shouldRedirectToPremium, setShouldRedirectToPremium] = React.useState(false);
   const [premiumCheckDone, setPremiumCheckDone] = React.useState(false);
   const stockNotification = useStockNotification();
-  const { trackViewItem } = useAnalytics();
+  const { trackViewItem } = useAnalyticsWithUser();
 
   // Hook para manejo inteligente de selección de productos - compartido entre componentes
   const productSelection = useProductSelection(
