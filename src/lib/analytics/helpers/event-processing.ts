@@ -37,6 +37,14 @@ export async function generateEventIdForEvent(event: DlAny): Promise<string> {
     }
   }
 
+  // Purchase: event_id DETERMINISTA por orden (no depende de ts/value), idéntico
+  // al que dispara el servidor en Meta CAPI (`purchase_${orderId}` en payments-ms)
+  // y a `$insert_id` de PostHog. Sin esto, el píxel del browser usaba un hash con
+  // Date.now() y nunca deduplicaba contra el evento server-side → Purchase doble.
+  if (eventName === 'purchase' && transactionId) {
+    return `purchase_${transactionId}`;
+  }
+
   return generateEventId(eventName, ts, items, transactionId, value);
 }
 
