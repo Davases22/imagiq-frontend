@@ -18,6 +18,8 @@
 import React, { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProduct } from "@/features/products/useProducts";
+import { useAnalyticsWithUser } from "@/lib/analytics";
+import { posthogUtils } from "@/lib/posthogClient";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
 import MultimediaBottomBar from "@/components/MultimediaBottomBar";
 import { usePrefetchProduct } from "@/hooks/usePrefetchProduct";
@@ -91,6 +93,8 @@ export default function MultimediaPage({
   const { id } = resolvedParams;
 
   const { product, loading, error } = useProduct(id);
+  const { trackViewItem } = useAnalyticsWithUser();
+  const viewFiredRef = React.useRef<string | null>(null);
 
   // DEBUG: Rastrear estado del producto en cada render
   console.log('[MULTIMEDIA] Render:', {
@@ -122,6 +126,10 @@ export default function MultimediaPage({
     segmento?: string | string[];
   } | null>(null);
 
+  // selección guardada ya leída de localStorage ("settled"): evita disparar
+  // ViewContent/product_viewed con un SKU de fallback antes de resolver la variante.
+  const [selectionResolved, setSelectionResolved] = useState(false);
+
   // Track del id actual para detectar cambio de producto sincrónicamente durante el render.
   // useEffect corre DESPUÉS del render, así que sin esto el primer render post-navegación
   // usaría selectedProductData stale del producto anterior → MPN incorrecto para Flixmedia.
@@ -130,6 +138,7 @@ export default function MultimediaPage({
     console.log('[MULTIMEDIA] ID cambió:', { from: currentId, to: id, resettingSelectedData: true });
     setCurrentId(id);
     setSelectedProductData(null);
+    setSelectionResolved(false);
   }
 
   // Precargar DNS + script de Flixmedia lo antes posible
@@ -157,7 +166,44 @@ export default function MultimediaPage({
       console.log('[MULTIMEDIA] Sin localStorage para', id);
       setSelectedProductData(null);
     }
+    setSelectionResolved(true);
   }, [id]);
+
+  // ViewContent (Meta pixel + CAPI, deduplicados por el MISMO event_id que genera
+  // el pipeline) + product_viewed (PostHog) — los mismos eventos que view/[id] y
+  // viewpremium/[id]. /productos/multimedia/[id] es la PDP MÁS visitada (destino de
+  // los anuncios) y antes no emitía nada. Consent-gated dentro del pipeline.
+  useEffect(() => {
+    if (!product?.id || !selectionResolved) return;
+    if (viewFiredRef.current === product.id) return;
+    const parsePriceLocal = (p?: string | number): number =>
+      typeof p === "number" ? p : p ? parseInt(String(p).replace(/[^\d]/g, "")) || 0 : 0;
+    const price = selectedProductData?.price ?? parsePriceLocal(product.price);
+    if (!price) return; // esperar a que resuelva el precio (igual que viewpremium)
+    // SKU REAL de variante: selección del usuario → primera variante de color →
+    // codigoMarketBase solo como último recurso.
+    const colorSkus = product.colors?.map((c) => c.sku).filter(Boolean) || [];
+    const sku = selectedProductData?.sku || colorSkus[0] || product.id;
+    viewFiredRef.current = product.id;
+    const category = product.apiProduct?.categoria || "Sin categoría";
+    trackViewItem({
+      item_id: sku,
+      item_name: selectedProductData?.productName || product.name,
+      item_brand: "Samsung",
+      item_category: category,
+      price,
+      currency: "COP",
+    });
+    posthogUtils.capture("product_viewed", {
+      product_id: product.id,
+      sku,
+      price,
+      currency: "COP",
+      brand: "Samsung",
+      category,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, selectionResolved, selectedProductData]);
 
   // Precargar los datos del producto para la vista de detalle (view/viewpremium)
   // mientras el usuario ve el multimedia. Esto hace que la navegación sea instantánea
