@@ -16,8 +16,9 @@ import {
 import { toast } from "sonner";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
-import { fbqTrackCustom, fbqAddPaymentInfo } from "@/lib/meta-pixel";
-import { posthogUtils } from "@/lib/posthogClient";
+import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
+import { useAnalyticsWithUser } from "@/lib/analytics";
 
 export default function Step4({
   onBack,
@@ -59,6 +60,7 @@ export default function Step4({
     "imagiq_user",
     null
   );
+  const { trackAddPaymentInfo } = useAnalyticsWithUser();
   const [isValidatingCard, setIsValidatingCard] = React.useState(false);
   const [isCardFormValid, setIsCardFormValid] = React.useState(false);
   const formRef = React.useRef<AddCardFormHandle>(null);
@@ -340,12 +342,27 @@ export default function Step4({
       // console.log("💳 [Step4] isValid is true, calling onContinue()");
       const cartValue = calculations?.total || calculations?.subtotal || 0;
 
-      // AddPaymentInfo REAL — aquí sí el usuario está en el paso de pago
-      fbqAddPaymentInfo({
-        value: cartValue,
-        currency: "COP",
-        content_ids: products?.map((p) => p.sku || p.id) || [],
-      });
+      // AddPaymentInfo por el pipeline unificado (pixel + CAPI + GA4/TikTok) con
+      // coincidencia avanzada del usuario — incluido el INVITADO (email/teléfono
+      // ya guardados en imagiq_user tras el OTP de Step2). Reemplaza el
+      // fbqAddPaymentInfo crudo (sin AM, sin eventID/CAPI, sin dedupe); su mapper
+      // de Meta emite el mismo AddPaymentInfo, así que NO se deja el crudo (doble).
+      void trackAddPaymentInfo(
+        products.map((p) => ({
+          item_id: p.sku || p.id,
+          item_name: p.name,
+          price: p.price,
+          quantity: p.quantity,
+        })),
+        cartValue,
+        {
+          id: loggedUser?.id,
+          email: loggedUser?.email,
+          phone: loggedUser?.telefono,
+          firstName: loggedUser?.nombre,
+          lastName: loggedUser?.apellido,
+        }
+      );
 
       fbqTrackCustom("SelectPaymentMethod", {
         payment_method: paymentMethod,
@@ -367,11 +384,11 @@ export default function Step4({
         });
       }
 
-      posthogUtils.capture("checkout_step4_payment_method_selected", {
+      trackCheckoutStep(4, "checkout_step4_payment_method_selected", {
         payment_method: paymentMethod,
         is_saved_card: !!selectedCardId && !useNewCard,
-        step: 4,
         value: cartValue,
+        content_ids: products?.map((p) => p.sku || p.id) || [],
       });
 
       onContinue();
