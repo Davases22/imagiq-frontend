@@ -55,6 +55,35 @@ export function useAnalyticsWithUser() {
   }, [isAuthenticated, user]);
 
   /**
+   * Resuelve los datos de usuario para Advanced Matching. El usuario autenticado
+   * tiene prioridad; si no hay sesión (checkout de INVITADO) usa el override que
+   * el componente de checkout pasa con el email/teléfono del formulario, para que
+   * el invitado también alimente el AM del pixel (plaintext) y del CAPI (hash).
+   */
+  const resolveUser = useCallback(
+    (override?: {
+      id?: string;
+      email?: string;
+      phone?: string;
+      firstName?: string;
+      lastName?: string;
+    }): AnalyticsUserData | undefined => {
+      if (userData) return userData;
+      if (override && (override.email || override.phone)) {
+        return {
+          id: override.id,
+          email: override.email,
+          phone: override.phone,
+          firstName: override.firstName,
+          lastName: override.lastName,
+        };
+      }
+      return undefined;
+    },
+    [userData]
+  );
+
+  /**
    * Track cuando un usuario ve un producto
    */
   const trackViewItem = useCallback(
@@ -147,7 +176,14 @@ export function useAnalyticsWithUser() {
         price: number;
         quantity: number;
       }>,
-      totalValue: number
+      totalValue: number,
+      userOverride?: {
+        id?: string;
+        email?: string;
+        phone?: string;
+        firstName?: string;
+        lastName?: string;
+      }
     ) => {
       const event: DlCheckoutProgress = {
         event: 'begin_checkout',
@@ -163,9 +199,9 @@ export function useAnalyticsWithUser() {
         },
       };
 
-      await processAnalyticsEvent(event, userData);
+      await processAnalyticsEvent(event, resolveUser(userOverride));
     },
-    [userData]
+    [resolveUser]
   );
 
   /**
@@ -179,7 +215,14 @@ export function useAnalyticsWithUser() {
         price: number;
         quantity: number;
       }>,
-      totalValue: number
+      totalValue: number,
+      userOverride?: {
+        id?: string;
+        email?: string;
+        phone?: string;
+        firstName?: string;
+        lastName?: string;
+      }
     ) => {
       const event: DlCheckoutProgress = {
         event: 'add_payment_info',
@@ -195,9 +238,9 @@ export function useAnalyticsWithUser() {
         },
       };
 
-      await processAnalyticsEvent(event, userData);
+      await processAnalyticsEvent(event, resolveUser(userOverride));
     },
-    [userData]
+    [resolveUser]
   );
 
   /**

@@ -21,7 +21,8 @@ import {
   getTradeInValidationMessage,
 } from "./utils/validateTradeIn";
 import { toast } from "sonner";
-import { associateEmailWithSession, identifyEmailEarly, posthogUtils } from "@/lib/posthogClient";
+import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -765,9 +766,14 @@ export default function Step2({
       step: 2,
       currency: "COP",
     });
-    posthogUtils.capture("checkout_step2_completed", {
+    // Funnel deduplicado por intento (ver checkoutTracking). Step2 es CONDICIONAL:
+    // los usuarios logueados con dirección guardada se saltan este paso, así que
+    // step2 < step3 es esperado (no un bug). El dedupe evita el sobreconteo.
+    trackCheckoutStep(2, "checkout_step2_completed", {
       user_type: userType,
-      step: 2,
+      conditional: "guest_or_new_address",
+      value: Number(calculations?.total) || undefined,
+      content_ids: cartProducts.map((p) => p.sku),
     });
   };
 

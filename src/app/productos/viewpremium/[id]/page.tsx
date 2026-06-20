@@ -15,6 +15,7 @@ import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
 import { useTradeInPrefetch } from "@/hooks/useTradeInPrefetch";
 import { useAnalyticsWithUser } from "@/lib/analytics";
+import { posthogUtils } from "@/lib/posthogClient";
 
 // Componentes
 import ProductCarousel from "../components/ProductCarousel";
@@ -194,13 +195,25 @@ export default function ProductViewPage({ params }) {
     const price = Number(productSelection.selectedPrice) || 0;
     if (!price) return; // esperar a que resuelva el precio de la variante
     viewContentFiredRef.current = product.id;
+    const sku = productSelection.selectedSku || product.id;
+    const category = product.apiProduct?.categoria || "Sin categoría";
     trackViewItem({
-      item_id: productSelection.selectedSku || product.id,
+      item_id: sku,
       item_name: product.name,
       item_brand: "Samsung",
-      item_category: product.apiProduct?.categoria || "Sin categoría",
+      item_category: category,
       price,
       currency: "COP",
+    });
+    // product_viewed nativo de PostHog (SKU/precio reales) — mismo gating/dedupe
+    // que ViewContent; no duplica el disparo del píxel.
+    posthogUtils.capture("product_viewed", {
+      product_id: product.id,
+      sku,
+      price,
+      currency: "COP",
+      brand: "Samsung",
+      category,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, productSelection.selectedPrice, productSelection.selectedSku, trackViewItem]);
