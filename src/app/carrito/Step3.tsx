@@ -13,7 +13,7 @@ import Step4OrderSummary from "./components/Step4OrderSummary";
 import TradeInCompletedSummary from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInCompletedSummary";
 import type { Address } from "@/types/address";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
-import { posthogUtils } from "@/lib/posthogClient";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
 import { tradeInEndpoints } from "@/lib/api";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { useTradeInVerification } from "@/hooks/useTradeInVerification";
@@ -1035,10 +1035,10 @@ export default function Step3({
         value: calculations.subtotal,
         currency: 'COP',
       });
-      posthogUtils.capture('checkout_step3_delivery_selected', {
+      trackCheckoutStep(3, 'checkout_step3_delivery_selected', {
         delivery_method: deliveryMethod || 'domicilio',
-        value: calculations.subtotal,
-        step: 3,
+        value: Number(calculations?.total) || undefined,
+        content_ids: products.map((p) => p.sku),
       });
 
       if (typeof onContinue === "function") {
@@ -1138,10 +1138,13 @@ export default function Step3({
       value: calculations.subtotal,
       currency: 'COP',
     });
-    posthogUtils.capture('checkout_step3_delivery_selected', {
+    // Mismo evento que el path de auto-advance (~L1038): trackCheckoutStep
+    // deduplica por intento, así que solo uno de los dos paths emite (arregla el
+    // doble-disparo 32ev/18 personas).
+    trackCheckoutStep(3, 'checkout_step3_delivery_selected', {
       delivery_method: deliveryMethod || 'domicilio',
-      value: calculations.subtotal,
-      step: 3,
+      value: Number(calculations?.total) || undefined,
+      content_ids: products.map((p) => p.sku),
     });
 
     if (typeof onContinue === "function") {

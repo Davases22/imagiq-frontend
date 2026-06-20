@@ -17,6 +17,7 @@ import AddToCartButton from "../../viewpremium/components/AddToCartButton";
 import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
 import { useAnalyticsWithUser } from "@/lib/analytics";
+import { posthogUtils } from "@/lib/posthogClient";
 import { useTradeInPrefetch } from "@/hooks/useTradeInPrefetch";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import QuickNavBar from "../../viewpremium/[id]/components/QuickNavBar";
@@ -300,21 +301,39 @@ export default function ProductViewPage({ params }) {
     setVariantsReady(false);
   }, [id]);
 
+  // dedupe del ViewContent/product_viewed: una vez por producto (el effect podía
+  // re-disparar al togglear loading o al cambiar la referencia `product` entre el
+  // producto optimista de localStorage y el del API).
+  const productViewedFiredRef = React.useRef<string | null>(null);
+
   // 🔥 Track View Item apenas el producto carga
   React.useEffect(() => {
-    if (product && !loading) {
+    if (product && !loading && productViewedFiredRef.current !== product.id) {
+      productViewedFiredRef.current = product.id;
       const productPrice =
         typeof product.price === "number"
           ? product.price
           : Number.parseFloat(String(product.price)) || 0;
+      // SKU real de la variante si ya está resuelta; si no, el codigoMarketBase.
+      const sku = productSelectionState?.selectedSku || product.id;
+      const category = product.apiProduct?.categoria || "Sin categoría";
 
       trackViewItem({
-        item_id: product.id,
+        item_id: sku,
         item_name: product.name,
         item_brand: "Samsung",
-        item_category: product.apiProduct?.categoria || "Sin categoría",
+        item_category: category,
         price: productPrice,
         currency: "COP",
+      });
+      // product_viewed nativo de PostHog (SKU/precio) — mismo dedupe que ViewContent.
+      posthogUtils.capture("product_viewed", {
+        product_id: product.id,
+        sku,
+        price: productPrice,
+        currency: "COP",
+        brand: "Samsung",
+        category,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

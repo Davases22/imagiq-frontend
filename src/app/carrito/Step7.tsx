@@ -36,6 +36,7 @@ import { User } from "@/types/user";
 import RegisterGuestPasswordModal from "./components/RegisterGuestPasswordModal";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { posthogUtils } from "@/lib/posthogClient";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
 
 declare global {
   interface Window {
@@ -1298,10 +1299,10 @@ export default function Step7({ onBack }: Step7Props) {
       step: 7,
       payment_method: paymentData?.method || "unknown",
     });
-    posthogUtils.capture("checkout_step7_pay_clicked", {
+    trackCheckoutStep(7, "checkout_step7_pay_clicked", {
       value: reviewTotal,
       payment_method: paymentData?.method || "unknown",
-      step: 7,
+      content_ids: products.map((p) => p.sku),
     });
 
     setIsProcessing(true);

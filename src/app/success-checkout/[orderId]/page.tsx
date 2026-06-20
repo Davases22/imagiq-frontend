@@ -21,6 +21,7 @@ import { useCart } from "@/hooks/useCart";
 import { apiClient } from "@/lib/api";
 import { useAnalyticsWithUser } from "@/lib/analytics";
 import { posthogUtils } from "@/lib/posthogClient";
+import { resetCheckoutAttempt } from "@/app/carrito/utils/checkoutTracking";
 import { apiPost } from "@/lib/api-client";
 import { addBusinessDays, getNextBusinessDay } from "@/lib/dateUtils";
 import useSecureStorage from "@/hooks/useSecureStorage";
@@ -130,6 +131,13 @@ export default function SuccessCheckoutPage({
     };
     verifyOrderStatus();
   }, [pathParams.orderId, router]);
+
+  // Cerrar el intento de checkout al llegar a la página de éxito (independiente
+  // de si el fetch de la orden falla): el próximo checkout será un intento nuevo.
+  useEffect(() => {
+    resetCheckoutAttempt();
+  }, []);
+
   const { trackPurchase } = useAnalyticsWithUser();
   const whatsappSentRef = useRef(false);
   const analyticsSentRef = useRef(false);

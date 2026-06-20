@@ -10,7 +10,7 @@ import { CheckZeroInterestResponse } from "./types";
 import { DBCard } from "@/features/profile/types";
 import CardBrandLogo from "@/components/ui/CardBrandLogo";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
-import { posthogUtils } from "@/lib/posthogClient";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
 
 interface Step5Props {
   onBack?: () => void;
@@ -317,10 +317,14 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
       });
     }
 
-    posthogUtils.capture("checkout_step5_installments_selected", {
+    // Step5 es CONDICIONAL (solo tarjeta): pse/addi no montan este paso, así que
+    // step5 < step4 es esperado. Deduplicado por intento.
+    trackCheckoutStep(5, "checkout_step5_installments_selected", {
       installments: selectedInstallments || 1,
       zero_interest: hasZeroInterest,
-      step: 5,
+      conditional: "card_only",
+      value: Number(calculations?.total) || undefined,
+      content_ids: products.map((p) => p.sku),
     });
 
     if (onContinue) {

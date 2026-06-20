@@ -14,6 +14,7 @@ import { MapPin, Plus, Check, Trash2 } from "lucide-react";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 import { useCart } from "@/hooks/useCart";
 import { associateEmailWithSession, identifyEmailEarly, posthogUtils } from "@/lib/posthogClient";
+import { trackCheckoutStep } from "./utils/checkoutTracking";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
 import { validateTradeInProducts, getTradeInValidationMessage } from "./utils/validateTradeIn";
 import { toast } from "sonner";
@@ -607,10 +608,11 @@ export default function Step6({ onBack, onContinue }: Step6Props) {
         currency: "COP",
       });
 
-      posthogUtils.capture("checkout_step6_billing_selected", {
+      trackCheckoutStep(6, "checkout_step6_billing_selected", {
         billing_type: billingType,
         is_b2b: billingType === "juridica",
-        step: 6,
+        value: products.reduce((a, p) => a + p.price * p.quantity, 0) || undefined,
+        content_ids: products.map((p) => p.sku),
         $set: { billing_type_preference: billingType },
       });
 
