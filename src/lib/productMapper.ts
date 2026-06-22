@@ -127,10 +127,14 @@ export function mapApiProductToFrontend(apiProduct: ProductApiData): ProductCard
  * Obtiene la imagen apropiada para el producto
  */
 function getProductImage(apiProduct: ProductApiData): string | StaticImageData {
-  // Priorizar imagePreviewUrl si existe y tiene elementos
+  // Priorizar imagePreviewUrl: tomar la PRIMERA URL no vacía, no la posición [0].
+  // Algunas variantes ocultas (ej: bundles "+ Marco Café") llegan con imagePreviewUrl=""
+  // en el índice 0, lo que dejaba la card sin imagen pese a tener otras variantes con foto.
   if (apiProduct.imagePreviewUrl && apiProduct.imagePreviewUrl.length > 0) {
-    const firstPreviewUrl = apiProduct.imagePreviewUrl[0];
-    if (firstPreviewUrl && firstPreviewUrl.trim() !== '') {
+    const firstPreviewUrl = apiProduct.imagePreviewUrl.find(
+      (url) => url && typeof url === 'string' && url.trim() !== ''
+    );
+    if (firstPreviewUrl) {
       return firstPreviewUrl;
     }
   }
