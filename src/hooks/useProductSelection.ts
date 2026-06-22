@@ -147,6 +147,27 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
       });
     }
 
+    // Excluir variantes ocultas en el entorno actual (visibleProduction/visibleStaging
+    // === false). Ej: SKUs de bundle "+ Marco Café" que no se venden en la web, no tienen
+    // imágenes y NO deben seleccionarse por defecto. Sin esto, si solo esas variantes
+    // ocultas tienen stock, findBestVariantToDisplay las elige y la galería queda sin imagen.
+    // Replica el filtro de visibilidad de mapApiProductsToFrontend, pero por variante.
+    // Se preserva el índice original (v.index) para no romper los accesos posicionales
+    // a apiProduct.* (ej: imageDetailsUrls[selectedVariant.index]).
+    const environment = process.env.NEXT_PUBLIC_ENVIRONMENT || 'production';
+    const visibilityArray = environment === 'staging'
+      ? apiProduct.visibleStaging
+      : apiProduct.visibleProduction;
+
+    if (Array.isArray(visibilityArray) && visibilityArray.length > 0) {
+      const visibleVariants = variants.filter(v => visibilityArray[v.index] === true);
+      // Fallback defensivo: si el filtro dejara todo fuera, conservar todas las variantes
+      // (evita un producto sin variantes seleccionables).
+      if (visibleVariants.length > 0) {
+        return visibleVariants;
+      }
+    }
+
     return variants;
   }, [apiProduct]);
 
