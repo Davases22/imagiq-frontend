@@ -24,6 +24,13 @@ const notifyListeners = () => {
 // TTL del cache (5 minutos)
 const CACHE_TTL = 5 * 60 * 1000;
 
+// Anti-bucle de reintentos: si el endpoint de Trade-In falla (ej. benefits-ms caído),
+// el efecto de useTradeInDataFromCache se re-dispara con cada notifyListeners y volvería
+// a pedir de inmediato → tormenta de cientos de requests por carga. Tras un fallo,
+// no reintentar durante este cooldown (1 request cada 30s como mucho).
+const FAILURE_COOLDOWN_MS = 30 * 1000;
+let lastFailureAt = 0;
+
 /**
  * Hook para hacer prefetch de los datos de Trade-In
  * Los datos se cargan automáticamente y se almacenan en caché global
@@ -137,6 +144,12 @@ async function prefetchTradeInData(): Promise<TradeInData | null> {
     return tradeInCache.data;
   }
 
+  // Anti-bucle: si falló hace poco, no martillar el backend (corta la tormenta
+  // de reintentos cuando el endpoint está caído). Reintenta pasado el cooldown.
+  if (lastFailureAt && Date.now() - lastFailureAt < FAILURE_COOLDOWN_MS) {
+    return null;
+  }
+
   try {
     tradeInCache.loading = true;
     notifyListeners(); // Notificar inicio de carga
@@ -146,6 +159,7 @@ async function prefetchTradeInData(): Promise<TradeInData | null> {
     if (response.success && response.data) {
       const transformedData = transformHierarchyToTradeInData(response.data);
 
+      lastFailureAt = 0; // éxito: limpiar el cooldown de fallos
       tradeInCache = {
         data: transformedData,
         timestamp: Date.now(),
@@ -156,12 +170,14 @@ async function prefetchTradeInData(): Promise<TradeInData | null> {
       return transformedData;
     } else {
       console.error('❌ [Trade-In Prefetch] Error en respuesta:', response.message);
+      lastFailureAt = Date.now();
       tradeInCache.loading = false;
       notifyListeners(); // Notificar error (fin de carga)
       return null;
     }
   } catch (error) {
     console.error('❌ [Trade-In Prefetch] Error de conexión:', error);
+    lastFailureAt = Date.now();
     tradeInCache.loading = false;
     notifyListeners(); // Notificar error (fin de carga)
     return null;
