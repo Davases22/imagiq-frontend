@@ -544,7 +544,12 @@ export default function DynamicBannerClean({
 
   const content = (
     <div className={`relative w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 ${className}`}>
-      <div className="relative w-full aspect-[21/29] md:aspect-auto md:min-h-[500px] lg:min-h-[800px] rounded-lg overflow-hidden @container/banner">
+      {/* Aspecto proporcional en desktop (imágenes de banner = 1440x800 ≈ 9/5).
+          Antes se usaba altura fija (min-h-[800px]) + object-cover: en portátiles
+          con ancho < 1440px la caja quedaba más "alta" que la imagen y object-cover
+          recortaba ~11% por lado (texto/CTA cortados). Con aspect-[9/5] la caja
+          siempre coincide con la imagen → escala proporcional, sin recorte. */}
+      <div className="relative w-full aspect-[21/29] md:aspect-[9/5] rounded-lg overflow-hidden @container/banner">
         {showOverlay && <div className="absolute inset-0 bg-black/30 z-10" />}
 
         {/* Todos los banners en posición absoluta con transición fade + slide */}
