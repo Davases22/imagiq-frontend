@@ -125,8 +125,13 @@ export function parseTextStyles(textStylesJson: string | null | undefined): Bann
 export function fluidFontSize(
   value: string | number | undefined | null,
   designPx = 420,
-  minRatio = 0.55,
-  minPx = 12,
+  // Lower minRatio + minPx than the original so small CTA fontSizes
+  // (e.g. 14px) actually shrink visibly between 420 → 360 viewport widths.
+  // Previously minPx=12 + minRatio=0.55 capped the floor at 12px, so a
+  // 14px CTA only shrank from 14 → 12 (14% reduction) — author reported
+  // it didn't feel responsive.
+  minRatio = 0.4,
+  minPx = 8,
   unit: 'cqi' | 'vw' = 'cqi',
 ): string | undefined {
   if (value === null || value === undefined || value === '') return undefined;
@@ -155,7 +160,9 @@ export function fluidFontSize(
 export function fluidPadding(
   value: string | undefined | null,
   designPx = 420,
-  minRatio = 0.6,
+  // Match fluidFontSize aggressiveness so button padding shrinks at the
+  // same rate as the text inside it.
+  minRatio = 0.4,
   unit: 'cqi' | 'vw' = 'cqi',
 ): string | undefined {
   if (!value) return undefined;
