@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
+  // Elimina los `console.*` del bundle de PRODUCCIÓN para no ensuciar la consola
+  // del navegador ([MULTIMEDIA], [FLIX], [Socket], [AuthContext], [Clarity], etc.).
+  // En `next dev` se conservan para depurar. Se mantiene `console.error` para que
+  // los errores reales sigan visibles y lleguen a Sentry. (Para quitar TAMBIÉN los
+  // console.error, cambiar a `removeConsole: true`.)
+  compiler: {
+    removeConsole: isDev ? false : { exclude: ["error"] },
+  },
   skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [
