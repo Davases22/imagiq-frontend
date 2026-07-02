@@ -8,7 +8,6 @@ import { useAuthContext } from "@/features/auth/context";
 import CardBrandLogo from "@/components/ui/CardBrandLogo";
 import AddCardForm, { AddCardFormHandle } from "@/components/forms/AddCardForm";
 import pseLogo from "@/img/iconos/logo-pse.png";
-import addiLogo from "@/img/iconos/addi_negro.png";
 import { fetchBanks } from "../utils";
 import { useCardsCache } from "../hooks/useCardsCache";
 import useSecureStorage from "@/hooks/useSecureStorage";
@@ -521,8 +520,8 @@ export default function PaymentForm({
             )}
 
             {/* Addi */}
-            <div className="-mx-3">
-              <label className="flex items-center gap-3 justify-between cursor-pointer hover:bg-gray-50 rounded-lg transition-colors px-3">
+            <div>
+              <label className="flex items-center gap-3 justify-between py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors">
                 <span className="flex items-center gap-3">
                   <input
                     type="radio"
@@ -540,11 +539,11 @@ export default function PaymentForm({
                   </span>
                 </span>
                 <Image
-                  src="https://purrfecthire.com/carrousel-img/addi.png"
+                  src="https://res.cloudinary.com/dzi2p0pqa/image/upload/v1764650798/acd66fce-b218-4a0d-95e9-559410496596.png"
                   alt="Addi"
-                  width={35}
-                  height={35}
-                  className="object-fit"
+                  width={32}
+                  height={32}
+                  className="object-contain w-8 h-8 flex-shrink-0"
                 />
               </label>
               <div className="ml-8">
