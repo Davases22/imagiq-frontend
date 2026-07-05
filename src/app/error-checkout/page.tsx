@@ -10,6 +10,9 @@ import {
   Clock,
   Wallet,
   Ban,
+  Lock,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { getPaymentErrorInfo, type CtaAction } from "@/lib/payment-error-map";
 import { useCardsCache } from "@/app/carrito/hooks/useCardsCache";
@@ -26,34 +29,33 @@ import { posthogUtils } from "@/lib/posthogClient";
 type ColorScheme = "amber" | "red" | "blue";
 
 // ---------------------------------------------------------------------------
-// Color scheme — top border + icon tint only
+// Severity accent — tuned for the dark left rail (soft, low-chroma on black)
 // ---------------------------------------------------------------------------
 
-const borderColor: Record<ColorScheme, string> = {
-  amber: "#f59e0b",
-  red:   "#ef4444",
-  blue:  "#3b82f6",
+const accentText: Record<ColorScheme, string> = {
+  amber: "text-amber-300",
+  red:   "text-red-300",
+  blue:  "text-sky-300",
 };
 
-const iconBg: Record<ColorScheme, string> = {
-  amber: "bg-amber-50 text-amber-600",
-  red:   "bg-red-50 text-red-600",
-  blue:  "bg-blue-50 text-blue-600",
+const accentHalo: Record<ColorScheme, string> = {
+  amber: "bg-amber-400/10 ring-amber-400/20",
+  red:   "bg-red-400/10 ring-red-400/20",
+  blue:  "bg-sky-400/10 ring-sky-400/20",
 };
 
 // ---------------------------------------------------------------------------
-// Icon renderer — lucide-react only, 28px stroke
+// Icon renderer — lucide-react, caller-controlled color/size
 // ---------------------------------------------------------------------------
 
-function StatusIcon({ icon, scheme }: { icon: string; scheme: ColorScheme }) {
-  const cls = `w-7 h-7 ${iconBg[scheme].split(" ")[1]}`;
+function StatusIcon({ icon, className }: { icon: string; className: string }) {
   switch (icon) {
-    case "shield": return <ShieldAlert className={cls} strokeWidth={1.75} aria-hidden="true" />;
-    case "wallet": return <Wallet      className={cls} strokeWidth={1.75} aria-hidden="true" />;
-    case "card":   return <CreditCard  className={cls} strokeWidth={1.75} aria-hidden="true" />;
-    case "lock":   return <Ban         className={cls} strokeWidth={1.75} aria-hidden="true" />;
-    case "clock":  return <Clock       className={cls} strokeWidth={1.75} aria-hidden="true" />;
-    default:       return <AlertCircle className={cls} strokeWidth={1.75} aria-hidden="true" />;
+    case "shield": return <ShieldAlert className={className} strokeWidth={1.5} aria-hidden="true" />;
+    case "wallet": return <Wallet      className={className} strokeWidth={1.5} aria-hidden="true" />;
+    case "card":   return <CreditCard  className={className} strokeWidth={1.5} aria-hidden="true" />;
+    case "lock":   return <Ban         className={className} strokeWidth={1.5} aria-hidden="true" />;
+    case "clock":  return <Clock       className={className} strokeWidth={1.5} aria-hidden="true" />;
+    default:       return <AlertCircle className={className} strokeWidth={1.5} aria-hidden="true" />;
   }
 }
 
@@ -78,6 +80,25 @@ function WhatsAppIcon() {
     </svg>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Minimalist reveal keyframes (Stripe-like: short, ease-out, no bounce).
+// Rendered once; disabled under prefers-reduced-motion.
+// ---------------------------------------------------------------------------
+
+const REVEAL_STYLES = `
+  @keyframes ecReveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes ecHalo   { from { opacity: 0; transform: scale(.85); }       to { opacity: 1; transform: none; } }
+  .ec-reveal { opacity: 0; animation: ecReveal .55s cubic-bezier(.16,.84,.44,1) both; }
+  .ec-halo   { animation: ecHalo .7s cubic-bezier(.16,.84,.44,1) both; }
+  .ec-details > summary { list-style: none; }
+  .ec-details > summary::-webkit-details-marker { display: none; }
+  .ec-chevron { transition: transform .2s ease; }
+  .ec-details[open] .ec-chevron { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) {
+    .ec-reveal, .ec-halo { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+`;
 
 // ---------------------------------------------------------------------------
 // Inner page (needs useSearchParams — must be inside Suspense)
@@ -143,76 +164,158 @@ function ErrorCheckoutContent() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-[#f7f7f8] flex items-start sm:items-center justify-center px-4 py-10 sm:py-16"
-      style={{
-        opacity: mounted ? 1 : 0,
-        transition: "opacity 300ms ease",
-      }}
-    >
-      <div className="w-full max-w-lg">
-        {/* ---------------------------------------------------------------- */}
-        {/* Card                                                              */}
-        {/* ---------------------------------------------------------------- */}
-        <div
-          className="bg-white rounded-2xl shadow-sm overflow-hidden"
-          style={{ borderTop: `4px solid ${borderColor[scheme]}` }}
-        >
-          <div className="px-6 pt-8 pb-8 sm:px-8">
+    <div className="min-h-screen w-full bg-white text-gray-900 lg:h-screen lg:overflow-hidden">
+      <style>{REVEAL_STYLES}</style>
 
-            {/* Samsung wordmark */}
-            <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-gray-400 text-center mb-6 select-none">
-              Samsung
-            </p>
+      <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row">
+        {/* ================================================================ */}
+        {/* LEFT — dark context rail: brand · what happened · reassurance     */}
+        {/* ================================================================ */}
+        <aside className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0a] px-7 py-10 sm:px-10 lg:w-[44%] lg:max-w-[600px] lg:shrink-0 lg:px-14 lg:py-14">
+          {/* soft radial glows */}
+          <div aria-hidden className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-white/[0.05] blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-white/[0.03] blur-3xl" />
 
-            {/* Status icon */}
-            <div className="flex justify-center mb-5">
+          {/* brand */}
+          <p
+            className="ec-reveal relative text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60 select-none"
+            style={{ animationDelay: "40ms" }}
+          >
+            Samsung Store
+          </p>
+
+          {/* status */}
+          <div className="relative my-10 max-w-md lg:my-0">
+            {/* icon + title on the same row */}
+            <div className="flex items-center gap-3.5">
               <div
-                className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${iconBg[scheme]}`}
+                className={`ec-halo inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full ring-1 ${accentHalo[scheme]}`}
+                style={{ animationDelay: "80ms" }}
               >
-                <StatusIcon icon={errorInfo.icon} scheme={scheme} />
+                <StatusIcon icon={errorInfo.icon} className={`h-6 w-6 ${accentText[scheme]}`} />
               </div>
+
+              <h1
+                ref={titleRef}
+                tabIndex={-1}
+                role="alert"
+                aria-live="assertive"
+                className="ec-reveal text-2xl font-semibold leading-tight tracking-tight text-white outline-none sm:text-[26px]"
+                style={{ animationDelay: "120ms" }}
+              >
+                {errorInfo.title}
+              </h1>
             </div>
 
-            {/* Title */}
-            <h1
-              ref={titleRef}
-              tabIndex={-1}
-              role="alert"
-              aria-live="assertive"
-              className="text-xl font-semibold text-gray-900 text-center outline-none mb-2"
+            <p
+              className="ec-reveal mt-4 max-w-sm text-[15px] leading-relaxed text-white/80"
+              style={{ animationDelay: "180ms" }}
             >
-              {errorInfo.title}
-            </h1>
-
-            {/* Description */}
-            <p className="text-sm text-gray-600 text-center leading-relaxed">
               {errorInfo.description}
             </p>
 
-            {/* Detail box — only if there is a raw message from the PSP */}
-            {rawMessage && (
-              <div className="mt-5 border-l-4 border-gray-300 bg-gray-50 rounded-r-lg px-4 py-3">
-                <p className="text-xs text-gray-500 font-medium mb-0.5">Detalle del error</p>
-                <p className="text-sm text-gray-700 leading-snug">{rawMessage}</p>
+            {/* reassurance — a rejected payment means no charge was captured */}
+            <div
+              className="ec-reveal mt-7 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 py-1.5"
+              style={{ animationDelay: "240ms" }}
+            >
+              <Lock className="h-3.5 w-3.5 text-white/75" strokeWidth={1.75} aria-hidden="true" />
+              <span className="text-xs font-medium text-white/90">No se realizó ningún cobro a tu tarjeta</span>
+            </div>
+          </div>
+
+          {/* footer — trust marker */}
+          <div
+            className="ec-reveal relative flex items-center gap-2 text-xs text-white/60"
+            style={{ animationDelay: "300ms" }}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            <span>Pago protegido &middot; procesado por ePayco</span>
+          </div>
+        </aside>
+
+        {/* ================================================================ */}
+        {/* RIGHT — white action panel                                        */}
+        {/* ================================================================ */}
+        <main className="flex flex-1 flex-col bg-white px-6 py-9 sm:px-10 lg:h-screen lg:overflow-y-auto lg:px-14 lg:py-14">
+          <div className="mx-auto w-full max-w-md">
+
+            {/* Detail box — only on the GENERIC fallback, where the title doesn't
+                convey the reason. On mapped errors the title already says it, so
+                showing the raw PSP text here would be redundant. */}
+            {errorInfo.category === "generic" && rawMessage && (
+              <div
+                className="ec-reveal rounded-xl border border-gray-200/80 bg-gray-50 px-4 py-3"
+                style={{ animationDelay: "120ms" }}
+              >
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                  Detalle del error
+                </p>
+                <p className="text-sm leading-snug text-gray-700">{rawMessage}</p>
               </div>
             )}
 
-            {/* Tip box — blue left-border style */}
+            {/* Explainer — collapsible dropdown, closed by default (e.g. how 3D
+                Secure works and why the bank asks for it) */}
+            {errorInfo.explainer && (
+              <details
+                className="ec-reveal ec-details mt-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white"
+                style={{ animationDelay: "180ms" }}
+              >
+                <summary className="flex cursor-pointer items-center gap-2.5 px-4 py-3.5">
+                  <ShieldAlert className="h-5 w-5 shrink-0 text-gray-900" strokeWidth={1.6} aria-hidden="true" />
+                  <span className="flex-1 text-sm font-semibold text-gray-900">
+                    {errorInfo.explainer.heading}
+                  </span>
+                  <ChevronDown className="ec-chevron h-4 w-4 shrink-0 text-gray-400" strokeWidth={2} aria-hidden="true" />
+                </summary>
+                <div className="px-4 pb-4">
+                  <p className="text-xs leading-relaxed text-gray-500">
+                    {errorInfo.explainer.intro}
+                  </p>
+                  <ol className="mt-3.5 space-y-2.5">
+                    {errorInfo.explainer.steps.map((step, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white">
+                          {i + 1}
+                        </span>
+                        <span className="text-xs leading-relaxed text-gray-600">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  {errorInfo.explainer.image && (
+                    // Docs diagram from ePayco's CDN — plain <img> (external host not in
+                    // next/image remotePatterns; allowed by the `https:` CSP img-src).
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={errorInfo.explainer.image.url}
+                      alt={errorInfo.explainer.image.alt}
+                      loading="lazy"
+                      className="mt-4 w-full rounded-lg border border-gray-200/80 bg-gray-50"
+                    />
+                  )}
+                </div>
+              </details>
+            )}
+
+            {/* Tip box */}
             {errorInfo.tip && (
-              <div className="mt-4 border-l-4 border-blue-400 bg-blue-50 rounded-r-lg px-4 py-3">
-                <p className="text-sm text-blue-800 leading-snug">{errorInfo.tip}</p>
+              <div
+                className="ec-reveal mt-4 rounded-xl border-l-2 border-gray-900/70 bg-gray-50 px-4 py-3"
+                style={{ animationDelay: "220ms" }}
+              >
+                <p className="text-sm leading-snug text-gray-600">{errorInfo.tip}</p>
               </div>
             )}
 
             {/* Help link */}
             {errorInfo.helpLink && (
-              <div className="mt-3 flex justify-center">
+              <div className="ec-reveal mt-3" style={{ animationDelay: "260ms" }}>
                 <a
                   href={errorInfo.helpLink.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#0057B7] underline underline-offset-2 hover:text-[#004a9e] transition-colors"
+                  className="text-sm text-gray-500 underline decoration-gray-300 underline-offset-4 transition-colors hover:text-gray-900"
                 >
                   {errorInfo.helpLink.label}
                 </a>
@@ -220,11 +323,11 @@ function ErrorCheckoutContent() {
             )}
 
             {/* Primary CTA */}
-            <div className="mt-7">
+            <div className="ec-reveal mt-7" style={{ animationDelay: "300ms" }}>
               <button
                 type="button"
                 onClick={() => handleAction(errorInfo.primaryCta.action)}
-                className="w-full py-3 px-5 rounded-xl text-sm font-semibold text-white bg-[#0057B7] hover:bg-[#004a9e] active:bg-[#003d84] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0057B7]"
+                className="w-full rounded-xl bg-[#0a0a0a] px-5 py-3.5 text-sm font-semibold text-white transition-transform duration-150 hover:bg-[#1f1f1f] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-900"
                 aria-label={errorInfo.primaryCta.label}
               >
                 {errorInfo.primaryCta.label}
@@ -233,11 +336,11 @@ function ErrorCheckoutContent() {
 
             {/* Secondary CTA — text link */}
             {errorInfo.secondaryCta && (
-              <div className="mt-3 flex justify-center">
+              <div className="ec-reveal mt-3 flex justify-center" style={{ animationDelay: "330ms" }}>
                 <button
                   type="button"
                   onClick={() => handleAction(errorInfo.secondaryCta!.action)}
-                  className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 rounded"
+                  className="rounded text-sm text-gray-500 underline decoration-gray-300 underline-offset-4 transition-colors hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400"
                   aria-label={errorInfo.secondaryCta.label}
                 >
                   {errorInfo.secondaryCta.label}
@@ -245,74 +348,58 @@ function ErrorCheckoutContent() {
               </div>
             )}
 
-            {/* ------------------------------------------------------------ */}
-            {/* Divider                                                       */}
-            {/* ------------------------------------------------------------ */}
-            <div className="mt-8 mb-6 border-t border-gray-100" />
+            {/* Divider */}
+            <div className="ec-reveal my-8 border-t border-gray-100" style={{ animationDelay: "360ms" }} />
 
-            {/* ------------------------------------------------------------ */}
-            {/* Alternative payment methods                                  */}
-            {/* ------------------------------------------------------------ */}
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-4">
-              Otras formas de pago
-            </p>
+            {/* Alternative payment methods */}
+            <div className="ec-reveal" style={{ animationDelay: "380ms" }}>
+              <p className="mb-4 text-xs font-medium uppercase tracking-widest text-gray-400">
+                Otras formas de pago
+              </p>
 
-            <div className="flex gap-3">
-              {/* PSE */}
-              <button
-                type="button"
-                onClick={() => router.push("/carrito?step=payment&method=pse")}
-                className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7]"
-                aria-label="Pagar con PSE"
-              >
-                <Image
-                  src={pseLogo}
-                  alt="PSE"
-                  width={32}
-                  height={32}
-                  className="object-contain shrink-0"
-                />
-                <div className="text-left">
-                  <p className="text-xs font-semibold text-gray-800 leading-none">PSE</p>
-                  <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Debito bancario</p>
-                </div>
-              </button>
+              <div className="flex gap-3">
+                {/* PSE */}
+                <button
+                  type="button"
+                  onClick={() => router.push("/carrito?step=payment&method=pse")}
+                  className="flex flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900"
+                  aria-label="Pagar con PSE"
+                >
+                  <Image src={pseLogo} alt="PSE" width={32} height={32} className="shrink-0 object-contain" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold leading-none text-gray-800">PSE</p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-gray-500">Debito bancario</p>
+                  </div>
+                </button>
 
-              {/* Addi */}
-              <button
-                type="button"
-                onClick={() => router.push("/carrito?step=payment&method=addi")}
-                className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7]"
-                aria-label="Pagar con Addi en cuotas"
-              >
-                <Image
-                  src={addiLogo}
-                  alt="Addi"
-                  width={32}
-                  height={32}
-                  className="object-contain shrink-0"
-                />
-                <div className="text-left">
-                  <p className="text-xs font-semibold text-gray-800 leading-none">Addi</p>
-                  <p className="text-[10px] text-gray-500 leading-tight mt-0.5">Paga en cuotas</p>
-                </div>
-              </button>
+                {/* Addi */}
+                <button
+                  type="button"
+                  onClick={() => router.push("/carrito?step=payment&method=addi")}
+                  className="flex flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900"
+                  aria-label="Pagar con Addi en cuotas"
+                >
+                  <Image src={addiLogo} alt="Addi" width={32} height={32} className="shrink-0 object-contain" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold leading-none text-gray-800">Addi</p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-gray-500">Paga en cuotas</p>
+                  </div>
+                </button>
+              </div>
             </div>
 
-            {/* ------------------------------------------------------------ */}
-            {/* Saved cards                                                   */}
-            {/* ------------------------------------------------------------ */}
+            {/* Saved cards */}
             {isLoadingCards && (
               <div className="mt-5 space-y-2">
-                <div className="h-3 w-36 bg-gray-100 rounded animate-pulse" />
-                <div className="h-11 bg-gray-100 rounded-xl animate-pulse" />
-                <div className="h-11 bg-gray-100 rounded-xl animate-pulse" />
+                <div className="h-3 w-36 animate-pulse rounded bg-gray-100" />
+                <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
+                <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
               </div>
             )}
 
             {!isLoadingCards && savedCards.length > 0 && (
-              <div className="mt-5">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-3">
+              <div className="ec-reveal mt-5" style={{ animationDelay: "420ms" }}>
+                <p className="mb-3 text-xs font-medium uppercase tracking-widest text-gray-400">
                   Reintentar con otra tarjeta
                 </p>
                 <div className="space-y-2">
@@ -320,24 +407,22 @@ function ErrorCheckoutContent() {
                     <button
                       key={card.id}
                       type="button"
-                      onClick={() =>
-                        router.push(`/carrito?step=payment&savedCard=${card.id}`)
-                      }
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0057B7]"
+                      onClick={() => router.push(`/carrito?step=payment&savedCard=${card.id}`)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900"
                       aria-label={`Pagar con tarjeta terminada en ${card.ultimos_dijitos}`}
                     >
                       <CardBrandLogo brand={card.marca} size="md" />
                       <div className="flex-1 text-left">
-                        <p className="text-sm font-semibold text-gray-800 tracking-wider">
+                        <p className="text-sm font-semibold tracking-wider text-gray-800">
                           **** {card.ultimos_dijitos}
                         </p>
                         {card.nombre_titular && (
-                          <p className="text-[10px] text-gray-500 uppercase truncate">
+                          <p className="truncate text-[10px] uppercase text-gray-500">
                             {card.nombre_titular}
                           </p>
                         )}
                       </div>
-                      <span className="text-xs text-[#0057B7] font-medium whitespace-nowrap">
+                      <span className="whitespace-nowrap text-xs font-medium text-gray-900">
                         Usar esta
                       </span>
                     </button>
@@ -346,16 +431,14 @@ function ErrorCheckoutContent() {
               </div>
             )}
 
-            {/* ------------------------------------------------------------ */}
-            {/* WhatsApp support                                              */}
-            {/* ------------------------------------------------------------ */}
-            <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between gap-4">
+            {/* WhatsApp support */}
+            <div className="ec-reveal mt-8 flex items-center justify-between gap-4 border-t border-gray-100 pt-6" style={{ animationDelay: "460ms" }}>
               <p className="text-sm text-gray-500">Necesitas ayuda?</p>
               <a
                 href="https://wa.me/573000000000?text=Hola%2C%20tuve%20un%20problema%20en%20el%20pago"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-green-700 font-medium hover:text-green-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded"
+                className="inline-flex items-center gap-2 rounded text-sm font-medium text-green-700 transition-colors hover:text-green-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                 aria-label="Contactar soporte por WhatsApp"
               >
                 <WhatsAppIcon />
@@ -364,31 +447,40 @@ function ErrorCheckoutContent() {
             </div>
 
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton shown while Suspense resolves searchParams
+// Skeleton shown while Suspense resolves searchParams — split, matches layout
 // ---------------------------------------------------------------------------
 
 function ErrorCheckoutSkeleton() {
   return (
-    <div className="min-h-screen bg-[#f7f7f8] flex items-start sm:items-center justify-center px-4 py-10 sm:py-16">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm overflow-hidden animate-pulse">
-        <div className="h-1 bg-gray-200 w-full" />
-        <div className="px-6 pt-8 pb-8 sm:px-8 space-y-4">
-          <div className="h-3 w-20 bg-gray-100 rounded-full mx-auto" />
-          <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto" />
-          <div className="h-5 w-48 bg-gray-200 rounded mx-auto" />
-          <div className="h-4 w-64 bg-gray-100 rounded mx-auto" />
-          <div className="h-4 w-56 bg-gray-100 rounded mx-auto" />
-          <div className="h-11 w-full bg-gray-200 rounded-xl mt-6" />
-          <div className="h-4 w-32 bg-gray-100 rounded mx-auto" />
+    <div className="grid min-h-screen lg:h-screen lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <aside className="flex flex-col justify-between bg-[#0a0a0a] px-7 py-10 sm:px-10 lg:w-[44%] lg:max-w-[600px] lg:shrink-0 lg:px-14 lg:py-14">
+        <div className="h-3 w-20 rounded-full bg-white/10" />
+        <div className="my-10 space-y-4 lg:my-0">
+          <div className="h-12 w-12 rounded-full bg-white/10" />
+          <div className="h-7 w-56 rounded bg-white/10" />
+          <div className="h-4 w-72 rounded bg-white/[0.06]" />
+          <div className="h-7 w-60 rounded-full bg-white/[0.05]" />
         </div>
-      </div>
+        <div className="h-3 w-40 rounded bg-white/[0.06]" />
+      </aside>
+      <main className="flex-1 bg-white px-6 py-9 sm:px-10 lg:px-14 lg:py-14">
+        <div className="mx-auto w-full max-w-md animate-pulse space-y-4">
+          <div className="h-16 w-full rounded-xl bg-gray-100" />
+          <div className="h-11 w-full rounded-xl bg-gray-200" />
+          <div className="h-4 w-32 rounded bg-gray-100" />
+          <div className="mt-4 flex gap-3">
+            <div className="h-14 flex-1 rounded-xl bg-gray-100" />
+            <div className="h-14 flex-1 rounded-xl bg-gray-100" />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
