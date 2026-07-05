@@ -16,6 +16,11 @@ interface OrderStatusResponse {
   orderStatus: string;
   paymentMethod: string;
   createdAt: string;
+  // Real ePayco decline code (e.g. 51 fondos, 185 3DS, 59 emisor) + reason text,
+  // only present on a terminal card rejection. Used to render a specific message
+  // on /error-checkout instead of a generic "rechazado por el banco".
+  errorCode?: string;
+  reason?: string;
 }
 
 export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promise<{ id: string }>>; }>) {
@@ -112,11 +117,17 @@ export default function VerifyPurchase(props: Readonly<{ params: Readonly<Promis
       }
 
       if (status === "REJECTED" || status === "DECLINED") {
-        router.push(
-          `/error-checkout?message=${encodeURIComponent(
-            "Tu pago fue rechazado por el banco.",
-          )}`,
-        );
+        // Forward the REAL ePayco decline code + reason so /error-checkout can
+        // show a specific message (fondos insuficientes, 3D Secure, etc.) plus
+        // the 3DS explainer. Fall back to the generic message only when the
+        // backend couldn't resolve a reason.
+        const params = new URLSearchParams();
+        if (data.errorCode) params.set("code", data.errorCode);
+        if (data.reason) params.set("message", data.reason);
+        if (!params.has("code") && !params.has("message")) {
+          params.set("message", "Tu pago fue rechazado por el banco.");
+        }
+        router.push(`/error-checkout?${params.toString()}`);
         return;
       }
 
