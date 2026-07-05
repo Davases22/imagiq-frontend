@@ -5,6 +5,20 @@ export type CtaAction =
   | 'viewOrders'
   | 'goHome';
 
+/**
+ * Optional educational block rendered on the rejection screen. Used to explain
+ * a security mechanism the shopper may not understand (e.g. 3D Secure) so a
+ * rejection reads as "here's what happened and how to complete it" rather than
+ * a dead end.
+ */
+export interface PaymentExplainer {
+  heading: string;
+  intro: string;
+  steps: string[];
+  /** Optional illustrative diagram rendered after the steps. */
+  image?: { url: string; alt: string } | null;
+}
+
 export interface PaymentErrorInfo {
   category: 'data' | 'funds' | 'card' | 'auth' | 'fraud' | 'system' | 'generic';
   title: string;
@@ -16,7 +30,46 @@ export interface PaymentErrorInfo {
   canRetry: boolean;
   helpLink: { label: string; url: string } | null;
   tip: string | null;
+  explainer?: PaymentExplainer | null;
 }
+
+// ---------------------------------------------------------------------------
+// Shared explainer: what 3D Secure is and why the bank requests it.
+// Content adapted from ePayco's official 3DS rules (docs.epayco.com/docs/
+// reglas-3d-secure) into plain, consumer-facing Spanish.
+// ---------------------------------------------------------------------------
+
+const THREE_DS_EXPLAINER: PaymentExplainer = {
+  heading: '¿Qué es la verificación 3D Secure y por qué me la piden?',
+  intro:
+    'Es una capa de seguridad que tu banco usa para confirmar que eres tú quien está comprando. Así protege tu tarjeta contra usos fraudulentos: no es un problema de la tienda.',
+  steps: [
+    'Al pagar, tu banco te pide una verificación adicional: un código (OTP) por SMS, una clave dinámica, o una aprobación en la app de tu banco.',
+    'Debes aprobarla dentro del tiempo límite para que el pago se autorice.',
+    'El pago se rechaza si no apruebas la notificación, se agota el tiempo, o tu banco no autoriza la compra.',
+    'Para reintentar: ten tu celular y la app de tu banco a la mano, y aprueba la verificación apenas aparezca.',
+  ],
+  image: {
+    url: 'https://cdn.document360.io/88b1b912-ebe6-4677-9cf4-27af4e66c459/Images/Documentation/image-1659453424037.png',
+    alt: 'Diagrama del flujo de autenticación 3D Secure',
+  },
+};
+
+// Shared shape for transient gateway/config errors (invalid merchant, format,
+// routing, generic processor error). All map to the same retryable message.
+const SYSTEM_TEMPORARY: PaymentErrorInfo = {
+  category: 'system',
+  title: 'No pudimos procesar el pago',
+  description:
+    'Hubo un problema temporal al procesar tu pago. Intentalo de nuevo en unos minutos o usa otro metodo de pago. No se realizo ningun cobro.',
+  icon: 'alert',
+  primaryCta: { label: 'Reintentar', action: 'retry' },
+  secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+  colorScheme: 'blue',
+  canRetry: true,
+  helpLink: null,
+  tip: 'Esto suele resolverse en pocos minutos. Tu dinero no fue cobrado.',
+};
 
 // ---------------------------------------------------------------------------
 // Static error map keyed by ePayco error code
@@ -185,11 +238,11 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     secondaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
     colorScheme: 'amber',
     canRetry: true,
-    helpLink: {
-      label: 'Que es 3D Secure?',
-      url: 'https://www.visa.com.co/pague-con-visa/tecnologias-de-pago/3d-secure.html',
-    },
+    // No external help link: the in-page explainer + ePayco flow diagram below
+    // already answer "what is 3D Secure". (The old Visa URL 404'd.)
+    helpLink: null,
     tip: 'Asegurate de tener activada la app de tu banco para recibir notificaciones de verificacion.',
+    explainer: THREE_DS_EXPLAINER,
   },
   '1A': {
     category: 'auth',
@@ -201,11 +254,11 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     secondaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
     colorScheme: 'amber',
     canRetry: true,
-    helpLink: {
-      label: 'Que es 3D Secure?',
-      url: 'https://www.visa.com.co/pague-con-visa/tecnologias-de-pago/3d-secure.html',
-    },
+    // No external help link: the in-page explainer + ePayco flow diagram below
+    // already answer "what is 3D Secure". (The old Visa URL 404'd.)
+    helpLink: null,
     tip: 'Asegurate de tener activada la app de tu banco para recibir notificaciones de verificacion.',
+    explainer: THREE_DS_EXPLAINER,
   },
   Q1: {
     category: 'auth',
@@ -217,11 +270,11 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     secondaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
     colorScheme: 'amber',
     canRetry: true,
-    helpLink: {
-      label: 'Que es 3D Secure?',
-      url: 'https://www.visa.com.co/pague-con-visa/tecnologias-de-pago/3d-secure.html',
-    },
+    // No external help link: the in-page explainer + ePayco flow diagram below
+    // already answer "what is 3D Secure". (The old Visa URL 404'd.)
+    helpLink: null,
     tip: 'Asegurate de tener activada la app de tu banco para recibir notificaciones de verificacion.',
+    explainer: THREE_DS_EXPLAINER,
   },
 
   // --- Fraud / Risk (red, hard decline) --------------------------------------
@@ -360,6 +413,138 @@ const ERROR_CODE_MAP: Record<string, PaymentErrorInfo> = {
     helpLink: null,
     tip: 'Esto suele resolverse en pocos minutos. Tu dinero no fue cobrado.',
   },
+
+  // --- Issuer referral / authorization (amber) -------------------------------
+  '01': {
+    category: 'auth',
+    title: 'Tu banco requiere autorizar la compra',
+    description:
+      'Tu banco pidio confirmar esta compra contigo antes de aprobarla. Comunicate con tu banco para autorizarla e intentalo de nuevo.',
+    icon: 'lock',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: true,
+    helpLink: null,
+    tip: 'Llama al numero en el reverso de tu tarjeta para autorizar la compra.',
+  },
+
+  // --- Restricted / inactive / closed card -----------------------------------
+  '62': {
+    category: 'card',
+    title: 'Tarjeta restringida',
+    description:
+      'Tu banco tiene una restriccion sobre esta tarjeta para este tipo de compra (por ejemplo, compras internacionales o en linea). Comunicate con tu banco o usa otra tarjeta.',
+    icon: 'lock',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: false,
+    helpLink: null,
+    tip: 'Las tarjetas internacionales suelen requerir habilitar compras en Colombia con tu banco.',
+  },
+  '78': {
+    category: 'card',
+    title: 'Tarjeta no activada',
+    description:
+      'Esta tarjeta aun no esta activada para compras. Activala con tu banco o usa otra tarjeta.',
+    icon: 'card',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: false,
+    helpLink: null,
+    tip: 'Las tarjetas nuevas suelen requerir activacion o una primera compra presencial.',
+  },
+  '46': {
+    category: 'card',
+    title: 'Cuenta cerrada',
+    description:
+      'La cuenta asociada a esta tarjeta esta cerrada. Usa otra tarjeta o metodo de pago.',
+    icon: 'card',
+    primaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    secondaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    colorScheme: 'amber',
+    canRetry: false,
+    helpLink: null,
+    tip: null,
+  },
+  '15': {
+    category: 'data',
+    title: 'Tarjeta no reconocida',
+    description:
+      'No pudimos identificar el banco emisor de esta tarjeta. Verifica el numero ingresado o usa otra tarjeta.',
+    icon: 'card',
+    primaryCta: { label: 'Corregir datos', action: 'retry' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: true,
+    helpLink: null,
+    tip: null,
+  },
+  '75': {
+    category: 'data',
+    title: 'Excediste los intentos permitidos',
+    description:
+      'Tu tarjeta se bloqueo temporalmente por multiples intentos fallidos. Comunicate con tu banco para desbloquearla o usa otra tarjeta.',
+    icon: 'lock',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: false,
+    helpLink: null,
+    tip: null,
+  },
+
+  // --- Amount (amber) --------------------------------------------------------
+  '13': {
+    category: 'data',
+    title: 'Monto no valido',
+    description:
+      'El monto de la compra no pudo ser procesado por tu banco. Intentalo de nuevo; si el problema persiste, contactanos.',
+    icon: 'alert',
+    primaryCta: { label: 'Reintentar', action: 'retry' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'amber',
+    canRetry: true,
+    helpLink: null,
+    tip: null,
+  },
+
+  // --- Hard security declines (red, do not reveal exact reason) ---------------
+  '04': {
+    category: 'fraud',
+    title: 'Transaccion rechazada',
+    description:
+      'Tu banco rechazo esta transaccion. Comunicate con tu banco para obtener mas informacion o usa otro metodo de pago.',
+    icon: 'shield',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'red',
+    canRetry: false,
+    helpLink: null,
+    tip: null,
+  },
+  '93': {
+    category: 'fraud',
+    title: 'Transaccion rechazada',
+    description:
+      'Tu banco no puede procesar esta transaccion. Comunicate con tu banco para obtener mas informacion.',
+    icon: 'shield',
+    primaryCta: { label: 'Contactar mi banco', action: 'contactBank' },
+    secondaryCta: { label: 'Usar otro metodo de pago', action: 'changeMethod' },
+    colorScheme: 'red',
+    canRetry: false,
+    helpLink: null,
+    tip: null,
+  },
+
+  // --- Temporary processing / config errors (blue, retryable) ----------------
+  '03': SYSTEM_TEMPORARY,
+  '06': SYSTEM_TEMPORARY,
+  '12': SYSTEM_TEMPORARY,
+  '30': SYSTEM_TEMPORARY,
+  '92': SYSTEM_TEMPORARY,
 };
 
 // ---------------------------------------------------------------------------
