@@ -76,6 +76,7 @@ export interface ProfileUser {
   apellido: string;
   email: string;
   telefono?: string;
+  tipo_documento?: string;
   numero_documento?: string;
   direcciones: DBAddress[];
   tarjetas: DBCard[];
