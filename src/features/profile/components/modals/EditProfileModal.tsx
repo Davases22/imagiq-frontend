@@ -20,12 +20,29 @@ export interface EditProfileData {
   numero_documento: string;
 }
 
+// ADDI y el resto del sistema (registro, checkout, ePayco) usan estos códigos.
+// Enviar los valores en español ("cedula", "pasaporte"…) hacía que ADDI
+// rechazara la financiación con el error 000-008 "El tipo de documento no es
+// válido" y la orden quedaba en INTERNAL_ERROR.
 const DOCUMENT_TYPES = [
-  { value: "cedula", label: "Cédula de Ciudadanía" },
-  { value: "cedula_extranjeria", label: "Cédula de Extranjería" },
-  { value: "pasaporte", label: "Pasaporte" },
-  { value: "nit", label: "NIT" },
+  { value: "CC", label: "Cédula de Ciudadanía" },
+  { value: "CE", label: "Cédula de Extranjería" },
+  { value: "PP", label: "Pasaporte" },
+  { value: "NIT", label: "NIT" },
 ];
+
+// Normaliza valores legacy que quedaron guardados en la BD antes de este fix.
+const DOC_TYPE_ALIASES: Record<string, string> = {
+  cedula: "CC",
+  cedula_extranjeria: "CE",
+  pasaporte: "PP",
+  nit: "NIT",
+};
+const normalizeDocType = (value?: string): string => {
+  if (!value) return "CC";
+  if (DOCUMENT_TYPES.some((t) => t.value === value)) return value;
+  return DOC_TYPE_ALIASES[value.toLowerCase()] ?? "CC";
+};
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isOpen,
@@ -39,7 +56,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     apellido: "",
     email: "",
     telefono: "",
-    tipo_documento: "cedula",
+    tipo_documento: "CC",
     numero_documento: "",
   });
 
@@ -51,7 +68,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
         apellido: user.apellido || "",
         email: user.email || "",
         telefono: user.telefono || "",
-        tipo_documento: "cedula",
+        tipo_documento: normalizeDocType(user.tipo_documento),
         numero_documento: user.numero_documento || "",
       });
     }
