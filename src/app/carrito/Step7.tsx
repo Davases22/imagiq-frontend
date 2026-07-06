@@ -180,6 +180,12 @@ export default function Step7({ onBack }: Step7Props) {
   const [candidateWarehouseCode, setCandidateWarehouseCode] = useState<string | undefined>();
   // Ref para leer el valor actual de isCalculatingShipping en callbacks
   const isCalculatingShippingRef = React.useRef(false);
+  // Synchronous re-entrancy guard for processOrder. `isProcessing` (state) is
+  // set too late — only AFTER the "calculating shipping" wait loop — so rapid
+  // taps queue inside that loop and then all fire concurrently, each creating
+  // an order and a charge (the 4-orders-in-18-min incident). A ref flips
+  // synchronously on the first tap, so subsequent taps bail immediately.
+  const isProcessingRef = React.useRef(false);
 
   // Actualizar ref cuando cambie el estado
   React.useEffect(() => {
@@ -1263,15 +1269,24 @@ export default function Step7({ onBack }: Step7Props) {
 
   // Función que realmente procesa la orden (llamada después del modal o directamente)
   const processOrder = async () => {
+    // Re-entrancy guard: block any second invocation (double-tap, queued click
+    // during shipping calc, multi-tab) BEFORE it can create a duplicate order.
+    // Flips synchronously so concurrent calls can't both pass.
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     // Validar Trade-In antes de confirmar
     const validation = validateTradeInProducts(products);
     if (!validation.isValid) {
+      isProcessingRef.current = false;
       alert(getTradeInValidationMessage(validation));
       return;
     }
 
     if (!billingData) {
       console.error("No billing data available");
+      isProcessingRef.current = false;
+      setError("Faltan tus datos de facturación. Vuelve al paso anterior y complétalos para continuar.");
       return;
     }
 
@@ -1890,6 +1905,7 @@ export default function Step7({ onBack }: Step7Props) {
       // SIEMPRE resetear isProcessing excepto si estamos esperando validación 3DS
       if (!waiting3DS) {
         setIsProcessing(false);
+        isProcessingRef.current = false;
       }
     }
   };
@@ -2913,6 +2929,17 @@ export default function Step7({ onBack }: Step7Props) {
 
       {/* Sticky Bottom Bar - Solo Mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+        {/* Error de pago en móvil: antes solo se renderizaba en el aside
+            `hidden md:block`, así que en móvil el fallo era invisible y el
+            cliente reintentaba a ciegas o abandonaba. */}
+        {error && (
+          <div
+            role="alert"
+            className="mx-4 mt-3 -mb-1 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 font-medium"
+          >
+            {error}
+          </div>
+        )}
         <div className="p-4 pb-8 flex items-center justify-between gap-4">
           {/* Izquierda: Total y descuentos */}
           <div className="flex-1 min-w-0">
@@ -2934,12 +2961,12 @@ export default function Step7({ onBack }: Step7Props) {
           {/* Derecha: Botón confirmar - destacado con sombra y glow */}
           <button
             className={`flex-shrink-0 font-bold py-4 px-6 rounded-xl text-lg transition-all duration-200 text-white border-2 flex items-center gap-2 ${
-              isProcessing || isValidatingTradeIn || !tradeInValidation.isValid
+              isProcessing || isCalculatingShipping || isValidatingTradeIn || !tradeInValidation.isValid
                 ? "bg-gray-400 border-gray-300 cursor-not-allowed"
                 : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
             }`}
             onClick={handleConfirmOrder}
-            disabled={isProcessing || isValidatingTradeIn || !tradeInValidation.isValid}
+            disabled={isProcessing || isCalculatingShipping || isValidatingTradeIn || !tradeInValidation.isValid}
           >
             {(isProcessing || isCalculatingShipping || isValidatingTradeIn) && (
               <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
