@@ -17,6 +17,8 @@ declare global {
       // Dual API: Flixmedia llama con (type) para notificar, o se registra con (fn, type)
       setLoadCallback: (typeOrFn: unknown, type?: string) => void;
       loadService: (type: string) => void;
+      // pagedata-specific.js de Flixmedia lo invoca durante el render
+      flixCartClick?: () => void;
     };
   }
 }
@@ -176,6 +178,7 @@ function FlixmediaPlayerComponent({
     const abortController = new AbortController();
     let observer: MutationObserver | null = null;
     let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cartClickGuardId: ReturnType<typeof setInterval> | null = null;
 
     // Limpiar scripts y callbacks de Flixmedia para inicialización limpia.
     // IMPORTANTE: Solo se llama al INICIO de una nueva inicialización (dentro del setTimeout),
@@ -319,8 +322,15 @@ function FlixmediaPlayerComponent({
         loadService: () => {}
       };
 
-      // Callback para botón de carrito de Flixmedia
-      (window as typeof window & { flixJsCallbacks: { flixCartClick?: () => void } }).flixJsCallbacks.flixCartClick = () => {
+      // Callback del botón de carrito de Flixmedia. Su pagedata-specific.js
+      // invoca window.flixJsCallbacks.flixCartClick() durante el render; si para
+      // entonces Flixmedia ya reemplazó nuestro objeto de callbacks con el suyo
+      // (lo hace al cargar loader.js), la función se pierde y su domTest lanza
+      // "flixCartClick is not a function", abortando el render → contenido en
+      // blanco INTERMITENTE (depende del timing/carga del hilo principal).
+      // ensureFlixCartClick la reasigna sobre el objeto vigente; el guard corto
+      // de abajo cubre la ventana de la carrera pase lo que pase.
+      const flixCartClickHandler = () => {
         const currentSegmento = segmentoRef.current;
         const currentProductId = productIdRef.current;
         const isPremiumSegment = currentSegmento && (Array.isArray(currentSegmento) ? currentSegmento[0] : currentSegmento)?.toUpperCase() === 'PREMIUM';
@@ -330,6 +340,13 @@ function FlixmediaPlayerComponent({
           : `/productos/view/${currentProductId}`;
         routerRef.current.push(route);
       };
+      const ensureFlixCartClick = () => {
+        const cb = window.flixJsCallbacks;
+        if (cb && typeof cb.flixCartClick !== 'function') {
+          cb.flixCartClick = flixCartClickHandler;
+        }
+      };
+      ensureFlixCartClick();
 
       // Verificar si hay error de Flixmedia (fondo azul, texto de error)
       const checkForFlixError = () => {
@@ -413,6 +430,9 @@ function FlixmediaPlayerComponent({
             }, 'noshow');
           }
         } catch { /* flixJsCallbacks may have been replaced */ }
+        // Flixmedia ya cargó y pudo reemplazar el objeto de callbacks: reasignar
+        // flixCartClick sobre el objeto vigente antes de que corra pagedata-specific.js
+        ensureFlixCartClick();
       };
       script.onerror = () => {
         console.log('[FLIX] Error cargando loader.js → redirigiendo');
@@ -422,6 +442,15 @@ function FlixmediaPlayerComponent({
       };
       script.src = "//media.flixfacts.com/js/loader.js";
       document.head.appendChild(script);
+
+      // Guard de la carrera: durante la carga de Flixmedia, garantizar que
+      // flixCartClick siempre exista sobre el objeto de callbacks vigente, sin
+      // importar cuándo Flixmedia lo reemplace. Cubre la ventana en que corre
+      // su domTest (~primeros segundos). Se detiene solo a los 6s y en cleanup.
+      cartClickGuardId = setInterval(ensureFlixCartClick, 120);
+      setTimeout(() => {
+        if (cartClickGuardId) { clearInterval(cartClickGuardId); cartClickGuardId = null; }
+      }, 6000);
 
       // Verificación a los 4s: si loader.js cargó pero no renderizó contenido real → redirigir
       // Esto cubre el caso donde ni inpage ni noshow callbacks se disparan
@@ -463,6 +492,7 @@ function FlixmediaPlayerComponent({
     return () => {
       isMounted = false;
       if (initTimeoutId) clearTimeout(initTimeoutId);
+      if (cartClickGuardId) clearInterval(cartClickGuardId);
       abortController.abort();
       observer?.disconnect();
     };
