@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Step1 from "../Step1";
 import { addressesService } from "@/services/addresses.service";
 import { useCheckoutAddress } from "@/features/checkout";
+import { trackStep2Skipped } from "../utils/checkoutTracking";
 
 export default function Step1Page() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function Step1Page() {
     const token = localStorage.getItem("imagiq_token");
     if (token && loggedUser?.email && userRole !== 3) {
       console.log("✅ [STEP1] Usuario regular autenticado (rol !== 3), yendo directo a step3");
+      trackStep2Skipped("registered", "step1_registered_user");
       router.push("/carrito/step3");
       return;
     }
@@ -34,6 +36,7 @@ export default function Step1Page() {
       // Primero verificar el contexto (más rápido)
       if (selectedAddress && selectedAddress.id) {
         console.log("✅ [STEP1] Usuario invitado con dirección en contexto, yendo a step3");
+        trackStep2Skipped("returning_guest", "step1_guest_address_in_context");
         router.push("/carrito/step3");
         return;
       }
@@ -47,6 +50,7 @@ export default function Step1Page() {
           if (addresses[0]) {
             selectAddress(addresses[0]);
           }
+          trackStep2Skipped("returning_guest", "step1_guest_address_in_db");
           router.push("/carrito/step3");
           return;
         }
