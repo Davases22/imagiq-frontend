@@ -23,7 +23,7 @@ import { posthogUtils } from "@/lib/posthogClient";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
 import MultimediaBottomBar from "@/components/MultimediaBottomBar";
 import { usePrefetchProduct } from "@/hooks/usePrefetchProduct";
-import { hasPremiumContent, preloadFlixmediaScriptEarly } from "@/lib/flixmedia";
+import { hasPremiumContent } from "@/lib/flixmedia";
 import MultimediaQuickNavBar from "./MultimediaQuickNavBar";
 
 // Skeleton de carga mejorado
@@ -140,11 +140,6 @@ export default function MultimediaPage({
     setSelectedProductData(null);
     setSelectionResolved(false);
   }
-
-  // Precargar DNS + script de Flixmedia lo antes posible
-  useEffect(() => {
-    preloadFlixmediaScriptEarly();
-  }, []);
 
   // Leer localStorage después del mount para evitar hydration mismatch
   useEffect(() => {

@@ -25,7 +25,6 @@ import { useScrollNavbar } from "@/hooks/useScrollNavbar";
 import BenefitsSection from "../../dispositivos-moviles/detalles-producto/BenefitsSection";
 import TradeInSection from "../../viewpremium/components/sections/TradeInSection";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
-import { preloadFlixmediaScriptEarly } from "@/lib/flixmedia";
 
 // Type for the product selection data passed from DetailsProductSection
 // This is a subset of UseProductSelectionReturn with only the properties passed by the callback
@@ -246,11 +245,6 @@ export default function ProductViewPage({ params }) {
 
   // Barra sticky superior
   const showStickyBar = useScrollNavbar(150, 50, true);
-
-  // Precargar DNS + script de Flixmedia lo antes posible
-  React.useEffect(() => {
-    preloadFlixmediaScriptEarly();
-  }, []);
 
   // 🚀 Prefetch automático de datos de Trade-In
   useTradeInPrefetch();
