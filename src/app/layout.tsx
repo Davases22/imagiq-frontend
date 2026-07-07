@@ -163,11 +163,14 @@ export default function RootLayout({
             compartidos del dominio a la app de Meta del negocio (Conversions API
             Application). Debe ser property= (Facebook ignora name=). */}
         <meta property="fb:app_id" content="3411213019157026" />
-        {/* Optimización Flixmedia: DNS prefetch, preconnect y preload para carga ultra-rápida */}
+        {/* Optimización Flixmedia: DNS prefetch, preconnect y preload para carga ultra-rápida.
+            Los preconnect van SIN crossOrigin: loader.js se carga con <script> sin
+            crossorigin y el contenido inpage con iframes/imágenes (modo credentialed);
+            una conexión precalentada anonymous NO se reutiliza para esos recursos. */}
         <link rel="dns-prefetch" href="//media.flixfacts.com" />
         <link rel="dns-prefetch" href="//media.flixcar.com" />
-        <link rel="preconnect" href="https://media.flixfacts.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://media.flixcar.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://media.flixfacts.com" />
+        <link rel="preconnect" href="https://media.flixcar.com" />
         <link rel="preload" href="//media.flixfacts.com/js/loader.js" as="script" />
         {/* JSON-LD: WebSite — controls site name in Google SERPs (especially mobile) */}
         <script

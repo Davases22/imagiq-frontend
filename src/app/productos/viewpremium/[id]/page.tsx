@@ -28,7 +28,6 @@ import AddToCartButton from "../components/AddToCartButton";
 import { ProductCardProps } from "@/app/productos/components/ProductCard";
 
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
-import { preloadFlixmediaScriptEarly } from "@/lib/flixmedia";
 
 // Componente de navegación rápida
 import QuickNavBar from "./components/QuickNavBar";
@@ -302,11 +301,6 @@ export default function ProductViewPage({ params }) {
 
   // Barra sticky superior con la misma animación/estilo de la vista normal
   const showStickyBar = useScrollNavbar(150, 50, true);
-
-  // Precargar DNS + script de Flixmedia lo antes posible
-  React.useEffect(() => {
-    preloadFlixmediaScriptEarly();
-  }, []);
 
   // Efecto para ocultar/mostrar el header principal exactamente igual que en view normal
   React.useEffect(() => {

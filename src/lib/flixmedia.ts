@@ -15,21 +15,100 @@ export interface FlixmediaAvailability {
   productId?: string;
 }
 
-// Cache in-memory para respuestas del Match API (TTL: 5 minutos)
+// Cache del Match API en dos niveles:
+// 1. In-memory (Map): lecturas instantáneas dentro de la misma pestaña
+// 2. localStorage: sobrevive refresh/nuevas pestañas. Positivos 24h (que un
+//    MPN tenga contenido casi nunca cambia); negativos 1h (Flixmedia puede
+//    publicar contenido nuevo).
 const matchCache = new Map<string, { result: FlixmediaAvailability; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const POSITIVE_TTL = 24 * 60 * 60 * 1000;
+const NEGATIVE_TTL = 60 * 60 * 1000;
+const PERSIST_KEY = "flixmedia_match_cache_v1";
+
+type PersistedMatchCache = Record<string, { result: FlixmediaAvailability; timestamp: number }>;
+
+function ttlFor(result: FlixmediaAvailability): number {
+  return result.available ? POSITIVE_TTL : NEGATIVE_TTL;
+}
+
+function readPersistedCache(): PersistedMatchCache {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(PERSIST_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
 
 function getCachedMatch(cacheKey: string): FlixmediaAvailability | null {
   const cached = matchCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < ttlFor(cached.result)) {
     return cached.result;
   }
   if (cached) matchCache.delete(cacheKey);
+
+  const persisted = readPersistedCache()[cacheKey];
+  if (persisted && Date.now() - persisted.timestamp < ttlFor(persisted.result)) {
+    // Hidratar el nivel in-memory para las siguientes lecturas
+    matchCache.set(cacheKey, persisted);
+    return persisted.result;
+  }
   return null;
 }
 
 function setCachedMatch(cacheKey: string, result: FlixmediaAvailability): void {
-  matchCache.set(cacheKey, { result, timestamp: Date.now() });
+  const entry = { result, timestamp: Date.now() };
+  matchCache.set(cacheKey, entry);
+
+  if (typeof window === "undefined") return;
+  try {
+    const persisted = readPersistedCache();
+    // Podar entradas expiradas para que el objeto no crezca sin límite
+    for (const [key, value] of Object.entries(persisted)) {
+      if (Date.now() - value.timestamp >= ttlFor(value.result)) {
+        delete persisted[key];
+      }
+    }
+    persisted[cacheKey] = entry;
+    window.localStorage.setItem(PERSIST_KEY, JSON.stringify(persisted));
+  } catch {
+    // localStorage lleno o bloqueado: el nivel in-memory sigue funcionando
+  }
+}
+
+/**
+ * Resuelve el match contra el proxy propio (/api/flixmedia/match), que cachea
+ * server-side con el Data Cache de Next y se comparte entre TODOS los usuarios.
+ * Si el proxy falla (red, 5xx), cae al Match API directo de Flixmedia.
+ */
+async function fetchMatch(
+  kind: "mpn" | "ean",
+  value: string,
+  distributorId: string,
+  language: string,
+  signal?: AbortSignal
+): Promise<FlixmediaAvailability> {
+  try {
+    const params = new URLSearchParams({ kind, value, distributor: distributorId, language });
+    const response = await fetch(`/api/flixmedia/match?${params.toString()}`, signal ? { signal } : undefined);
+    if (response.ok) {
+      const data = await response.json();
+      return data.available && data.productId
+        ? { available: true, productId: data.productId }
+        : { available: false };
+    }
+  } catch (error) {
+    // Abort del caller: propagar para no cachear un falso negativo
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+  }
+
+  // Fallback: Match API directo (comportamiento original)
+  const url = `${FLIXMEDIA_CONFIG.matchApiUrl}/${distributorId}/${language}/${kind}/${encodeURIComponent(value)}`;
+  const response = await fetch(url, signal ? { signal } : undefined);
+  const data = await response.json();
+  return data.event === "matchhit" && data.product_id
+    ? { available: true, productId: data.product_id }
+    : { available: false };
 }
 
 /**
@@ -46,19 +125,9 @@ export async function checkFlixmediaAvailability(
   if (cached) return cached;
 
   try {
-    const url = `${FLIXMEDIA_CONFIG.matchApiUrl}/${distributorId}/${language}/mpn/${encodeURIComponent(mpn)}`;
-    const response = await fetch(url, signal ? { signal } : undefined);
-    const data = await response.json();
-
-    if (data.event === "matchhit" && data.product_id) {
-      const result = { available: true, productId: data.product_id };
-      setCachedMatch(cacheKey, result);
-      return result;
-    } else {
-      const result = { available: false };
-      setCachedMatch(cacheKey, result);
-      return result;
-    }
+    const result = await fetchMatch("mpn", mpn, distributorId, language, signal);
+    setCachedMatch(cacheKey, result);
+    return result;
   } catch {
     return { available: false };
   }
@@ -78,19 +147,9 @@ export async function checkFlixmediaAvailabilityByEan(
   if (cached) return cached;
 
   try {
-    const url = `${FLIXMEDIA_CONFIG.matchApiUrl}/${distributorId}/${language}/ean/${encodeURIComponent(ean)}`;
-    const response = await fetch(url, signal ? { signal } : undefined);
-    const data = await response.json();
-
-    if (data.event === "matchhit" && data.product_id) {
-      const result = { available: true, productId: data.product_id };
-      setCachedMatch(cacheKey, result);
-      return result;
-    } else {
-      const result = { available: false };
-      setCachedMatch(cacheKey, result);
-      return result;
-    }
+    const result = await fetchMatch("ean", ean, distributorId, language, signal);
+    setCachedMatch(cacheKey, result);
+    return result;
   } catch {
     return { available: false };
   }
