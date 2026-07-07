@@ -12,4 +12,4 @@ export {
   hashUserData,
   normalizeUserDataForPixel,
 } from './hash';
-export { canSendAnalytics, canSendAds, logConsentBlocked } from './consent';
+export { canSendAnalytics, canSendAds, isAdsConsentResolved, logConsentBlocked } from './consent';

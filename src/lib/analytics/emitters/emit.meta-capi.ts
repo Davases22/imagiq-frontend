@@ -19,19 +19,21 @@ import type {
   CapiResponse,
 } from '../types/capi';
 import type { AnalyticsUserData } from '../controller';
-import { canSendAds, logConsentBlocked } from '../utils';
+import { canSendAds, isAdsConsentResolved } from '../utils';
 import { hashUserData } from '../utils/hash';
-import { anonymizeIP, getFacebookCookies } from '../utils/anonymize';
+import { getFacebookCookies } from '../utils/anonymize';
 
 /**
- * Obtiene la IP del cliente (simulado en navegador)
+ * IP del cliente: NO se envía desde el navegador.
  *
- * NOTA: La IP real se captura en el backend desde el request HTTP
- * Esta función retorna una IP genérica para cumplir con el tipo
+ * Devuelve `undefined` para que la clave se OMITA del payload y el backend
+ * (customer-success-ms analytics.controller) haga fallback a `x-forwarded-for`
+ * — la IP real del cliente que el gateway ya reenvía. El antiguo stub
+ * '0.0.0.0' era truthy y mataba ese fallback: TODOS los eventos CAPI del
+ * browser llegaban a Meta con IP 0.0.0.0 (EMQ capado).
  */
-function getClientIP(): string {
-  // En producción, el backend extrae la IP del request
-  return '0.0.0.0';
+function getClientIP(): string | undefined {
+  return undefined;
 }
 
 /**
@@ -77,8 +79,150 @@ export async function sendMetaCapi(
   customData: MetaCapiCustomData,
   userData?: AnalyticsUserData
 ): Promise<void> {
-  const hasConsent = canSendAds();
+  // Consentimiento ya resuelto (concedido o denegado): comportamiento actual,
+  // envío inmediato en el modo que corresponda.
+  if (canSendAds()) {
+    await dispatchMetaCapi(eventName, eventId, customData, userData, true);
+    return;
+  }
+  if (isAdsConsentResolved() || typeof window === 'undefined') {
+    // Denegado explícitamente (o SSR): anónimo de inmediato, sin esperar.
+    await dispatchMetaCapi(eventName, eventId, customData, userData, false);
+    return;
+  }
 
+  // Consentimiento PENDIENTE (banner sin responder): encolar con ventana
+  // acotada — simetría con la pata del pixel (emit.meta.ts deliverOrQueue),
+  // que espera ~10s a consentimiento y luego dispara CON fbc/AM. Antes el
+  // CAPI muestreaba canSendAds() una sola vez y salía ANONYMOUS (sin
+  // fbc/fbp/PII) aunque el usuario consintiera milisegundos después → Meta
+  // veía el evento server sin fbc pareado con el pixel con fbc.
+  //
+  // Fire-and-forget: NO bloqueamos al caller (processAnalyticsEvent awaitea
+  // este promise; esperar 10s retrasaría el abandon-tracking y los hooks).
+  // El event_id se captura al encolar → dedup con el pixel intacto.
+  pendingCapiEvents.push({
+    eventName,
+    eventId,
+    customData,
+    userData,
+    attemptsLeft: CONSENT_MAX_ATTEMPTS,
+  });
+  ensureCapiFlushScheduled();
+}
+
+// ---------------------------------------------------------------------------
+// Cola de espera de consentimiento (solo eventos disparados ANTES de que el
+// usuario responda el banner). No depende de window.fbq: el CAPI debe
+// funcionar aunque un ad-blocker impida cargar el pixel.
+// ---------------------------------------------------------------------------
+
+interface PendingCapiEvent {
+  eventName: string;
+  eventId: string;
+  customData: MetaCapiCustomData;
+  userData?: AnalyticsUserData;
+  attemptsLeft: number;
+}
+
+const CONSENT_RETRY_INTERVAL_MS = 400;
+const CONSENT_MAX_ATTEMPTS = 25; // ~10s: misma ventana que la cola del pixel
+
+const pendingCapiEvents: PendingCapiEvent[] = [];
+let capiFlushTimer: ReturnType<typeof setInterval> | null = null;
+let capiConsentListenerAttached = false;
+
+function stopCapiFlushTimer(): void {
+  if (capiFlushTimer !== null) {
+    clearInterval(capiFlushTimer);
+    capiFlushTimer = null;
+  }
+}
+
+/** Drena la cola enviando cada evento en el modo indicado. */
+function drainPendingCapiEvents(hasConsent: boolean): void {
+  while (pendingCapiEvents.length > 0) {
+    const item = pendingCapiEvents.shift() as PendingCapiEvent;
+    void dispatchMetaCapi(
+      item.eventName,
+      item.eventId,
+      item.customData,
+      item.userData,
+      hasConsent
+    );
+  }
+  stopCapiFlushTimer();
+}
+
+/** Revalida consentimiento en cada tick y resuelve la cola. */
+function flushPendingCapiEvents(): void {
+  if (pendingCapiEvents.length === 0) {
+    stopCapiFlushTimer();
+    return;
+  }
+
+  // Consentimiento concedido dentro de la ventana → FULL (con fbc/fbp/PII).
+  if (canSendAds()) {
+    drainPendingCapiEvents(true);
+    return;
+  }
+
+  // Denegado explícitamente → anónimo ya (no seguir esperando).
+  if (isAdsConsentResolved()) {
+    drainPendingCapiEvents(false);
+    return;
+  }
+
+  // Sigue pendiente: decrementar intentos; los agotados salen en anónimo
+  // (comportamiento pre-fix, solo que ~10s más tarde).
+  for (let i = pendingCapiEvents.length - 1; i >= 0; i--) {
+    pendingCapiEvents[i].attemptsLeft -= 1;
+    if (pendingCapiEvents[i].attemptsLeft <= 0) {
+      const [expired] = pendingCapiEvents.splice(i, 1);
+      void dispatchMetaCapi(
+        expired.eventName,
+        expired.eventId,
+        expired.customData,
+        expired.userData,
+        false
+      );
+    }
+  }
+
+  if (pendingCapiEvents.length === 0) {
+    stopCapiFlushTimer();
+  }
+}
+
+function ensureCapiFlushScheduled(): void {
+  if (typeof window === 'undefined') return;
+
+  if (capiFlushTimer === null && pendingCapiEvents.length > 0) {
+    capiFlushTimer = setInterval(flushPendingCapiEvents, CONSENT_RETRY_INTERVAL_MS);
+  }
+
+  // Resolución inmediata al responder el banner (mismo CustomEvent que usa la
+  // pata del pixel): no esperar al próximo tick del intervalo.
+  if (!capiConsentListenerAttached) {
+    capiConsentListenerAttached = true;
+    window.addEventListener('consentChange', () => {
+      setTimeout(flushPendingCapiEvents, 0);
+    });
+  }
+}
+
+/**
+ * Construye y envía el evento CAPI al backend en el modo indicado.
+ * `event_time` se calcula al ENVIAR (no al encolar) — irrelevante para el
+ * dedup de Meta (ventana de 48h por event_id).
+ */
+async function dispatchMetaCapi(
+  eventName: string,
+  eventId: string,
+  customData: MetaCapiCustomData,
+  userData: AnalyticsUserData | undefined,
+  hasConsent: boolean
+): Promise<void> {
   try {
     // Construir user_data según consentimiento
     const user_data: MetaCapiUserData = hasConsent
@@ -149,13 +293,13 @@ async function buildFullUserData(
 
 /**
  * Construye user_data ANÓNIMO (sin consentimiento)
+ *
+ * Sin IP hardcodeada: `getClientIP()` devuelve undefined → la clave se omite
+ * y el backend resuelve/anonimiza la IP real desde x-forwarded-for.
  */
 function buildAnonymousUserData(): MetaCapiUserData {
-  const ip = getClientIP();
-  const anonymizedIP = anonymizeIP(ip);
-
   return {
-    client_ip_address: anonymizedIP,
+    client_ip_address: getClientIP(),
   };
 }
 
