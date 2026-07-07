@@ -106,3 +106,28 @@ export function trackCheckoutStep(
     return false;
   }
 }
+
+/**
+ * Marca el paso 2 como SALTADO en este intento — para que el funnel de PostHog
+ * sea monótono: los usuarios registrados y los invitados recurrentes con
+ * dirección persistida son ruteados step1→step3 sin montar Step2, por lo que
+ * `checkout_step2_completed` < `checkout_step3_delivery_selected` por diseño.
+ * En PostHog el paso 2 del funnel debe modelarse como
+ * `checkout_step2_completed OR checkout_step2_skipped`.
+ *
+ * Comparte el slot de dedupe del paso 2 (clave por NÚMERO de paso): máximo un
+ * evento de paso 2 por intento. Caveat aceptado: si un guard emite `skipped` y
+ * el usuario después es devuelto a Step2 (p.ej. domicilio sin dirección desde
+ * Step3) y lo completa de verdad, la completación queda etiquetada como
+ * skipped en ese intento — el conteo del funnel sigue siendo correcto.
+ *
+ * @param userType - población que salta el paso ('registered' | 'returning_guest' | 'restored_session')
+ * @param reason - guard concreto que produjo el salto (para depurar routing)
+ */
+export function trackStep2Skipped(userType: string, reason: string): boolean {
+  return trackCheckoutStep(2, "checkout_step2_skipped", {
+    user_type: userType,
+    reason,
+    skipped: true,
+  });
+}

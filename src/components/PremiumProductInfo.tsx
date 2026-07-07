@@ -88,13 +88,7 @@ const PremiumProductInfo: React.FC<{ product: ProductCardProps }> = ({
         categoria: product.apiProduct?.categoria || "",
       });
 
-      posthogUtils.capture("add_to_cart_click", {
-        product_id: product.id,
-        product_name: product.name,
-        selected_color: selectedColor.color,
-        selected_storage: selectedStorage.capacidad,
-        price: currentPrice,
-      });
+      // add_to_cart_click se emite centralizado en CartContext.addProduct.
 
       alert("Producto agregado al carrito");
     } catch (error) {

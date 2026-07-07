@@ -226,8 +226,10 @@ export default function SuggestionCard({ product }: SuggestionCardProps) {
         desDetallada: productSelection.selectedVariant?.desDetallada,
         modelo: product.modelo?.[0] || "",
         categoria: product.categoria || "",
-      });
+      }, { source: "suggestion_card" });
 
+      // Evento de intención específico (complementario al add_to_cart_click
+      // centralizado de CartContext, que es el paso de funnel).
       posthogUtils.capture("suggestion_add_to_cart", {
         product_id: product.codigoMarketBase,
         product_name: currentProductName,

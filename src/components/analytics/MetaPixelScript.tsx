@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hasMarketingConsent } from "@/lib/consent";
+import { applyKnownUserAM } from "@/lib/analytics/emitters/emit.meta";
 
 /**
  * Meta Pixel (Facebook) - First-Party Loading
@@ -69,10 +70,16 @@ export default function MetaPixelScript() {
 
     // Cargar inmediatamente
     loadMetaPixel();
+    // Advanced Matching proactivo para usuario ya conocido (imagiq_user en
+    // localStorage): antes el AM solo se aplicaba como efecto lateral del
+    // siguiente evento con `user` del AuthContext. Consent-safe: la llamada
+    // se encola hasta fbq+consentimiento (deliverOrQueue) y expira si no hay.
+    applyKnownUserAM();
 
     // Escuchar cambios de consentimiento
     const handleConsentChange = () => {
       loadMetaPixel();
+      applyKnownUserAM();
     };
 
     window.addEventListener("consentChange", handleConsentChange);

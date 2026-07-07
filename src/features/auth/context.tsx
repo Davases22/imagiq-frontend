@@ -21,6 +21,7 @@ import { User } from "@/types/user";
 import { addressesService } from "@/services/addresses.service";
 import { setPosthogUserId, posthogUtils } from "@/lib/posthogClient";
 import { mergeSearchHistoryOnLogin } from "@/lib/searchHistory";
+import { applyKnownUserAM } from "@/lib/analytics/emitters/emit.meta";
 
 interface AuthContextType {
   user: User | null;
@@ -184,6 +185,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       telefono: userData.telefono,
       role: userRole,
     });
+
+    // Advanced Matching de Meta para el usuario recién logueado (lee el
+    // imagiq_user que acabamos de persistir; consent-safe vía deliverOrQueue).
+    applyKnownUserAM();
 
     // Merge del historial de búsqueda anónimo → usuario (reasigna las búsquedas
     // pre-login al usuario; espejo del identify() de PostHog). Best-effort.

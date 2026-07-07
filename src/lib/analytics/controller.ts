@@ -82,7 +82,8 @@ export async function processAnalyticsEvent(
     // 1. Generar event_id deduplicable
     const eventId = await generateEventIdForEvent(event);
 
-    // 2. Mapear a cada plataforma
+    // 2. Mapear a cada plataforma. `metaEvent` puede ser null (Purchase con
+    // value inválido/<=0 se omite en Meta; GA4/TikTok no se ven afectados).
     const ga4Event = toGa4Event(event);
     const metaEvent = toMetaEvent(event, eventId, user);
     const tiktokEvent = toTiktokEvent(event, eventId, user);
@@ -112,7 +113,7 @@ export async function processAnalyticsEvent(
       });
       if (Object.keys(pixelAM).length > 0) setMetaAdvancedMatching(pixelAM);
     }
-    sendMeta(metaEvent, eventId);
+    if (metaEvent) sendMeta(metaEvent, eventId);
     sendTiktok(tiktokEvent, eventId);
 
     // 5. SERVER-SIDE: Enviar a CAPI SIEMPRE (modo condicional)
@@ -132,22 +133,29 @@ export async function processAnalyticsEvent(
  * Modo FULL o ANONYMOUS se decide dentro de cada emisor.
  */
 async function sendServerSideEvents(
-  metaEvent: MetaEvent,
+  metaEvent: MetaEvent | null,
   tiktokEvent: TikTokEvent,
   eventId: string,
   user?: AnalyticsUserData
 ): Promise<void> {
   try {
-    // Construir custom_data para Meta CAPI (type-safe extraction)
-    const metaCustomData: MetaCapiCustomData = {
-      value: typeof metaEvent.data.value === 'number' ? metaEvent.data.value : undefined,
-      currency: typeof metaEvent.data.currency === 'string' ? metaEvent.data.currency : undefined,
-      content_type: typeof metaEvent.data.content_type === 'string' ? metaEvent.data.content_type : undefined,
-      content_ids: Array.isArray(metaEvent.data.content_ids) ? metaEvent.data.content_ids : undefined,
-      content_name: typeof metaEvent.data.content_name === 'string' ? metaEvent.data.content_name : undefined,
-      num_items: typeof metaEvent.data.num_items === 'number' ? metaEvent.data.num_items : undefined,
-      search_string: typeof metaEvent.data.search_string === 'string' ? metaEvent.data.search_string : undefined,
-    };
+    const capiSends: Promise<void>[] = [];
+
+    // Meta CAPI solo si el mapper no omitió el evento (paridad con el pixel:
+    // un Purchase con value inválido no se envía por NINGUNA de las dos patas).
+    if (metaEvent) {
+      // Construir custom_data para Meta CAPI (type-safe extraction)
+      const metaCustomData: MetaCapiCustomData = {
+        value: typeof metaEvent.data.value === 'number' ? metaEvent.data.value : undefined,
+        currency: typeof metaEvent.data.currency === 'string' ? metaEvent.data.currency : undefined,
+        content_type: typeof metaEvent.data.content_type === 'string' ? metaEvent.data.content_type : undefined,
+        content_ids: Array.isArray(metaEvent.data.content_ids) ? metaEvent.data.content_ids : undefined,
+        content_name: typeof metaEvent.data.content_name === 'string' ? metaEvent.data.content_name : undefined,
+        num_items: typeof metaEvent.data.num_items === 'number' ? metaEvent.data.num_items : undefined,
+        search_string: typeof metaEvent.data.search_string === 'string' ? metaEvent.data.search_string : undefined,
+      };
+      capiSends.push(sendMetaCapi(metaEvent.name, eventId, metaCustomData, user));
+    }
 
     // Construir properties para TikTok Events API (type-safe extraction)
     const tiktokProperties: TikTokEventsProperties = {
@@ -158,12 +166,10 @@ async function sendServerSideEvents(
       num_items: typeof tiktokEvent.data.num_items === 'number' ? tiktokEvent.data.num_items : undefined,
       search_string: typeof tiktokEvent.data.search_string === 'string' ? tiktokEvent.data.search_string : undefined,
     };
+    capiSends.push(sendTikTokCapi(tiktokEvent.name, eventId, tiktokProperties, user));
 
     // Enviar a ambas APIs en paralelo
-    await Promise.all([
-      sendMetaCapi(metaEvent.name, eventId, metaCustomData, user),
-      sendTikTokCapi(tiktokEvent.name, eventId, tiktokProperties, user),
-    ]);
+    await Promise.all(capiSends);
   } catch (error) {
     console.error('[Analytics] Failed to send server-side events:', error);
   }
