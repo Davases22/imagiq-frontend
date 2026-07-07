@@ -381,6 +381,10 @@ export default function MultimediaPage({
       <div
         className="flex-1 pt-[55px] xl:pt-[70px] bg-white"
       >
+        {/* skipMatchApi: inyectar loader.js sin esperar el Match API. El await del
+            Match era peso muerto serial (~100-700ms en frío): no gatea el render ni
+            el redirect — "sin contenido" lo detectan el callback noshow y el timeout
+            de 4s del player, que siguen redirigiendo a view/viewpremium. */}
         <FlixmediaPlayer
           mpn={productSku}
           ean={productEan}
@@ -389,7 +393,7 @@ export default function MultimediaPage({
           segmento={segmento}
           apiProduct={product?.apiProduct}
           productColors={product?.colors}
-          skipMatchApi={false}
+          skipMatchApi={true}
           className=""
         />
       </div>

@@ -40,8 +40,47 @@ import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
 import { shouldRenderValue, shouldRenderColor } from "./utils/shouldRenderValue";
 import { prefetchFlixmediaScript } from "@/lib/flixmedia";
+import { productCache } from "@/lib/productCache";
 import CeroInteresSection from "@/components/CeroInteresSection";
 import { ZeroInterestSkuResult } from "@/services/cero-interes-sku.service";
+
+// Dedup a nivel módulo: un solo prefetch por producto mientras viva la página
+const hoverPrefetchedProducts = new Set<string>();
+
+/**
+ * Prefetch de datos de producto al hacer hover en la card, vía el proxy
+ * cacheado server-side (/api/pcache/product — Data Cache compartido, ~5-80ms).
+ * Deja la respuesta en productCache con la MISMA forma que guarda useProduct,
+ * así el click siguiente renderiza la PDP sin esperar al backend.
+ * Si falla, se limpia el dedup y la PDP carga por su camino normal.
+ */
+async function prefetchProductDataOnHover(codigoMarket: string): Promise<void> {
+  if (!codigoMarket || hoverPrefetchedProducts.has(codigoMarket)) return;
+  hoverPrefetchedProducts.add(codigoMarket);
+  if (productCache.getSingleProduct(codigoMarket)) return;
+  try {
+    const res = await fetch(
+      `/api/pcache/product?codigoMarket=${encodeURIComponent(codigoMarket)}`
+    );
+    if (!res.ok) return;
+    const raw = await res.json();
+    // Misma normalización que ApiClient.request: {success,data,...} o payload directo
+    const response =
+      raw && typeof raw === "object" && "success" in raw
+        ? { data: raw.data, success: !!raw.success }
+        : { data: raw, success: true };
+    if (response.success && response.data) {
+      productCache.setSingleProduct(
+        codigoMarket,
+        response as Parameters<typeof productCache.setSingleProduct>[1],
+        10 * 60 * 1000
+      );
+    }
+  } catch {
+    // permitir reintento en un próximo hover
+    hoverPrefetchedProducts.delete(codigoMarket);
+  }
+}
 
 export interface ProductColor {
   name: string; // Nombre técnico del color (ej: "black", "white")
@@ -669,6 +708,10 @@ export default function ProductCard({
 
   const handleMouseEnter = () => {
     prefetchFlixmediaScript();
+    // Precargar los DATOS del producto vía el proxy cacheado (/api/pcache):
+    // al hacer click, useProduct los encuentra en productCache y la PDP
+    // renderiza sin esperar al backend — Flixmedia arranca de inmediato.
+    prefetchProductDataOnHover(String(id).split("/")[0]);
   };
 
   return (
