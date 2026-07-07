@@ -17,7 +17,7 @@
  */
 
 import type { MetaEvent } from '../mappers';
-import { canSendAds, logConsentBlocked } from '../utils';
+import { canSendAds, logConsentBlocked, normalizeUserDataForPixel } from '../utils';
 
 interface PendingMetaEvent {
   /** Nombre del evento (para logs) */
@@ -181,6 +181,55 @@ export function setMetaAdvancedMatching(userData: Record<string, string>): void 
       lastAppliedAMKey = key; // marcar solo tras aplicar realmente
     }
   });
+}
+
+/**
+ * Aplica Advanced Matching para el usuario CONOCIDO persistido en localStorage.
+ *
+ * Problema que resuelve: el AM solo se aplicaba como efecto lateral de
+ * processAnalyticsEvent cuando el evento traía `user` (derivado del estado
+ * React del AuthContext) — en hard loads el evento del mount (p.ej.
+ * InitiateCheckout en Step1) disparaba ANTES de que loadSession() poblara el
+ * contexto, así que ni los usuarios logueados aportaban `em`.
+ *
+ * Lee `imagiq_user` directo de localStorage (clave en WHITELIST_KEYS de
+ * secureStorage → nombre plano; el valor lo escriben AuthContext.login() y el
+ * flujo OTP de Step2 como JSON plano), normaliza para el píxel (plaintext —
+ * el píxel hashea internamente) y delega en setMetaAdvancedMatching, que ya es
+ * consent-safe (deliverOrQueue revalida canSendAds en cada intento) e
+ * idempotente por contenido.
+ *
+ * Llamar: al montar la app (bootstrap del pixel / listener de consentChange),
+ * en AuthContext.login(), y al identificarse un invitado (Step2 OTP/auto-login).
+ */
+export function applyKnownUserAM(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem('imagiq_user');
+    if (!raw) return;
+
+    const user = JSON.parse(raw) as {
+      id?: string;
+      email?: string;
+      telefono?: string;
+      nombre?: string;
+      apellido?: string;
+    } | null;
+    if (!user || typeof user !== 'object') return;
+
+    const amData = normalizeUserDataForPixel({
+      id: user.id,
+      email: user.email,
+      phone: user.telefono,
+      firstName: user.nombre,
+      lastName: user.apellido,
+    });
+    if (Object.keys(amData).length > 0) {
+      setMetaAdvancedMatching(amData);
+    }
+  } catch {
+    // best-effort: valor corrupto/encriptado → sin AM (igual que hoy)
+  }
 }
 
 /**
