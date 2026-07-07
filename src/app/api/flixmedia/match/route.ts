@@ -32,6 +32,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // distributor/language se interpolan como segmentos de path hacia Flixmedia:
+  // restringirlos evita que un request malicioso reescriba el path del upstream.
+  if (!/^\d{1,10}$/.test(distributor) || !/^[a-z0-9]{1,5}$/i.test(language)) {
+    return NextResponse.json(
+      { available: false, error: "invalid_params" },
+      { status: 400 }
+    );
+  }
+
   try {
     const url = `${MATCH_API_URL}/${distributor}/${language}/${kind}/${encodeURIComponent(value)}`;
     const response = await fetch(url, {
