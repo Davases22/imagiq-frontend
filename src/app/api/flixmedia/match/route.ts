@@ -46,6 +46,19 @@ export async function GET(request: NextRequest) {
     const response = await fetch(url, {
       next: { revalidate: MATCH_REVALIDATE_SECONDS },
     });
+
+    // NO interpretar el body si el upstream falló (4xx/5xx). Un error de
+    // Flixmedia con cuerpo JSON produciría {available:false} con status 200 y
+    // el header CDN de 24h, envenenando un falso negativo compartido para ese
+    // MPN. Devolver 502 hace que el cliente caiga al Match API directo (mismo
+    // contrato que el catch de red) y evita cachear el error en el CDN.
+    if (!response.ok) {
+      return NextResponse.json(
+        { available: false, error: "match_upstream_status" },
+        { status: 502 }
+      );
+    }
+
     const data = await response.json();
 
     const matched = data?.event === "matchhit" && data?.product_id;
