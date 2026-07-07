@@ -1206,9 +1206,35 @@ export const useProduct = (productId: string) => {
       try {
         const codigoMarketBase = productId;
 
-        // Usar el endpoint específico para buscar por codigoMarketBase
-        const response = await productEndpoints.getByCodigoMarket(codigoMarketBase);
-        
+        // Primer load vía proxy cacheado server-side (/api/pcache/product):
+        // el Data Cache de Next comparte la respuesta entre TODOS los usuarios,
+        // así que tras el primer visitante de un producto la respuesta llega en
+        // ~20-80ms en vez de pagar Railway completo (~0.3-1.5s). Si falla por
+        // cualquier razón, fallback transparente al endpoint directo.
+        // La frescura (precio/stock) la corrige el refresh en background de abajo.
+        let cameFromPcache = false;
+        const fetchViaPcache = async (): Promise<Awaited<ReturnType<typeof productEndpoints.getByCodigoMarket>> | null> => {
+          try {
+            const res = await fetch(`/api/pcache/product?codigoMarket=${encodeURIComponent(codigoMarketBase)}`);
+            if (!res.ok) return null;
+            const raw = await res.json();
+            // Replicar la normalización de ApiClient.request: el backend puede
+            // devolver { success, data, ... } o el payload directo
+            if (raw && typeof raw === "object" && "success" in raw) {
+              return { data: raw.data, success: !!raw.success, message: raw.message, errors: raw.errors };
+            }
+            return { data: raw, success: true };
+          } catch {
+            return null;
+          }
+        };
+
+        const pcacheResponse = await fetchViaPcache();
+        cameFromPcache = pcacheResponse !== null && pcacheResponse.success;
+        const response = cameFromPcache && pcacheResponse
+          ? pcacheResponse
+          : await productEndpoints.getByCodigoMarket(codigoMarketBase);
+
         // La API puede devolver los productos en 'products' o en 'allGroupedProducts'
         const productsArray = response.data?.products || (response.data as { allGroupedProducts?: typeof response.data.products })?.allGroupedProducts;
 
@@ -1232,6 +1258,29 @@ export const useProduct = (productId: string) => {
               )
               .slice(0, 4);
             if (isMounted) setRelatedProducts(related);
+
+            // Si vino del proxy cacheado (hasta 2 min de antigüedad), refrescar
+            // en background contra el endpoint directo — mismo patrón SWR que el
+            // camino de cache in-memory de arriba
+            if (cameFromPcache) {
+              productEndpoints.getByCodigoMarket(codigoMarketBase)
+                .then((fresh) => {
+                  const freshProducts = fresh.data?.products || (fresh.data as { allGroupedProducts?: typeof fresh.data.products })?.allGroupedProducts;
+                  if (!fresh.success || !freshProducts || freshProducts.length === 0) return;
+                  const freshMapped = mapApiProductsToFrontend(freshProducts);
+                  if (freshMapped.length === 0) return;
+                  productCache.setSingleProduct(productId, fresh, 10 * 60 * 1000);
+                  if (isMounted) {
+                    setProduct((prev) => {
+                      if (!prev || JSON.stringify(prev) !== JSON.stringify(freshMapped[0])) {
+                        return freshMapped[0];
+                      }
+                      return prev;
+                    });
+                  }
+                })
+                .catch(() => { /* ya tenemos datos del proxy cacheado */ });
+            }
           } else {
             if (isMounted) setError("Producto no encontrado");
           }

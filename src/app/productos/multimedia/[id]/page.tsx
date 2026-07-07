@@ -23,7 +23,7 @@ import { posthogUtils } from "@/lib/posthogClient";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
 import MultimediaBottomBar from "@/components/MultimediaBottomBar";
 import { usePrefetchProduct } from "@/hooks/usePrefetchProduct";
-import { hasPremiumContent, preloadFlixmediaScriptEarly } from "@/lib/flixmedia";
+import { hasPremiumContent } from "@/lib/flixmedia";
 import MultimediaQuickNavBar from "./MultimediaQuickNavBar";
 
 // Skeleton de carga mejorado
@@ -140,11 +140,6 @@ export default function MultimediaPage({
     setSelectedProductData(null);
     setSelectionResolved(false);
   }
-
-  // Precargar DNS + script de Flixmedia lo antes posible
-  useEffect(() => {
-    preloadFlixmediaScriptEarly();
-  }, []);
 
   // Leer localStorage después del mount para evitar hydration mismatch
   useEffect(() => {
@@ -386,6 +381,10 @@ export default function MultimediaPage({
       <div
         className="flex-1 pt-[55px] xl:pt-[70px] bg-white"
       >
+        {/* skipMatchApi: inyectar loader.js sin esperar el Match API. El await del
+            Match era peso muerto serial (~100-700ms en frío): no gatea el render ni
+            el redirect — "sin contenido" lo detectan el callback noshow y el timeout
+            de 4s del player, que siguen redirigiendo a view/viewpremium. */}
         <FlixmediaPlayer
           mpn={productSku}
           ean={productEan}
@@ -394,7 +393,7 @@ export default function MultimediaPage({
           segmento={segmento}
           apiProduct={product?.apiProduct}
           productColors={product?.colors}
-          skipMatchApi={false}
+          skipMatchApi={true}
           className=""
         />
       </div>

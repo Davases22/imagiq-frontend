@@ -31,7 +31,9 @@ export interface MetaEvent {
  * @param event - Evento del dataLayer
  * @param eventId - Event ID para deduplicación (generado con utils/id.ts)
  * @param user - Datos de usuario para Advanced Matching (opcional)
- * @returns Evento formateado para Meta Pixel
+ * @returns Evento formateado para Meta Pixel, o `null` si el evento debe
+ *   OMITIRSE (p.ej. Purchase con value no finito o <= 0 — un Purchase sin
+ *   precio válido dispara los diagnósticos "invalid prices" de Meta)
  *
  * @example
  * ```typescript
@@ -50,7 +52,7 @@ export function toMetaEvent(
   event: DlAny,
   eventId: string,
   user?: { email?: string; phone?: string }
-): MetaEvent {
+): MetaEvent | null {
   switch (event.event) {
     case 'view_item':
       return {
@@ -104,18 +106,28 @@ export function toMetaEvent(
         },
       };
 
-    case 'purchase':
+    case 'purchase': {
+      // Hardening del value: coercionar a número y validar. Un Purchase con
+      // value no finito (string de pg-numeric, NaN) o <= 0 se OMITE — es
+      // exactamente lo que Meta marca como "invalid prices" / "all same
+      // price"; el CAPI server-side (payments-ms) carga la orden con el
+      // valor real de ordenes.total_amount.
+      const purchaseValue = Number(event.ecommerce.value);
+      if (!Number.isFinite(purchaseValue) || purchaseValue <= 0) {
+        return null;
+      }
       return {
         name: 'Purchase',
         data: {
           content_ids: event.ecommerce.items.map((i) => i.item_id),
           content_type: 'product',
           contents: mapContents(event.ecommerce.items),
-          value: event.ecommerce.value,
-          currency: event.ecommerce.currency,
+          value: purchaseValue,
+          currency: event.ecommerce.currency || 'COP',
           num_items: event.ecommerce.items.reduce((sum, i) => sum + (i.quantity || 1), 0),
         },
       };
+    }
 
     case 'search':
       return {

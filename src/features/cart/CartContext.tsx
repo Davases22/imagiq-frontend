@@ -15,6 +15,7 @@ import { CartProduct, BundleInfo, useCart } from "@/hooks/useCart";
 import { useAnalyticsWithUser } from "@/lib/analytics";
 import { apiClient } from "@/lib/api";
 import { apiPost } from "@/lib/api-client";
+import { posthogUtils } from "@/lib/posthogClient";
 import { preloadCartSuggestions } from "@/lib/preloadCartSuggestions";
 import React, { createContext, useCallback, useContext } from "react";
 
@@ -25,8 +26,13 @@ import React, { createContext, useCallback, useContext } from "react";
 type CartContextType = {
   /** Array de productos en el carrito */
   cart: CartProduct[];
-  /** Añade un producto al carrito (o suma cantidad si ya existe) */
-  addProduct: (product: CartProduct) => Promise<void>;
+  /** Añade un producto al carrito (o suma cantidad si ya existe).
+   *  `options.source` identifica el origen UI del add (product_card, chatbot,
+   *  pdp_view, suggestion_card, …) para el evento PostHog centralizado. */
+  addProduct: (
+    product: CartProduct,
+    options?: { source?: string }
+  ) => Promise<void>;
   /** Elimina un producto por id */
   removeProduct: (id: string) => void;
   /** Actualiza la cantidad de un producto */
@@ -50,7 +56,8 @@ type CartContextType = {
   /** Añade todos los productos de un bundle al carrito */
   addBundleToCart: (
     items: Omit<CartProduct, "quantity">[],
-    bundleInfo: BundleInfo
+    bundleInfo: BundleInfo,
+    options?: { source?: string }
   ) => Promise<void>;
   /** Actualiza la cantidad de todos los productos de un bundle */
   updateBundleQuantity: (
@@ -116,7 +123,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Memoizar funciones para evitar que cambien en cada render
   const addProduct = useCallback(
-    async (product: CartProduct) => {
+    async (product: CartProduct, options?: { source?: string }) => {
       // Extraer quantity del producto y pasarlo por separado para evitar problemas de tipo
       const { quantity, ...productWithoutQuantity } = product;
       await addToCart(productWithoutQuantity, quantity || 1, user?.id);
@@ -133,6 +140,18 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         price: Number(product.price),
         quantity: quantity || 1,
         currency: "COP",
+      });
+
+      // PostHog add_to_cart_click a nivel de MUTACIÓN (punto único): todos los
+      // caminos vivos de UI (catálogo, PDPs, sugerencias, entrego-y-estreno)
+      // pasan por aquí, así el funnel no pierde adds instrumentados por-botón.
+      posthogUtils.capture("add_to_cart_click", {
+        product_id: product.id,
+        product_name: product.name,
+        sku: product.sku || product.id,
+        price: Number(product.price),
+        quantity: quantity || 1,
+        source: options?.source || "unknown",
       });
 
       // Precargar sugerencias en background para el popover
@@ -159,7 +178,11 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   // ==================== MÉTODOS DE BUNDLE ====================
 
   const addBundleToCart = useCallback(
-    async (items: Omit<CartProduct, "quantity">[], bundleInfo: BundleInfo) => {
+    async (
+      items: Omit<CartProduct, "quantity">[],
+      bundleInfo: BundleInfo,
+      options?: { source?: string }
+    ) => {
       await addBundleToCartHook(items, bundleInfo, user?.id);
 
       // Track del evento para analytics (bundle completo con SKU del bundle)
@@ -174,6 +197,19 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         price: Number(bundleInfo.bundleDiscount),
         quantity: 1,
         currency: "COP",
+      });
+
+      // PostHog add_to_cart_click centralizado (mismo evento que addProduct,
+      // marcado is_bundle para poder segmentar). Precio disponible del bundle:
+      // bundleDiscount (igual que usa trackAddToCart arriba).
+      posthogUtils.capture("add_to_cart_click", {
+        product_id: bundleInfo.productSku,
+        product_name: bundleName,
+        sku: bundleInfo.productSku,
+        price: Number(bundleInfo.bundleDiscount),
+        quantity: 1,
+        source: options?.source || "unknown",
+        is_bundle: true,
       });
 
       // Precargar sugerencias en background para el popover

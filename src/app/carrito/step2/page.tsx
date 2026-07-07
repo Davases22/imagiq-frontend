@@ -5,6 +5,7 @@ import Step2 from "../Step2";
 import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
 import { useCheckoutAddress } from "@/features/checkout";
+import { trackStep2Skipped } from "../utils/checkoutTracking";
 
 export default function Step2Page() {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function Step2Page() {
         // Si es usuario REGULAR (rol 2 o cualquier rol diferente a 3), redirigir a step3
         if (userRole !== 3) {
           console.log("⚠️ [STEP2] Usuario regular detectado (rol !== 3). Redirigiendo a step3...");
+          trackStep2Skipped("registered", "step2_guard_registered_user");
           router.push("/carrito/step3");
           return;
         }
@@ -62,6 +64,7 @@ export default function Step2Page() {
         // Si ya tiene dirección, debe ir a Step3, no quedarse en Step2
         if (selectedAddress && selectedAddress.ciudad && selectedAddress.lineaUno) {
           console.log("⚠️ [STEP2] Usuario invitado YA tiene dirección válida. Redirigiendo a step3...");
+          trackStep2Skipped("returning_guest", "step2_guard_guest_with_address");
           router.push("/carrito/step3");
           return;
         }
@@ -76,6 +79,7 @@ export default function Step2Page() {
       // Si ya hay dirección, redirigir a Step3 (es un invitado que ya completó Step2)
       if (selectedAddress && selectedAddress.ciudad && selectedAddress.lineaUno) {
         console.log("⚠️ [STEP2] Ya hay dirección válida guardada. Redirigiendo a step3...");
+        trackStep2Skipped("restored_session", "step2_guard_persisted_address_no_session");
         router.push("/carrito/step3");
         return;
       }

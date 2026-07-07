@@ -141,6 +141,9 @@ export default function SuccessCheckoutPage({
   const { trackPurchase } = useAnalyticsWithUser();
   const whatsappSentRef = useRef(false);
   const analyticsSentRef = useRef(false);
+  // Guard de vuelo: el effect puede re-correr (strict-mode / trackPurchase cambia
+  // de identidad cuando hidrata userData) mientras el fetch sigue en el aire.
+  const analyticsInFlightRef = useRef(false);
   const emailSentRef = useRef(false);
   // Hook para obtener usuario del localStorage encriptado (para usuarios sin sesión activa pero con cuenta creada en Step2)
   const [loggedUser] = useSecureStorage<User | null>("imagiq_user", null);
@@ -148,8 +151,12 @@ export default function SuccessCheckoutPage({
   // Enviar evento de purchase a analytics
   useEffect(() => {
     const sendPurchaseEvent = async () => {
-      if (analyticsSentRef.current) return;
-      analyticsSentRef.current = true;
+      // `analyticsSentRef` se marca solo DESPUÉS de un envío exitoso: un fallo
+      // transitorio del fetch ya no pierde el Purchase para siempre (el effect
+      // re-corre cuando trackPurchase cambia de identidad al hidratar userData).
+      // `analyticsInFlightRef` evita dobles fetch/track concurrentes.
+      if (analyticsSentRef.current || analyticsInFlightRef.current) return;
+      analyticsInFlightRef.current = true;
 
       try {
         const orderResponse = await apiClient.get<OrderData>(
@@ -185,14 +192,21 @@ export default function SuccessCheckoutPage({
             quantity: item.quantity || item.cantidad || 1,
           }));
 
-          // Enviar evento de purchase a GA4/Meta/TikTok
-          trackPurchase(pathParams.orderId, mappedItems, totalValue);
+          // Enviar evento de purchase a GA4/Meta/TikTok. Si el valor no es
+          // positivo (orden aún sin total consistente) NO emitimos: el CAPI
+          // server-side de payments-ms carga la orden con el valor real.
+          if (totalValue > 0) {
+            trackPurchase(pathParams.orderId, mappedItems, totalValue);
+          }
 
-          // Enviar evento de purchase a PostHog (client-side, dedup via $insert_id en server)
+          // Señal de aterrizaje en la página de confirmación (PostHog).
+          // OJO: NO es el evento canónico `purchase` — ese lo emite payments-ms
+          // server-side (idempotente vía posthog_captured_at). El capture
+          // client-side de `purchase` se eliminó porque PostHog NO dedupea por
+          // $insert_id (eso es semántica Mixpanel/Amplitude) y cada compra web
+          // contaba doble.
           try {
-            posthogUtils.capture("purchase", {
-              $insert_id: `purchase_${pathParams.orderId}`,
-              event_id: `purchase_${pathParams.orderId}`,
+            posthogUtils.capture("purchase_confirmation_viewed", {
               order_id: pathParams.orderId,
               transaction_id: pathParams.orderId,
               currency: "COP",
@@ -208,11 +222,16 @@ export default function SuccessCheckoutPage({
               source: "client",
             });
           } catch (e) {
-            console.error("[PostHog] Error capturing purchase:", e);
+            console.error("[PostHog] Error capturing purchase confirmation:", e);
           }
+
+          // Éxito real: recién aquí bloqueamos futuros reenvíos.
+          analyticsSentRef.current = true;
         }
       } catch (error) {
         console.error("[Analytics] Error sending purchase event:", error);
+      } finally {
+        analyticsInFlightRef.current = false;
       }
     };
 

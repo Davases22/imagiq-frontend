@@ -17,6 +17,8 @@ declare global {
       // Dual API: Flixmedia llama con (type) para notificar, o se registra con (fn, type)
       setLoadCallback: (typeOrFn: unknown, type?: string) => void;
       loadService: (type: string) => void;
+      // pagedata-specific.js de Flixmedia lo invoca durante el render
+      flixCartClick?: () => void;
     };
   }
 }
@@ -68,6 +70,22 @@ function FlixmediaPlayerComponent({
   const containerId = `flix-inpage-${productId || 'default'}`;
   const [hasContent, setHasContent] = useState<boolean | null>(null);
   const [hasFlixError, setHasFlixError] = useState(false);
+  // contentReady es INDEPENDIENTE de hasContent: en modo embebido/skipMatchApi
+  // hasContent se pone true de inmediato (antes de que exista contenido visible),
+  // así que el skeleton necesita su propia señal de "ya hay contenido real".
+  // La alimentan: callback inpage, callback registrado, MutationObserver
+  // (primer elemento real en el container) y la rama positiva del timeout de 4s.
+  const [contentReady, setContentReady] = useState(false);
+  const [skeletonGone, setSkeletonGone] = useState(false);
+
+  // Crossfade de salida: al confirmar contenido, el skeleton se desvanece
+  // (transition-opacity 300ms) y se desmonta después — nunca display:none en
+  // seco, para enmascarar el swap de lazysizes sin flash de placeholders.
+  useEffect(() => {
+    if (!contentReady) return;
+    const t = setTimeout(() => setSkeletonGone(true), 450);
+    return () => clearTimeout(t);
+  }, [contentReady]);
 
   // Refs para mantener valores actuales (evitar stale closures)
   // Router ref es CLAVE: useRouter() cambia de referencia en Next.js, lo que
@@ -143,6 +161,8 @@ function FlixmediaPlayerComponent({
     // Reset estado para nueva inicialización (evita stale state de producto anterior en SPA nav)
     setHasContent(null);
     setHasFlixError(false);
+    setContentReady(false);
+    setSkeletonGone(false);
 
     // Durante SPA navigation, mpn pasa brevemente por null mientras selectedProductData
     // se resetea y useProduct carga datos frescos. NO inicializar en este estado transitorio:
@@ -158,6 +178,7 @@ function FlixmediaPlayerComponent({
     const abortController = new AbortController();
     let observer: MutationObserver | null = null;
     let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cartClickGuardId: ReturnType<typeof setInterval> | null = null;
 
     // Limpiar scripts y callbacks de Flixmedia para inicialización limpia.
     // IMPORTANTE: Solo se llama al INICIO de una nueva inicialización (dentro del setTimeout),
@@ -283,7 +304,10 @@ function FlixmediaPlayerComponent({
           if (callbackType === 'inpage') {
             console.log(`[FLIX] Callback INPAGE: contenido listo (+${Math.round(performance.now() - initStartTime)}ms)`);
             applyStyles();
-            if (isMounted) setHasContent(true);
+            if (isMounted) {
+              setHasContent(true);
+              setContentReady(true);
+            }
           } else if (callbackType === 'noshow') {
             console.log(`[FLIX] Callback NOSHOW: sin contenido (+${Math.round(performance.now() - initStartTime)}ms)`);
             if (!isMounted) return;
@@ -298,8 +322,15 @@ function FlixmediaPlayerComponent({
         loadService: () => {}
       };
 
-      // Callback para botón de carrito de Flixmedia
-      (window as typeof window & { flixJsCallbacks: { flixCartClick?: () => void } }).flixJsCallbacks.flixCartClick = () => {
+      // Callback del botón de carrito de Flixmedia. Su pagedata-specific.js
+      // invoca window.flixJsCallbacks.flixCartClick() durante el render; si para
+      // entonces Flixmedia ya reemplazó nuestro objeto de callbacks con el suyo
+      // (lo hace al cargar loader.js), la función se pierde y su domTest lanza
+      // "flixCartClick is not a function", abortando el render → contenido en
+      // blanco INTERMITENTE (depende del timing/carga del hilo principal).
+      // ensureFlixCartClick la reasigna sobre el objeto vigente; el guard corto
+      // de abajo cubre la ventana de la carrera pase lo que pase.
+      const flixCartClickHandler = () => {
         const currentSegmento = segmentoRef.current;
         const currentProductId = productIdRef.current;
         const isPremiumSegment = currentSegmento && (Array.isArray(currentSegmento) ? currentSegmento[0] : currentSegmento)?.toUpperCase() === 'PREMIUM';
@@ -309,6 +340,13 @@ function FlixmediaPlayerComponent({
           : `/productos/view/${currentProductId}`;
         routerRef.current.push(route);
       };
+      const ensureFlixCartClick = () => {
+        const cb = window.flixJsCallbacks;
+        if (cb && typeof cb.flixCartClick !== 'function') {
+          cb.flixCartClick = flixCartClickHandler;
+        }
+      };
+      ensureFlixCartClick();
 
       // Verificar si hay error de Flixmedia (fondo azul, texto de error)
       const checkForFlixError = () => {
@@ -324,10 +362,23 @@ function FlixmediaPlayerComponent({
         return hasErrorText || hasBlueBackground;
       };
 
-      // MutationObserver SOLO para detección de errores visuales (fondo azul)
-      // La detección de contenido/no-contenido la manejan los callbacks inpage/noshow
+      // Verificar si loader.js renderizó contenido multimedia real
+      const hasRealContent = (cont: HTMLElement): boolean => {
+        if (cont.children.length === 0) return false;
+        return cont.querySelector('iframe') !== null ||
+               cont.querySelectorAll('img').length > 1 ||
+               cont.querySelector('video') !== null ||
+               cont.querySelector('[class*="flix-"]') !== null;
+      };
+
+      // MutationObserver: detección de errores visuales (fondo azul) + primera
+      // aparición de contenido real (dispara el crossfade del skeleton)
       observer = new MutationObserver(() => {
         if (!isMounted) { observer?.disconnect(); return; }
+        const cont = document.getElementById(containerId);
+        if (cont && hasRealContent(cont)) {
+          setContentReady(true);
+        }
         if (checkForFlixError()) {
           console.log('[FLIX] Error visual de Flixmedia detectado → redirigiendo');
           observer?.disconnect();
@@ -364,7 +415,10 @@ function FlixmediaPlayerComponent({
             window.flixJsCallbacks.setLoadCallback(() => {
               console.log(`[FLIX] Registered INPAGE callback fired (+${Math.round(performance.now() - initStartTime)}ms)`);
               applyStyles();
-                if (isMounted) setHasContent(true);
+              if (isMounted) {
+                setHasContent(true);
+                setContentReady(true);
+              }
             }, 'inpage');
             window.flixJsCallbacks.setLoadCallback(() => {
               console.log(`[FLIX] Registered NOSHOW callback fired (+${Math.round(performance.now() - initStartTime)}ms)`);
@@ -376,6 +430,9 @@ function FlixmediaPlayerComponent({
             }, 'noshow');
           }
         } catch { /* flixJsCallbacks may have been replaced */ }
+        // Flixmedia ya cargó y pudo reemplazar el objeto de callbacks: reasignar
+        // flixCartClick sobre el objeto vigente antes de que corra pagedata-specific.js
+        ensureFlixCartClick();
       };
       script.onerror = () => {
         console.log('[FLIX] Error cargando loader.js → redirigiendo');
@@ -386,14 +443,14 @@ function FlixmediaPlayerComponent({
       script.src = "//media.flixfacts.com/js/loader.js";
       document.head.appendChild(script);
 
-      // Verificar si loader.js renderizó contenido multimedia real
-      const hasRealContent = (cont: HTMLElement): boolean => {
-        if (cont.children.length === 0) return false;
-        return cont.querySelector('iframe') !== null ||
-               cont.querySelectorAll('img').length > 1 ||
-               cont.querySelector('video') !== null ||
-               cont.querySelector('[class*="flix-"]') !== null;
-      };
+      // Guard de la carrera: durante la carga de Flixmedia, garantizar que
+      // flixCartClick siempre exista sobre el objeto de callbacks vigente, sin
+      // importar cuándo Flixmedia lo reemplace. Cubre la ventana en que corre
+      // su domTest (~primeros segundos). Se detiene solo a los 6s y en cleanup.
+      cartClickGuardId = setInterval(ensureFlixCartClick, 120);
+      setTimeout(() => {
+        if (cartClickGuardId) { clearInterval(cartClickGuardId); cartClickGuardId = null; }
+      }, 6000);
 
       // Verificación a los 4s: si loader.js cargó pero no renderizó contenido real → redirigir
       // Esto cubre el caso donde ni inpage ni noshow callbacks se disparan
@@ -413,6 +470,10 @@ function FlixmediaPlayerComponent({
           setHasContent(false);
           setHasFlixError(true);
           if (!preventRedirectRef.current) redirectToView();
+        } else {
+          // Sí hay contenido real: asegurar que el skeleton se retire aunque
+          // ningún callback ni mutación lo haya marcado (red de seguridad)
+          setContentReady(true);
         }
       }, 4000);
     };
@@ -431,6 +492,7 @@ function FlixmediaPlayerComponent({
     return () => {
       isMounted = false;
       if (initTimeoutId) clearTimeout(initTimeoutId);
+      if (cartClickGuardId) clearInterval(cartClickGuardId);
       abortController.abort();
       observer?.disconnect();
     };
@@ -445,13 +507,36 @@ function FlixmediaPlayerComponent({
   if (!mpn && !ean) return null;
   if (hasContent === false || hasFlixError) return null;
 
-  // Renderizar container - visible cuando hay contenido o aún cargando (null)
+  // Renderizar container - visible cuando hay contenido o aún cargando (null).
+  // El skeleton va como OVERLAY absoluto sobre el container SIEMPRE montado:
+  // el container es el target data-flix-inpage y desmontarlo/condicionarlo
+  // rompe los scripts de Flixmedia que lo buscan por id.
   return (
     <div className={`${className} w-full min-h-[200px] relative`}>
       <div
         id={containerId}
         className="w-full"
       />
+      {!skeletonGone && (
+        <div
+          aria-hidden="true"
+          className={`absolute inset-0 z-[1] overflow-hidden pointer-events-none bg-white transition-opacity duration-300 ${contentReady ? "opacity-0" : "opacity-100"}`}
+        >
+          <div className="h-full w-full animate-pulse px-4 py-8">
+            <div className="mx-auto max-w-5xl space-y-4">
+              <div className="mx-auto h-7 w-2/3 rounded-lg bg-gray-200" />
+              <div className="mx-auto h-4 w-1/2 rounded bg-gray-100" />
+              <div className="mt-6 h-56 w-full rounded-2xl bg-gray-100" />
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="h-20 rounded-xl bg-gray-100" />
+                <div className="h-20 rounded-xl bg-gray-100" />
+                <div className="h-20 rounded-xl bg-gray-100" />
+                <div className="h-20 rounded-xl bg-gray-100" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

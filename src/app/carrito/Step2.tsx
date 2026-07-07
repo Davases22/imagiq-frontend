@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
 import { trackCheckoutStep } from "./utils/checkoutTracking";
 import { fbqTrackCustom } from "@/lib/meta-pixel";
+import { applyKnownUserAM } from "@/lib/analytics/emitters/emit.meta";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -546,6 +547,11 @@ export default function Step2({
             localStorage.setItem("imagiq_user", JSON.stringify(userWithRole));
             // console.log("✅ [Step2] Token y usuario guardados en localStorage");
 
+            // Advanced Matching de Meta: el invitado acaba de identificarse
+            // (auto-login) — punto natural para que los eventos siguientes del
+            // pixel (SelectPaymentMethod, AddPaymentInfo, Purchase) lleven em/ph.
+            applyKnownUserAM();
+
             // Guardar userId de forma consistente
             const { saveUserId } = await import('@/app/carrito/utils/getUserId');
             saveUserId(autoLoginResult.user.id, autoLoginResult.user.email, false);
@@ -674,6 +680,10 @@ export default function Step2({
         // Guardar token y usuario - cuenta de invitado creada y verificada
         localStorage.setItem("imagiq_token", result.access_token);
         localStorage.setItem("imagiq_user", JSON.stringify(userWithRole));
+
+        // Advanced Matching de Meta: primer punto donde el invitado queda
+        // identificado (OTP verificado). Consent-safe vía deliverOrQueue.
+        applyKnownUserAM();
 
         // CRÍTICO: Guardar userId de forma consistente en todas las fuentes
         const { saveUserId } = await import('@/app/carrito/utils/getUserId');

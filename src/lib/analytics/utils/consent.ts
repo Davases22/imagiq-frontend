@@ -3,7 +3,7 @@
  * Wrapper sobre la API de consentimiento existente
  */
 
-import { hasAdsConsent as hasAdsConsentBase, hasAnalyticsConsent as hasAnalyticsConsentBase } from '@/lib/consent';
+import { getConsent, hasAdsConsent as hasAdsConsentBase, hasAnalyticsConsent as hasAnalyticsConsentBase } from '@/lib/consent';
 
 /**
  * Verifica si se puede enviar eventos de analytics (GA4, Clarity)
@@ -21,6 +21,18 @@ export function canSendAnalytics(): boolean {
  */
 export function canSendAds(): boolean {
   return hasAdsConsentBase();
+}
+
+/**
+ * ¿El usuario YA respondió el banner de consentimiento (aceptar o rechazar)?
+ *
+ * Distingue "pendiente" (banner sin responder → vale la pena esperar/encolar)
+ * de "denegado" (respuesta explícita → no esperar, degradar de inmediato).
+ *
+ * @returns true si hay un estado de consentimiento persistido (concedido O denegado)
+ */
+export function isAdsConsentResolved(): boolean {
+  return getConsent() !== null;
 }
 
 /**
