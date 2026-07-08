@@ -126,7 +126,9 @@ export interface CapacitySelectorProps {
 
 /**
  * Componente para seleccionar capacidades del producto
- * Muestra todas las capacidades del dispositivo, con las no disponibles cruzadas con línea diagonal
+ * Muestra todas las capacidades del dispositivo, siempre clickeables: al elegir una
+ * combinación que no existe, el hook de selección auto-ajusta los demás parámetros
+ * (color/RAM) a la variante válida más cercana en lugar de bloquear la opción.
  */
 export const CapacitySelector = ({
   capacities,
@@ -139,38 +141,23 @@ export const CapacitySelector = ({
     <div className="space-y-1.5">
       <div className="flex gap-2 flex-wrap">
         {capacities.map((capacity) => {
-          const isAvailable = capacity.available !== false;
           const isSelected = selectedCapacity?.value === capacity.value;
 
           return (
             <button
               key={capacity.value}
-              disabled={!isAvailable}
               onClick={(e) => {
                 e.stopPropagation();
-                if (isAvailable) {
-                  onCapacitySelect(capacity);
-                }
+                onCapacitySelect(capacity);
               }}
               className={cn(
-                "relative px-2.5 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 overflow-hidden",
-                !isAvailable
-                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                  : isSelected
-                    ? "border-black bg-black text-white cursor-pointer"
-                    : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 cursor-pointer"
+                "relative px-2.5 py-1.5 text-xs font-medium rounded-md border transition-all duration-200 cursor-pointer",
+                isSelected
+                  ? "border-black bg-black text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
               )}
             >
-              <span className="relative z-10">{capacity.label}</span>
-              {/* Línea diagonal de izquierda a derecha cuando no está disponible */}
-              {!isAvailable && (
-                <span
-                  className="absolute inset-0 pointer-events-none z-0"
-                  style={{
-                    background: "linear-gradient(to top right, transparent calc(50% - 0.5px), #9ca3af calc(50% - 0.5px), #9ca3af calc(50% + 0.5px), transparent calc(50% + 0.5px))",
-                  }}
-                />
-              )}
+              {capacity.label}
             </button>
           );
         })}
@@ -185,7 +172,6 @@ export const CapacitySelector = ({
 export interface ProductRamOption {
   value: string; // Valor de RAM tal como llega del API (ej: "4GB", "6GB")
   label: string; // Etiqueta mostrada al usuario
-  available?: boolean; // Si está disponible para el color/capacidad seleccionados
 }
 
 /**
@@ -199,9 +185,10 @@ export interface RamSelectorProps {
 
 /**
  * Componente para seleccionar la memoria RAM del producto.
- * Espejo del CapacitySelector: mismos chips, con las opciones no disponibles
- * cruzadas con línea diagonal y deshabilitadas. Delegamos el render en
- * CapacitySelector para garantizar el mismo estilo visual sin duplicar markup.
+ * Espejo del CapacitySelector: mismos chips, todos siempre clickeables (el hook
+ * auto-ajusta color/capacidad al hacer clic en una combinación inexistente).
+ * Delegamos el render en CapacitySelector para garantizar el mismo estilo visual
+ * sin duplicar markup.
  */
 export const RamSelector = ({
   rams,
