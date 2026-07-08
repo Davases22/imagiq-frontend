@@ -14,7 +14,7 @@ type SubMenuItem = {
 const ACCESORIOS_ITEMS: SubMenuItem[] = [
   {
     name: "Accesorios para Smartphones Galaxy",
-    href: "/productos/accesorios?seccion=smartphones-galaxy",
+    href: "/productos/accesorios?seccion=smartphones",
     imageSrc: "https://res.cloudinary.com/dqay3uml6/image/upload/v1759801666/Acc-smartphone_ngj5pq.webp",
     imageAlt: "Accesorios para Smartphones Galaxy",
   },

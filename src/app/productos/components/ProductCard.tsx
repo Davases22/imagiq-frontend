@@ -29,12 +29,18 @@ import {
   calculateSavings,
   formatCapacityLabel,
 } from "./utils/productCardHelpers";
-import { ColorSelector, CapacitySelector } from "./ProductCardComponents";
+import {
+  ColorSelector,
+  CapacitySelector,
+  RamSelector,
+  type ProductRamOption,
+} from "./ProductCardComponents";
 import { getCloudinaryUrl } from "@/lib/cloudinary";
 import { ProductApiData } from "@/lib/api";
 import {
   shouldShowColorSelector,
   shouldShowCapacitySelector,
+  shouldShowRamSelector,
 } from "./utils/categoryColorConfig";
 import StockNotificationModal from "@/components/StockNotificationModal";
 import { useStockNotification } from "@/hooks/useStockNotification";
@@ -213,6 +219,10 @@ export default function ProductCard({
     apiProduct?.categoria,
     apiProduct?.subcategoria
   );
+  const showRamSelector = shouldShowRamSelector(
+    apiProduct?.categoria,
+    apiProduct?.subcategoria
+  );
 
   // Integración con el contexto del carrito
   const { addProduct, getQuantityBySku } = useCartContext();
@@ -338,6 +348,34 @@ export default function ProductCard({
       capacity_sku: capacity.sku,
       capacity_ean: capacity.ean,
     });
+  };
+
+  // Opciones de RAM del producto (todas las válidas, marcando disponibilidad
+  // para el color/capacidad seleccionados — mismo mecanismo que capacidad).
+  // Solo aplica al flujo con apiProduct: el legacy no trae datos de RAM.
+  const ramOptions = useMemo((): ProductRamOption[] => {
+    if (!apiProduct) return [];
+    return productSelection.allMemoriaram.map((ramName) => ({
+      value: ramName,
+      label: ramName,
+      available: productSelection.availableMemoriaram.includes(ramName),
+    }));
+  }, [apiProduct, productSelection]);
+
+  const selectedRamOption = useMemo((): ProductRamOption | null => {
+    const selectedRam = productSelection.selection.selectedMemoriaram;
+    if (!selectedRam) return null;
+    return ramOptions.find((ram) => ram.value === selectedRam) || null;
+  }, [ramOptions, productSelection.selection.selectedMemoriaram]);
+
+  const handleRamSelect = (ram: ProductRamOption) => {
+    // Resuelve la variante color+capacidad+RAM vía el hook (actualiza SKU,
+    // precio, stock e imagen igual que selectCapacity).
+    // Nota: sin evento de analytics propio en este cambio (a diferencia de
+    // product_capacity_selected) — pendiente de definir con producto.
+    if (apiProduct) {
+      productSelection.selectMemoriaram(ram.value);
+    }
   };
 
   // Calcular precios dinámicos: usar el nuevo sistema si está disponible, sino usar el legacy
@@ -1017,6 +1055,19 @@ export default function ProductCard({
                     />
                   </div>
                 )}
+
+              {/* Selector de RAM - Solo cuando hay ≥2 opciones de RAM válidas
+                  (productos cuyas variantes difieren solo en RAM, ej: Galaxy A07
+                  Negro 128GB 4GB vs 6GB, quedarían incomprables sin este selector) */}
+              {showRamSelector && ramOptions.length >= 2 && (
+                <div className="min-h-[48px]">
+                  <RamSelector
+                    rams={ramOptions}
+                    selectedRam={selectedRamOption}
+                    onRamSelect={handleRamSelect}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Columna derecha: Botón de Entrego y Estreno - Mostrar solo si indRetoma === 1 */}
