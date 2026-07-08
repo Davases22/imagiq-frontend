@@ -69,6 +69,9 @@ export interface UseProductSelectionReturn {
   // Todas las capacidades únicas del producto (sin filtrar por color/RAM)
   allCapacities: string[];
 
+  // Todas las opciones de RAM únicas del producto (sin filtrar por color/capacidad)
+  allMemoriaram: string[];
+
   // Información del producto seleccionado
   selectedSku: string | null;
   selectedSkuPostback: string | null;
@@ -461,6 +464,32 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
     return Array.from(capacities);
   }, [allVariants]);
 
+  // Todas las opciones de RAM únicas del producto (sin filtrar por color/capacidad)
+  // Espejo de allCapacitiesUnfiltered: permite renderizar todos los chips de RAM
+  // y cruzar/deshabilitar los que no apliquen a la selección actual.
+  const allMemoriaramUnfiltered = useMemo(() => {
+    const memoriaram = new Set<string>();
+
+    for (const variant of allVariants) {
+      const memoriaramValue = variant.memoriaram?.trim();
+      const isValidMemoriaram = memoriaramValue &&
+        memoriaramValue !== '' &&
+        memoriaramValue !== '-' &&
+        memoriaramValue.toLowerCase() !== 'no aplica' &&
+        memoriaramValue.toLowerCase() !== 'n/a' &&
+        memoriaramValue.toLowerCase() !== 'na' &&
+        memoriaramValue.toLowerCase() !== 'no' &&
+        memoriaramValue.toLowerCase() !== 'no especifica' &&
+        memoriaramValue.toLowerCase() !== 'no especificado';
+
+      if (isValidMemoriaram) {
+        memoriaram.add(variant.memoriaram);
+      }
+    }
+
+    return Array.from(memoriaram);
+  }, [allVariants]);
+
   // Función auxiliar para encontrar la variante exacta que coincida con los parámetros
   // Si hay múltiples variantes que coinciden, selecciona la que tenga mayor stockTotal
   const findVariant = useCallback((color: string, capacity?: string | null, memoriaram?: string | null) => {
@@ -708,6 +737,7 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
     availableCapacities: availableCapacitiesFiltered,
     availableMemoriaram: availableMemoriaramFiltered,
     allCapacities: allCapacitiesUnfiltered,
+    allMemoriaram: allMemoriaramUnfiltered,
     selectedSku,
     selectedSkuPostback: selectedVariant?.skuPostback || null,
     selectedSkuflixmedia: selectedVariant?.skuflixmedia || null,
