@@ -4,6 +4,7 @@
  * Componentes auxiliares reutilizables para ProductCard:
  * - ColorSelector: Selector de colores con círculos de color
  * - CapacitySelector: Selector de capacidades con botones
+ * - RamSelector: Selector de memoria RAM (mismo estilo de chips que CapacitySelector)
  */
 
 "use client";
@@ -175,5 +176,45 @@ export const CapacitySelector = ({
         })}
       </div>
     </div>
+  );
+};
+
+/**
+ * Opción de memoria RAM para RamSelector
+ */
+export interface ProductRamOption {
+  value: string; // Valor de RAM tal como llega del API (ej: "4GB", "6GB")
+  label: string; // Etiqueta mostrada al usuario
+  available?: boolean; // Si está disponible para el color/capacidad seleccionados
+}
+
+/**
+ * Props para RamSelector
+ */
+export interface RamSelectorProps {
+  rams: ProductRamOption[];
+  selectedRam: ProductRamOption | null;
+  onRamSelect: (ram: ProductRamOption) => void;
+}
+
+/**
+ * Componente para seleccionar la memoria RAM del producto.
+ * Espejo del CapacitySelector: mismos chips, con las opciones no disponibles
+ * cruzadas con línea diagonal y deshabilitadas. Delegamos el render en
+ * CapacitySelector para garantizar el mismo estilo visual sin duplicar markup.
+ */
+export const RamSelector = ({
+  rams,
+  selectedRam,
+  onRamSelect,
+}: RamSelectorProps) => {
+  if (!rams || rams.length === 0) return null;
+
+  return (
+    <CapacitySelector
+      capacities={rams}
+      selectedCapacity={selectedRam}
+      onCapacitySelect={onRamSelect}
+    />
   );
 };

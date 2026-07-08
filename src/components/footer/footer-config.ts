@@ -65,7 +65,7 @@ export const getFooterSections = (
       links: [
         {
           name: "Smartphones Galaxy",
-          href: "/productos/dispositivos-moviles?seccion=smartphones-galaxy",
+          href: "/productos/dispositivos-moviles?seccion=smartphones",
         },
         {
           name: "Galaxy Tab",
