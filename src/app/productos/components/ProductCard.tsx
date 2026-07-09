@@ -112,7 +112,6 @@ export interface ProductCapacity {
   discount?: string; // Descuento
   sku?: string; // SKU específico
   ean?: string; // SKU específico
-  available?: boolean; // Si está disponible para el color seleccionado
 }
 
 export interface ProductCardProps {
@@ -350,15 +349,14 @@ export default function ProductCard({
     });
   };
 
-  // Opciones de RAM del producto (todas las válidas, marcando disponibilidad
-  // para el color/capacidad seleccionados — mismo mecanismo que capacidad).
+  // Opciones de RAM del producto (todas las válidas, siempre clickeables: el hook
+  // auto-ajusta color/capacidad si la combinación clickeada no existe).
   // Solo aplica al flujo con apiProduct: el legacy no trae datos de RAM.
   const ramOptions = useMemo((): ProductRamOption[] => {
     if (!apiProduct) return [];
     return productSelection.allMemoriaram.map((ramName) => ({
       value: ramName,
       label: ramName,
-      available: productSelection.availableMemoriaram.includes(ramName),
     }));
   }, [apiProduct, productSelection]);
 
@@ -1017,10 +1015,7 @@ export default function ProductCard({
                                 sku: "",
                                 ean: "",
                               };
-                              return {
-                                ...capacityInfo,
-                                available: productSelection.availableCapacities.includes(capacityName),
-                              };
+                              return capacityInfo;
                             }
                           )
                           : capacities || []
