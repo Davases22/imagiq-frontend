@@ -13,6 +13,8 @@ export const CHATBOT_HIDDEN_ROUTES = [
   "/error-checkout",    // Match exacto
   "/success-checkout/", // Match prefijo: /success-checkout/[orderId]
   "/charging-result",   // Match exacto
+  "/verify-purchase/",         // Match prefijo: /verify-purchase/[id]
+  "/support/verify-purchase/", // Match prefijo: /support/verify-purchase/[id]
 ] as const;
 
 /** Rutas donde el chatbot debe MOSTRARSE (prioridad sobre hidden) */

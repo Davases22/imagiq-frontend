@@ -68,6 +68,10 @@ export default function AddNewAddressForm({
 }: AddNewAddressFormProps) {
   const { user, login } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
+  // Guarda de reentrada SÍNCRONA para el submit: isLoading (estado) llega tarde
+  // frente a dos taps rápidos; este ref bloquea el segundo submit al instante y
+  // evita crear la dirección dos veces.
+  const isSubmittingRef = React.useRef(false);
   const [selectedAddress, setSelectedAddress] =
     useState<ExtendedPlaceDetails | null>(null);
   const [selectedBillingAddress, setSelectedBillingAddress] =
@@ -114,7 +118,6 @@ export default function AddNewAddressForm({
     if (currentStep !== 2) return false;
     
     return !!(
-      formData.nombreDireccion.trim() &&
       formData.instruccionesEntrega.trim() &&
       formData.departamento.trim() &&
       formData.ciudad.trim() &&
@@ -124,7 +127,6 @@ export default function AddNewAddressForm({
     );
   }, [
     currentStep,
-    formData.nombreDireccion,
     formData.instruccionesEntrega,
     formData.departamento,
     formData.ciudad,
@@ -471,7 +473,10 @@ export default function AddNewAddressForm({
       formData.numeroPrincipal.trim() &&
       formData.numeroSecundario.trim() &&
       formData.numeroComplementario.trim() &&
-      formData.setsReferencia.trim()
+      formData.setsReferencia.trim() &&
+      // Formulario de un solo paso: nombre + observación (instrucciones de
+      // entrega) ahora viven en el paso 1. En billingOnly no aplican.
+      (billingOnly || formData.instruccionesEntrega.trim())
     );
   }, [
     formData.departamento,
@@ -480,7 +485,9 @@ export default function AddNewAddressForm({
     formData.numeroPrincipal,
     formData.numeroSecundario,
     formData.numeroComplementario,
-    formData.setsReferencia
+    formData.setsReferencia,
+    formData.instruccionesEntrega,
+    billingOnly
   ]);
 
   // Notificar validez del paso 1 al padre
@@ -518,13 +525,9 @@ export default function AddNewAddressForm({
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    // Solo validar nombreDireccion e instruccionesEntrega si NO es billingOnly
-    // (en billingOnly se usa nombre automático y no requiere instrucciones)
+    // Solo validar instruccionesEntrega si NO es billingOnly (el "Nombre de la
+    // dirección" se eliminó del formulario; se genera automático en el submit).
     if (!billingOnly) {
-      if (!formData.nombreDireccion.trim()) {
-        newErrors.nombreDireccion = "El nombre de la dirección es requerido";
-      }
-
       if (!formData.instruccionesEntrega.trim()) {
         newErrors.instruccionesEntrega = "Las instrucciones de entrega son requeridas";
       }
@@ -584,6 +587,10 @@ export default function AddNewAddressForm({
     if (!validateForm()) {
       return;
     }
+
+    // Reentrada: si ya hay un submit en vuelo, ignorar (evita direcciones duplicadas)
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     setIsLoading(true);
 
@@ -653,7 +660,14 @@ export default function AddNewAddressForm({
       // Crear dirección de envío (o facturación si billingOnly)
       const shippingAddressRequest: CreateAddressRequest = {
         // Si es billingOnly, usar nombre automático "Dirección de facturación"
-        nombreDireccion: billingOnly ? "Dirección de facturación" : formData.nombreDireccion,
+        // El campo "Nombre de la dirección" se eliminó del formulario. Se genera
+        // uno automático (la calle) para no romper el modelo de datos ni las
+        // tarjetas que lo muestran.
+        nombreDireccion: billingOnly
+          ? "Dirección de facturación"
+          : (formData.nombreDireccion.trim() ||
+             `${formData.nombreCalle} ${formData.numeroPrincipal}`.trim() ||
+             "Mi dirección"),
         tipoDireccion: formData.tipoDireccion,
         // Si es billingOnly, siempre es tipo FACTURACION
         tipo: billingOnly ? "FACTURACION" : (formData.usarMismaParaFacturacion ? "AMBOS" : "ENVIO"),
@@ -890,6 +904,7 @@ export default function AddNewAddressForm({
       setErrors({ submit: `Error al guardar la dirección: ${errorMessage}` });
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -1166,41 +1181,31 @@ export default function AddNewAddressForm({
     }
   };
 
-  // Exponer handleSubmit a través del ref si se proporciona
+  // Exponer handleSubmit a través del ref. SIN dep array: se reasigna en CADA
+  // render para que el handler expuesto al padre siempre cierre sobre el
+  // formData ACTUAL. Con dep array (campos incompletos) se guardaban valores
+  // viejos de la dirección → guías a direcciones equivocadas.
   React.useEffect(() => {
     if (onSubmitRef) {
       onSubmitRef.current = async () => {
-        // Validar antes de proceder
-        if (!validateForm()) {
-          return;
-        }
-        // Llamar a handleSubmitInternal
+        if (!validateForm()) return;
         await handleSubmitInternal();
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSubmitRef, selectedAddress?.placeId, formData.nombreDireccion, formData.instruccionesEntrega, formData.usarMismaParaFacturacion]);
+  });
 
-  // Exponer función de continuar (paso 1 → 2 o submit en paso 2) a través del ref
+  // Exponer función de continuar (submit del paso único) a través del ref.
+  // También SIN dep array por la misma razón: evitar el stale closure de los
+  // campos de dirección.
   React.useEffect(() => {
     if (onContinueRef) {
       onContinueRef.current = async () => {
-        if (currentStep === 1) {
-          // En paso 1: verificar que esté completo y avanzar a paso 2
-          if (isStep1Complete) {
-            setCurrentStep(2);
-          }
-        } else {
-          // En paso 2: hacer submit
-          if (!validateForm()) {
-            return;
-          }
-          await handleSubmitInternal();
-        }
+        if (!isStep1Complete) return;
+        if (!validateForm()) return;
+        await handleSubmitInternal();
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onContinueRef, currentStep, isStep1Complete, selectedAddress?.placeId, formData.nombreDireccion, formData.instruccionesEntrega, formData.usarMismaParaFacturacion]);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1222,23 +1227,8 @@ export default function AddNewAddressForm({
             <h2 className="text-xl sm:text-2xl font-bold whitespace-nowrap">{headerTitle}</h2>
           )}
 
-          {/* Solo mostrar indicador de pasos si NO es billingOnly */}
-          {!billingOnly ? (
-            <div className={`flex items-center ${!withContainer ? 'gap-1' : 'gap-2'}`}>
-              <div className={`flex items-center justify-center ${!withContainer ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} rounded-full font-bold ${
-                currentStep === 1 ? "bg-black text-white" : "bg-gray-200 text-gray-600"
-              }`}>
-                1
-              </div>
-              <div className={`${!withContainer ? 'w-8' : 'w-12'} h-0.5 bg-gray-300`}></div>
-              <div className={`flex items-center justify-center ${!withContainer ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'} rounded-full font-bold ${
-                currentStep === 2 ? "bg-black text-white" : "bg-gray-200 text-gray-600"
-              }`}>
-                2
-              </div>
-            </div>
-          ) : (
-            /* Título para modo billingOnly */
+          {/* Formulario de un solo paso: ya no hay indicador 1→2 */}
+          {billingOnly && (
             <h3 className="text-lg font-semibold text-gray-900">Nueva dirección de facturación</h3>
           )}
         </div>
@@ -1277,16 +1267,23 @@ export default function AddNewAddressForm({
             <button
               type="button"
               onClick={() => {
+                // Formulario de un solo paso: guardar directo (ya no hay paso 2).
                 if (billingOnly) {
                   handleSubmitInternal();
-                } else {
-                  setCurrentStep(2);
+                } else if (validateForm()) {
+                  handleSubmitInternal();
                 }
               }}
-              disabled={!isStep1Complete || (billingOnly && isLoading)}
+              disabled={!isStep1Complete || isLoading}
               onMouseEnter={() => !isStep1Complete && setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
+              /* En desktop (lg+) el "Continuar" vive en el panel derecho
+                 (Step4OrderSummary, junto a "Volver"). Aquí se oculta para no
+                 duplicarlo. En mobile/tablet (sin panel) se mantiene. billingOnly
+                 es modal aparte: siempre muestra su botón. */
               className={`px-6 py-2 text-white rounded-xl font-bold transition border-2 ${
+                onContinueRef && !billingOnly ? "lg:hidden" : ""
+              } ${
                 isStep1Complete && !(billingOnly && isLoading)
                   ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                   : "bg-gray-400 border-gray-300 cursor-not-allowed"
@@ -1633,47 +1630,55 @@ export default function AddNewAddressForm({
           </div>
         )}
 
+        {/* Formulario de UN SOLO PASO: nombre + observación aquí mismo
+            (antes vivían en el paso 2). Solo para envío, no para billingOnly. */}
+        {!billingOnly && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label htmlFor="tipoDireccionPropiedadPaso1" className="block text-sm font-bold text-gray-900 mb-1">
+                Tipo de propiedad <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="tipoDireccionPropiedadPaso1"
+                value={formData.tipoDireccion}
+                onChange={(e) => handleInputChange("tipoDireccion", e.target.value)}
+                disabled={disabled}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+              >
+                <option value="casa">Casa</option>
+                <option value="apartamento">Apartamento</option>
+                <option value="oficina">Oficina</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="instruccionesEntrega" className="block text-sm font-bold text-gray-900 mb-1">
+                Observación / Instrucciones de entrega <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="instruccionesEntrega"
+                type="text"
+                value={formData.instruccionesEntrega}
+                onChange={(e) => handleInputChange("instruccionesEntrega", e.target.value)}
+                placeholder="ej: Torre 3, apto 502. Dejar en portería."
+                disabled={disabled}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+              />
+              {errors.instruccionesEntrega && (
+                <p className="text-red-500 text-xs mt-1">{errors.instruccionesEntrega}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         </div>
       )}
 
-      {/* PASO 2: Información adicional */}
+      {/* PASO 2 (legacy, ya no se usa en el flujo de un solo paso): Información adicional */}
       {currentStep === 2 && (
         <div className="space-y-4">
-          {/* Nombre de la dirección y Tipo de propiedad en la misma fila */}
+          {/* Tipo de propiedad */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Nombre de la dirección */}
-            <div>
-              <label
-                htmlFor="nombreDireccion"
-                className="block text-sm font-bold text-gray-900 mb-1"
-              >
-                Nombre de la dirección <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="nombreDireccion"
-                type="text"
-                value={formData.nombreDireccion}
-                onChange={(e) =>
-                  handleInputChange("nombreDireccion", e.target.value)
-                }
-                placeholder="ej: Casa, Oficina, Casa de mamá"
-                disabled={disabled}
-                className={`w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
-                  disabled
-                    ? "bg-gray-100 cursor-not-allowed opacity-60"
-                    : getFieldBackgroundClass(formData.nombreDireccion)
-                } ${
-                  errors.nombreDireccion ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.nombreDireccion && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.nombreDireccion}
-                </p>
-              )}
-            </div>
-
-            {/* Tipo de propiedad */}
             <div>
               <label
                 htmlFor="tipoDireccionPropiedad"
@@ -1738,7 +1743,9 @@ export default function AddNewAddressForm({
       )}
 
       {/* Errores generales - Solo en paso 2 */}
-      {currentStep === 2 && errors.submit && (
+      {/* Flujo de un solo paso: el error de guardado NO puede depender de
+          currentStep (que ahora queda fijo en 1), o sería silencioso. */}
+      {errors.submit && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3">
           <p className="text-red-500 text-sm">{errors.submit}</p>
         </div>
@@ -1772,12 +1779,11 @@ export default function AddNewAddressForm({
                   disabled ||
                   isLoading ||
                   !selectedAddress ||
-                  !formData.nombreDireccion ||
                   !formData.instruccionesEntrega ||
                   (!formData.usarMismaParaFacturacion && !selectedBillingAddress)
                 }
                 className={`flex-1 text-white px-6 py-3 rounded-xl font-bold transition border-2 ${
-                  !(disabled || isLoading || !selectedAddress || !formData.nombreDireccion || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
+                  !(disabled || isLoading || !selectedAddress || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
                     ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                     : "bg-gray-400 border-gray-300 cursor-not-allowed"
                 }`}
@@ -1820,12 +1826,11 @@ export default function AddNewAddressForm({
                 type="submit"
                 disabled={
                   isLoading ||
-                  !formData.nombreDireccion ||
                   !formData.instruccionesEntrega ||
                   (!formData.usarMismaParaFacturacion && !selectedBillingAddress)
                 }
                 className={`flex-1 text-white px-6 py-3 rounded-xl font-bold transition border-2 ${
-                  !(isLoading || !formData.nombreDireccion || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
+                  !(isLoading || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
                     ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                     : "bg-gray-400 border-gray-300 cursor-not-allowed"
                 }`}

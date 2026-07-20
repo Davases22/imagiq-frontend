@@ -94,9 +94,31 @@ export default function Step2Page() {
 
   const handleBack = () => router.push("/carrito/step1");
   const handleNext = () => {
-    // Verificar que haya dirección en el contexto antes de navegar
-    if (!selectedAddress) {
-      console.warn("⚠️ [STEP2] Intentando navegar a step3 pero no hay dirección en el contexto");
+    // El contexto (selectedAddress) puede NO haberse actualizado aún justo
+    // después de guardar la dirección (handleAddressAdded guarda en
+    // checkout-address pero no dispara el evento de cambio). Para no bloquear el
+    // avance —y evitar el doble clic— también validamos leyendo checkout-address
+    // directamente de localStorage.
+    let hasAddress = !!(
+      selectedAddress?.ciudad &&
+      (selectedAddress?.lineaUno || selectedAddress?.direccionFormateada)
+    );
+    if (!hasAddress && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem("checkout-address");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          hasAddress = !!(
+            parsed?.ciudad && (parsed?.linea_uno || parsed?.direccionFormateada)
+          );
+        }
+      } catch {
+        /* checkout-address ilegible: se cae al warning de abajo */
+      }
+    }
+
+    if (!hasAddress) {
+      console.warn("⚠️ [STEP2] Intentando navegar a step3 pero no hay dirección");
       return;
     }
 

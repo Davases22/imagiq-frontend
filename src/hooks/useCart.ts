@@ -772,7 +772,14 @@ export function useCart(): UseCartReturn {
           if (newProducts.length === 0) {
             localStorage.removeItem(STORAGE_KEYS.CART_ITEMS);
           } else {
-            apiDelete(`/api/cart/items/${productId}`);
+            // fire-and-forget, pero registrar el fallo para no desincronizar en silencio
+            apiDelete(`/api/cart/items/${encodeURIComponent(productId)}`).catch(
+              (err) =>
+                console.error(
+                  "[useCart] Falló DELETE de item en backend (carrito local ya actualizado):",
+                  err
+                )
+            );
             localStorage.setItem(
               STORAGE_KEYS.CART_ITEMS,
               JSON.stringify(newProducts)

@@ -193,7 +193,7 @@ export const CategoryProductsGrid = forwardRef<
     return (
       <div
         ref={ref}
-        className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 lg:gap-6 items-start" : "flex flex-wrap"}
+        className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 lg:gap-6 items-stretch" : "flex flex-wrap"}
       >
         {/* Mostrar skeletons cuando loading es true (incluyendo cambio de página) */}
         {loading ? (
@@ -221,7 +221,10 @@ export const CategoryProductsGrid = forwardRef<
                     return (
                       <motion.div
                         key={item.key}
-                        className="w-full"
+                        // self-start: el banner conserva su altura natural (formato
+                        // alto) y NO se estira con items-stretch, así no dicta la
+                        // altura de la fila ni las cards lo copian.
+                        className="w-full self-start"
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
@@ -260,7 +263,7 @@ export const CategoryProductsGrid = forwardRef<
                     return (
                       <div
                         key={item.key}
-                        className="w-full"
+                        className="w-full h-full"
                       >
                         <BundleCard
                           {...bundleProps}
@@ -281,7 +284,7 @@ export const CategoryProductsGrid = forwardRef<
                     return (
                       <div
                         key={item.key}
-                        className="w-full"
+                        className="w-full h-full"
                       >
                         <ProductCard
                           key={product.id}

@@ -25,7 +25,7 @@ interface UseProfileReturn {
   actions: {
     loadProfile: () => Promise<void>;
     refreshData: () => Promise<void>;
-    updateProfile: (data: UpdateProfileRequest) => Promise<boolean>;
+    updateProfile: (data: UpdateProfileRequest) => Promise<{ ok: boolean; error?: string }>;
     logout: () => Promise<void>;
   };
   isLoading: boolean;
@@ -164,10 +164,10 @@ export const useProfile = (): UseProfileReturn => {
 
   // Actualizar perfil
   const updateProfile = useCallback(
-    async (data: UpdateProfileRequest): Promise<boolean> => {
+    async (data: UpdateProfileRequest): Promise<{ ok: boolean; error?: string }> => {
       if (!authContext.user?.id) {
         setError("Usuario no autenticado");
-        return false;
+        return { ok: false, error: "Usuario no autenticado" };
       }
 
       setLoading(true);
@@ -176,16 +176,28 @@ export const useProfile = (): UseProfileReturn => {
       try {
         await profileService.updateProfile(authContext.user.id, data);
 
+        // Sincronizar la sesión global (navbar, contexto) con los datos nuevos,
+        // si no, el nombre/correo de arriba quedaba viejo hasta recargar.
+        authContext.updateUser({
+          nombre: data.nombre,
+          apellido: data.apellido,
+          email: data.email,
+          telefono: data.telefono,
+          numero_documento: data.numero_documento,
+        });
+
         // Recargar el perfil para obtener los datos actualizados
         await loadProfile();
 
-        return true;
+        return { ok: true };
       } catch (err) {
         console.error("Error actualizando perfil:", err);
         const errorMessage =
           err instanceof Error ? err.message : "Error al actualizar perfil";
         setError(errorMessage);
-        return false;
+        // Devolver el error para que el caller muestre el mensaje REAL (state.error
+        // es asíncrono y llega tarde en el mismo tick).
+        return { ok: false, error: errorMessage };
       } finally {
         setLoading(false);
       }
