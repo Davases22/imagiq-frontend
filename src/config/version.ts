@@ -7,4 +7,4 @@
  *
  * Formato recomendado: "MAJOR.MINOR.PATCH" (ej: "1.0.0", "1.0.1", "2.0.0")
  */
-export const APP_VERSION = "1.0.8";
+export const APP_VERSION = "1.0.9";
