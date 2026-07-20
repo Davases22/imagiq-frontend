@@ -363,6 +363,30 @@ const ProductCarousel = forwardRef<HTMLDivElement, ProductCarouselProps>(({
                   </div>
                 );
               })()}
+
+              {/* Flechas de navegación por color (desktop), verticalmente centradas */}
+              {productImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? productImages.length - 1 : prev - 1))}
+                    aria-label="Imagen anterior"
+                    className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/95 hover:bg-white shadow-lg items-center justify-center transition-all hover:scale-105 z-10"
+                  >
+                    <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) => (prev + 1) % productImages.length)}
+                    aria-label="Imagen siguiente"
+                    className="hidden md:flex absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/95 hover:bg-white shadow-lg items-center justify-center transition-all hover:scale-105 z-10"
+                  >
+                    <svg className="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
             {/* Botón Ver más - estilo Samsung */}
             <div className="flex justify-center -mt-2 md:mt-1">
