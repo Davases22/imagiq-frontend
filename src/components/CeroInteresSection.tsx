@@ -45,7 +45,7 @@ export default function CeroInteresSection({
               : 'text-[6px] sm:text-[7px] md:text-[8px] lg:text-[9px]' // Tamaño normal
           )}
         >
-          Aplican T&C <span className="text-red-600">*</span>
+          Aplican T&C
         </span>
       </p>
       
