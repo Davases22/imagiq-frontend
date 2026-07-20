@@ -179,32 +179,30 @@ export const useProductLogic = (product: ProductCardProps | null) => {
   const productImages = getProductImages();
   const detailImages = getDetailImages();
 
-  // Swap entre carrusel premium (sticky) y carrusel de producto (por color).
-  // Antes se usaba un umbral fijo de 19% del scroll total, lo que era frágil:
-  // en páginas largas caía en medio del bloque de specs; en páginas cortas
-  // disparaba demasiado pronto. Ahora observamos si el bloque ProductInfo
-  // (specsRef) entra en viewport — más robusto y alineado con lo que el
-  // usuario realmente ve.
+  // Swap entre carrusel premium (arriba) y carrusel de producto por color:
+  // arriba del todo se ve el premium; al bajar un poco el scroll (un tris) se
+  // oculta el premium y aparece el carrusel normal por color. Umbral relativo
+  // al alto del viewport (robusto en cualquier pantalla/página), con histéresis
+  // para no titilar en el borde. Sustituye al IntersectionObserver de specs,
+  // que disparaba el swap demasiado abajo.
   React.useEffect(() => {
-    const target = specsRef.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Mientras ProductInfo esté visible, mostrar el carrusel de producto
-        // (showStickyCarousel = false). Cuando no esté visible (usuario está
-        // arriba, en la zona premium), volver al premium (= true).
-        setShowStickyCarousel(!entry.isIntersecting);
-      },
-      {
-        // rootMargin negativo en top: dispara ANTES de que specs toque el
-        // borde superior, para que el swap ocurra con algo de anticipación.
-        rootMargin: '-20% 0px -30% 0px',
-        threshold: 0,
-      },
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
+    let raf = 0;
+    const evaluate = () => {
+      raf = 0;
+      const vh = window.innerHeight || 800;
+      const y = window.scrollY;
+      if (y > vh * 0.45) setShowStickyCarousel(false); // bajó un tris → normal
+      else if (y < vh * 0.3) setShowStickyCarousel(true); // volvió arriba → premium
+    };
+    const onScroll = () => {
+      if (!raf) raf = window.requestAnimationFrame(evaluate);
+    };
+    evaluate(); // estado inicial según la posición actual
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
   }, []);
 
   // Resetear índice de imagen cuando cambie el color seleccionado
