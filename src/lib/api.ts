@@ -291,9 +291,16 @@ export const productEndpoints = {
     return (params: ProductFilterParams, init?: RequestInit) => {
       const normalizedKey = normalizeParams(params);
 
+      // Ruteo opcional por un proxy cacheado (ej: /api/pcache/ofertas). El flag
+      // NO se manda al backend (se excluye de los query params); si el proxy
+      // falla, se cae al endpoint directo.
+      const cacheProxyPath =
+        (params as ProductFilterParams & { cacheProxyPath?: string }).cacheProxyPath;
+
       // Construir URL completa para la petición real (con todos los parámetros)
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
+        if (key === "cacheProxyPath") return; // flag interno, no va al backend
         if (value !== undefined && value !== null && value !== "") {
           // Detectar si el key tiene sintaxis extendida (column_operator o column_range_min/max)
           // Patrón: column_operator o column_range_min/max
@@ -317,14 +324,31 @@ export const productEndpoints = {
           }
         }
       });
-      const url = `/api/products/v2/filtered?${searchParams.toString()}`;
+      const qs = searchParams.toString();
+      const directUrl = `/api/products/v2/filtered?${qs}`;
+      const url = cacheProxyPath ? `${cacheProxyPath}?${qs}` : directUrl;
 
       // Usar clave normalizada para deduplicación
       if (inFlightByKey[normalizedKey]) {
         return inFlightByKey[normalizedKey] as Promise<ApiResponse<ProductApiResponse>>;
       }
 
-      const p = apiClient.get<ProductApiResponse>(url, init).finally(() => {
+      const doFetch = async (): Promise<ApiResponse<ProductApiResponse>> => {
+        const res = await apiClient.get<ProductApiResponse>(url, init);
+        // Fallback: si el proxy cacheado falló, reintentar contra el endpoint
+        // directo. PERO no si el fallo fue un abort (típico al cambiar de
+        // filtro/orden rápido): reintentar con el mismo signal ya abortado es
+        // trabajo inútil que vuelve a fallar de inmediato.
+        const aborted =
+          res.message === "Request aborted" ||
+          (init?.signal as AbortSignal | undefined)?.aborted;
+        if (cacheProxyPath && !res.success && !aborted) {
+          return apiClient.get<ProductApiResponse>(directUrl, init);
+        }
+        return res;
+      };
+
+      const p = doFetch().finally(() => {
         // liberar inmediatamente al resolver/rechazar para no cachear respuestas
         delete inFlightByKey[normalizedKey];
       });

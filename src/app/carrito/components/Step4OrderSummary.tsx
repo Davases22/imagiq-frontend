@@ -51,6 +51,7 @@ interface Step4OrderSummaryProps {
   readonly buttonVariant?: "default" | "green"; // Variante de color del botón
   readonly hideButton?: boolean; // Ocultar el botón principal (útil para pasos intermedios como OTP)
   readonly shouldAnimateButton?: boolean; // Animación bounce cuando el botón se habilita
+  readonly skipPickupCheck?: boolean; // Paso de dirección: enviar el form directo, sin la lógica de pickup (evita doble clic)
 }
 
 export default function Step4OrderSummary({
@@ -73,6 +74,7 @@ export default function Step4OrderSummary({
   buttonVariant = "default",
   hideButton = false,
   shouldAnimateButton = false,
+  skipPickupCheck = false,
 }: Step4OrderSummaryProps) {
   const router = useRouter();
   const {
@@ -1318,6 +1320,15 @@ export default function Step4OrderSummary({
             data-button-text={buttonText}
             aria-busy={isProcessing || userClickedWhileLoading || isArtificialLoading}
             onClick={async () => {
+            // Paso de dirección (skipPickupCheck): enviar el formulario directo,
+            // sin la lógica de pickup/canPickUp — esa se calcula DENTRO de
+            // handleAddressAdded tras guardar, y ahí mismo auto-avanza. Evita el
+            // doble clic que causaba reusar el botón de pago para guardar dirección.
+            if (skipPickupCheck) {
+              onFinishPayment();
+              return;
+            }
+
             // console.log(`🎯 [Step4OrderSummary] Button clicked - isLoadingCanPickUp: ${isLoadingCanPickUp}, globalCanPickUp: ${globalCanPickUp}, shouldCalculateCanPickUp: ${shouldCalculateCanPickUp}, userClickedWhileLoading: ${userClickedWhileLoading}`);
 
             // Usar loading artificial para feedback visual inmediato SIN activar el auto-advance del useEffect

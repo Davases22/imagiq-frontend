@@ -18,7 +18,9 @@ const EditAddressModal: React.FC<EditAddressModalProps> = ({
   onSave,
   onClose,
 }) => {
-  const [nombreDireccion, setNombreDireccion] = useState(address.nombreDireccion || "");
+  // Campo "Nombre de la dirección" eliminado del formulario: se conserva el
+  // valor existente de la dirección (no editable) para no perder el dato.
+  const [nombreDireccion] = useState(address.nombreDireccion || "");
   const [complemento, setComplemento] = useState(address.complemento || "");
   const [instrucciones, setInstrucciones] = useState(address.instruccionesEntrega || "");
   const [tipo, setTipo] = useState(address.tipo?.toUpperCase() || "CASA");
@@ -77,20 +79,6 @@ const EditAddressModal: React.FC<EditAddressModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2 space-y-4">
-          {/* Nombre */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Nombre de la dirección
-            </label>
-            <input
-              type="text"
-              value={nombreDireccion}
-              onChange={(e) => setNombreDireccion(e.target.value)}
-              placeholder="Ej: Casa, Oficina, Casa mamá..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
-            />
-          </div>
-
           {/* Tipo */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">

@@ -961,10 +961,11 @@ export default function BundleCard({
           )}
         </div>
 
-        {/* Precio - usa la opción seleccionada */}
+        {/* Precio. sm:min-h-[42px] en el slot: reserva la línea "Ahorra" igual
+            que ProductCard, para mantener los botones alineados entre cards */}
         <div className="px-3 space-y-3 mt-auto">
           {selectedOption && (
-            <div className="space-y-1 min-h-[32px]">
+            <div className="space-y-1 min-h-[32px] sm:min-h-[42px]">
               {(() => {
                 // Usar precio de la opción seleccionada
                 const currentPrice = selectedOption.price;
@@ -1009,6 +1010,13 @@ export default function BundleCard({
             </div>
           )}
 
+          {/* Sección de cero interés — va ANTES de los botones (sin min-h
+              reservado) para que la fila de botones quede siempre pegada al
+              fondo y alineada con las demás cards del grid (simetría) */}
+          <div className="mt-2 sm:mt-3 flex items-start justify-center">
+            <CeroInteresSection ceroInteresData={ceroInteresData} />
+          </div>
+
           {/* Botones de acción - Horizontal */}
           <div className="flex items-center gap-3">
             <button
@@ -1046,11 +1054,6 @@ export default function BundleCard({
             >
               Más información
             </button>
-          </div>
-
-          {/* Sección de cero interés - Debajo de los botones */}
-          <div className="mt-2 sm:mt-3 min-h-[120px] sm:min-h-[130px] flex items-start justify-center">
-            <CeroInteresSection ceroInteresData={ceroInteresData} />
           </div>
         </div>
       </div>

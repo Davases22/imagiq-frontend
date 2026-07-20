@@ -37,9 +37,18 @@ export default function ChatbotButton({
     }
   }, [showTooltip]);
 
+  // Defensa en profundidad: si el gesto empezó en la × del tooltip, el
+  // contenedor NO debe iniciar arrastre/click (que abriría el chat). La ×
+  // ya frena mousedown/touchstart con stopPropagation, pero esta guarda
+  // cubre cualquier caso donde el evento igual llegue aquí.
+  const startedOnCloseButton = (target: EventTarget | null): boolean =>
+    target instanceof Element &&
+    !!target.closest('[aria-label="Cerrar mensaje"]');
+
   // Handlers para arrastre con mouse
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Solo click izquierdo
+    if (startedOnCloseButton(e.target)) return; // × del tooltip: no abrir chat
     setIsDragging(true);
     setHasMoved(false); // Resetear el estado de movimiento
     dragStartY.current = e.clientY;
@@ -80,6 +89,7 @@ export default function ChatbotButton({
 
   // Handlers para arrastre táctil
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (startedOnCloseButton(e.target)) return; // × del tooltip: no abrir chat
     setIsDragging(true);
     setHasMoved(false); // Resetear el estado de movimiento
     dragStartY.current = e.touches[0].clientY;
@@ -151,19 +161,25 @@ export default function ChatbotButton({
     >
       {/* Burbuja de mensaje mejorada */}
       {showTooltip && (
-        <div className="relative bg-white shadow-xl rounded-2xl px-4 py-3 max-w-[180px] mb-1 animate-fade-in border border-gray-100">
+        <div className="relative bg-white shadow-xl rounded-2xl px-4 py-3 max-w-[180px] mb-1 animate-chatbot-slide-in border border-gray-100">
           <p className="text-sm text-gray-800 font-medium leading-tight">
             ¿Dudas? Estoy aquí para ayudarte 👋
           </p>
           {/* Triángulo apuntando al botón */}
           <div className="absolute -right-2 bottom-4 w-0 h-0 border-t-[8px] border-t-transparent border-l-[8px] border-l-white border-b-[8px] border-b-transparent"></div>
-          {/* Botón de cerrar tooltip mejorado */}
+          {/* Botón de cerrar tooltip. IMPORTANTE: frenar mousedown/touchstart
+              además del click. El contenedor externo usa onMouseDown/onTouchStart
+              para arrastrar/abrir el chat; sin stopPropagation en esos eventos,
+              tocar la × burbujea al contenedor y abre el chat (bug en mobile y
+              desktop). El stopPropagation del onClick por sí solo no basta. */}
           <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               setShowTooltip(false);
             }}
-            className="absolute -top-2 -right-2 w-5 h-5 bg-gray-700 hover:bg-gray-800 rounded-full flex items-center justify-center text-xs text-white shadow-md transition-colors"
+            className="absolute -top-2 -right-2 w-5 h-5 bg-gray-700 hover:bg-gray-800 rounded-full flex items-center justify-center text-xs text-white shadow-md transition-colors before:absolute before:-inset-2.5 before:content-['']"
             aria-label="Cerrar mensaje"
           >
             ×

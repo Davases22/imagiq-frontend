@@ -958,7 +958,9 @@ export default function ProductCard({
 
           {/* Contenedor para selectores y botón de entrego y estreno */}
           <div className="px-3 flex gap-2 items-start">
-            {/* Columna izquierda: Selectores */}
+            {/* Columna izquierda: Selectores (altura natural — sin reserva fija,
+                que dejaba hueco enorme en categorías con pocos selectores como
+                TV). Cada card queda compacta; el precio va justo tras selectores. */}
             <div className="flex-1 space-y-2">
               {/* Selector de colores - Mostrar si hay colores válidos (hex + nombre) */}
               {(() => {
@@ -1103,10 +1105,11 @@ export default function ProductCard({
             )}
           </div>
 
-          {/* Precio */}
+          {/* Precio. sm:min-h-[42px] en el slot: precio con línea "Ahorra" mide
+              42px, sin ella 32px — reservar el alto mantiene botones alineados */}
           <div className="px-3 space-y-3 mt-auto">
             {finalCurrentPrice && (
-              <div className="space-y-1 min-h-[32px]">
+              <div className="space-y-1 min-h-[32px] sm:min-h-[42px]">
                 {(() => {
                   const { hasSavings, savings } = calculateSavings(
                     finalCurrentPrice,
@@ -1147,6 +1150,18 @@ export default function ProductCard({
               </div>
             )}
             {/* Botones de acción - Horizontal */}
+            {/* Mensaje de cuotas sin interés — va ANTES de los botones para que
+                la fila de botones siempre quede pegada al fondo y alineada
+                entre cards (simetría del grid) */}
+            {apiProduct?.indcerointeres?.[0] === 1 && (
+              <div className="mt-2 sm:mt-3 flex items-start justify-center">
+                <CeroInteresSection
+                  ceroInteresData={ceroInteresData}
+                  isInChat={isInChat}
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <button
                 onClick={(e) => {
@@ -1191,16 +1206,6 @@ export default function ProductCard({
                 Más información
               </button>
             </div>
-
-            {/* Mensaje de cuotas sin interés */}
-            {apiProduct?.indcerointeres?.[0] === 1 && (
-              <div className="mt-2 sm:mt-3 flex items-start justify-center">
-                <CeroInteresSection
-                  ceroInteresData={ceroInteresData}
-                  isInChat={isInChat}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

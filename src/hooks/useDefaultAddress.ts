@@ -115,16 +115,30 @@ export function useDefaultAddress(tipo: TipoUsoDireccion = 'ENVIO'): UseDefaultA
       invalidate();
     };
 
+    // Al cerrar sesión: el cache es GLOBAL (compartido entre usuarios), así que
+    // hay que limpiarlo y borrar la dirección mostrada; si no, la navbar sigue
+    // mostrando la dirección de la cuenta anterior (fuga de datos).
+    const handleLogout = () => {
+      cache.clear();
+      ongoingRequests.clear();
+      if (isMountedRef.current) {
+        setAddress(null);
+        setIsLoading(false);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('address-changed', handleAddressChange);
       window.addEventListener('checkout-address-changed', handleAddressChange);
       // Evento genérico que también podría dispararse
       window.addEventListener('address-updated', handleAddressChange);
+      window.addEventListener('user-logout', handleLogout);
 
       return () => {
         window.removeEventListener('address-changed', handleAddressChange);
         window.removeEventListener('checkout-address-changed', handleAddressChange);
         window.removeEventListener('address-updated', handleAddressChange);
+        window.removeEventListener('user-logout', handleLogout);
       };
     }
   }, [invalidate]);

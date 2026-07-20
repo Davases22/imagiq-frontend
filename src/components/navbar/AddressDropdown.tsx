@@ -181,6 +181,19 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invalidate, refetch, user?.id]);
 
+  // Al cerrar sesión: limpiar TODO el estado local de direcciones. Si no, la
+  // navbar sigue mostrando la dirección de la cuenta anterior (el estado
+  // `addresses` es el último fallback de displayAddress y no se limpia solo).
+  useEffect(() => {
+    const handleLogout = () => {
+      setAddresses([]);
+      setGuestAddress(null);
+      setOpen(false);
+    };
+    window.addEventListener('user-logout', handleLogout);
+    return () => window.removeEventListener('user-logout', handleLogout);
+  }, []);
+
   const handleToggle = () => {
     if (!open && addresses.length === 0 && !isFetchingRef.current) {
       fetchAddresses();

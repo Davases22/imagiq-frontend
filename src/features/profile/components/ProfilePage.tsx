@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { PUBLIC_ROUTES } from "@/constants/routes";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
   const handleBackToMain = () => setCurrentView("main");
 
   const handleSaveProfile = async (data: EditProfileData) => {
-    const success = await actions.updateProfile({
+    const res = await actions.updateProfile({
       nombre: data.nombre,
       apellido: data.apellido,
       email: data.email,
@@ -70,8 +71,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
       numero_documento: data.numero_documento,
     });
 
-    if (success) {
+    if (res.ok) {
+      toast.success("Perfil actualizado correctamente");
       setIsEditProfileModalOpen(false);
+    } else {
+      // Usar el mensaje REAL devuelto por updateProfile (no state.error, que es
+      // asíncrono y llega tarde). Fallback con la pista de validación del backend.
+      toast.error(
+        res.error ||
+          "No se pudo actualizar el perfil. Verifica que el teléfono tenga 10 dígitos y el documento entre 6 y 10."
+      );
     }
   };
 
