@@ -110,30 +110,34 @@ export default function OfertasPage() {
             {ofertas.map((item) => (
               <div
                 key={item.title}
-                className="flex-1 flex flex-col items-center justify-center bg-white/10 border border-white/40 rounded-xl shadow-md backdrop-blur-md group transition-all duration-300 cursor-pointer h-full mx-1 px-2 py-2"
+                className="flex-1 flex flex-col items-center justify-center bg-white/10 border border-white/40 rounded-xl shadow-md backdrop-blur-md group transition-all duration-300 cursor-pointer h-full mx-1 px-2 py-2 relative"
                 style={{ height: "calc(30vh - 10px)", overflow: "hidden" }}
               >
+                {/* Toda la card clickeable (está debajo del header, sin riesgo) */}
+                <Link
+                  href={item.href}
+                  className="absolute inset-0 z-0"
+                  aria-label={"Ver ofertas de " + item.title}
+                  scroll={false}
+                />
                 <Image
                   src={item.icon}
                   alt={item.title + " icon"}
                   width={88}
                   height={88}
-                  className={`mb-2 transition-transform duration-300 group-hover:scale-110${
+                  className={`mb-2 transition-transform duration-300 group-hover:scale-110 relative z-10 pointer-events-none${
                     item.whiteIcon ? " filter invert brightness-200" : ""
                   }`}
                   priority
                 />
-                <h2 className="text-white text-xl font-bold mb-2 text-center transition-colors duration-300 group-hover:text-white/90 px-1">
+                <h2 className="text-white text-xl font-bold mb-2 text-center transition-colors duration-300 group-hover:text-white/90 px-1 relative z-10 pointer-events-none">
                   {item.title}
                 </h2>
-                <Link
-                  href={item.href}
-                  className="mt-1 px-3 py-0.5 border border-white/80 rounded-full text-white text-xl font-medium text-center hover:bg-white hover:text-[#1a1a1a] transition-colors duration-200 group-hover:bg-white group-hover:text-[#1a1a1a]"
-                  aria-label={item.info + " " + item.title}
-                  scroll={false}
+                <span
+                  className="mt-1 px-3 py-0.5 border border-white/80 rounded-full text-white text-xl font-medium text-center transition-colors duration-200 group-hover:bg-white group-hover:text-[#1a1a1a] relative z-10 pointer-events-none"
                 >
                   {item.info}
-                </Link>
+                </span>
               </div>
             ))}
           </div>
@@ -143,7 +147,7 @@ export default function OfertasPage() {
         {ofertas.map((item, index) => (
           <div
             key={item.title}
-            className={`hidden md:flex flex-1 flex-col items-center justify-center ${item.bg} group transition-all duration-300 cursor-pointer h-full pt-20`}
+            className={`hidden md:flex flex-1 flex-col items-center justify-center ${item.bg} group transition-all duration-300 cursor-pointer h-full pt-20 relative`}
             style={{
               height: "100vh",
               minHeight: "100vh",
@@ -155,28 +159,37 @@ export default function OfertasPage() {
               }s, opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.15}s`,
             }}
           >
+            {/* Toda la columna clickeable: overlay que cubre DESDE debajo del
+                header (top-20 = 80px, alto del navbar) hasta abajo. Así un clic
+                en cualquier parte de la sección entra, pero un clic en el header
+                NO lo dispara (el overlay no llega hasta arriba). */}
+            <Link
+              href={item.href}
+              className="absolute inset-x-0 bottom-0 top-20 z-0"
+              aria-label={"Ver ofertas de " + item.title}
+              scroll={false}
+            />
+            {/* Contenido visual: pointer-events-none para que el clic caiga en
+                el overlay (el hover sigue funcionando vía group-hover). */}
             <Image
               src={item.icon}
               alt={item.title + " icon"}
               width={100}
               height={100}
-              className={`mb-10 transition-transform duration-300 group-hover:scale-110${
+              className={`mb-10 transition-transform duration-300 group-hover:scale-110 relative z-10 pointer-events-none${
                 item.whiteIcon ? " filter invert brightness-200" : ""
               }`}
               priority
             />
-            <h2 className="text-white text-2xl md:text-3xl font-bold mb-6 text-center transition-colors duration-300 group-hover:text-white/90">
+            <h2 className="text-white text-2xl md:text-3xl font-bold mb-6 text-center transition-colors duration-300 group-hover:text-white/90 relative z-10 pointer-events-none">
               {item.title}
             </h2>
-            {/* Botón de más información: navega a la categoría de productos con oferta */}
-            <Link
-              href={item.href}
-              className="mt-2 px-6 py-2 border-2 border-white rounded-full text-white text-lg font-medium hover:bg-white hover:text-[#1a1a1a] transition-colors duration-200 group-hover:bg-white group-hover:text-[#1a1a1a]"
-              aria-label={item.info + " " + item.title}
-              scroll={false}
+            {/* "Más información" ahora es visual (span); la columna entera es el link */}
+            <span
+              className="mt-2 px-6 py-2 border-2 border-white rounded-full text-white text-lg font-medium transition-colors duration-200 group-hover:bg-white group-hover:text-[#1a1a1a] relative z-10 pointer-events-none"
             >
               {item.info}
-            </Link>
+            </span>
           </div>
         ))}
       </div>

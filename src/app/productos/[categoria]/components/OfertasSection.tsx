@@ -4,6 +4,7 @@
 
 "use client";
 import React, { useMemo, useState, useCallback } from "react";
+import { SlidersHorizontal } from "lucide-react";
 import ProductCard from "../../components/ProductCard";
 import BundleCard from "../../components/BundleCard";
 import { useProducts } from "@/features/products/useProducts";
@@ -61,19 +62,37 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  // Orden (solo en ofertas): 'relevante' = orden original del API (default),
+  // 'asc' = menor a mayor, 'desc' = mayor a menor.
+  const [sortOrder, setSortOrder] = useState<"relevante" | "asc" | "desc">("relevante");
+
+  const handleSortChange = useCallback((order: "relevante" | "asc" | "desc") => {
+    setSortOrder(order);
+    setCurrentPage(1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   // Memoizar los filtros para evitar recreaciones innecesarias
   const initialFilters = useMemo(() => {
-    const baseFilters = { 
+    const baseFilters = {
       withDiscount: true,
       page: currentPage,
       limit: itemsPerPage,
       sortBy: 'precio',
-      sortOrder:'desc',
+      // Backend solo entiende asc/desc; 'relevante' usa el orden por defecto
+      // (el reordenamiento fino se hace en cliente sobre orderedItems).
+      sortOrder: sortOrder === 'asc' ? 'asc' : 'desc',
       precioMin: 1,
-      stockMin: 1,
+      // minStock es la clave que useProducts mapea a stockMinimo; antes decía
+      // 'stockMin' (clave muerta) y el filtro de stock nunca se aplicaba → se
+      // mostraban ofertas sin stock.
+      minStock: 1,
+      // Rutear la query pesada de ofertas por el proxy cacheado (Data Cache de
+      // Next): el primer visitante paga los ~6s, el resto la recibe en ~ms.
+      // Si el proxy falla, getFilteredV2 cae al endpoint directo.
+      cacheProxyPath: '/api/pcache/ofertas',
     };
-    
+
     if (seccion && ofertasFiltersMap[seccion]) {
       const sectionFilters = ofertasFiltersMap[seccion];
       return {
@@ -81,9 +100,9 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
         ...sectionFilters,
       };
     }
-    
+
     return baseFilters;
-  }, [seccion, currentPage, itemsPerPage]);
+  }, [seccion, currentPage, itemsPerPage, sortOrder]);
 
   // Usar el hook de productos con filtro de ofertas
   const { 
@@ -96,6 +115,21 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
     totalPages,
     refreshProducts 
   } = useProducts(initialFilters);
+
+  // Ordenar los items visibles por precio en el CLIENTE (el backend devuelve
+  // orderedItems intercalado, no por precio). 'relevante' = orden original.
+  // DEBE ir ANTES de cualquier return condicional (regla de hooks).
+  const priceOf = (item: MixedProductItem): number =>
+    Number(String((item as { price?: string }).price ?? "").replace(/[^\d]/g, "")) || 0;
+  const displayItems = useMemo(() => {
+    if (sortOrder === "relevante") return orderedItems;
+    const arr = [...orderedItems];
+    arr.sort((a, b) =>
+      sortOrder === "asc" ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)
+    );
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedItems, sortOrder]);
 
   // Handlers para paginación
   const handlePageChange = useCallback((page: number) => {
@@ -144,6 +178,34 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
   // Obtener el banner para esta sección
   const bannerConfig = seccion ? OFERTAS_BANNERS_MAP[seccion] : null;
 
+  // Botones de orden (reutilizados en sidebar desktop y barra móvil)
+  const sortOptions: Array<{ key: "relevante" | "asc" | "desc"; label: string }> = [
+    { key: "relevante", label: "Relevante" },
+    { key: "asc", label: "Menor a mayor" },
+    { key: "desc", label: "Mayor a menor" },
+  ];
+  // Barra de orden HORIZONTAL (debajo del título, ancho completo)
+  const sortBar = (
+    <div className="mb-6 flex flex-wrap items-center gap-2">
+      <span className="mr-1 flex items-center gap-2 text-sm font-bold text-gray-900">
+        <SlidersHorizontal className="h-4 w-4" /> Ordenar por precio:
+      </span>
+      {sortOptions.map((opt) => (
+        <button
+          key={opt.key}
+          onClick={() => handleSortChange(opt.key)}
+          className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+            sortOrder === opt.key
+              ? "border-gray-900 bg-gray-900 text-white"
+              : "border-gray-300 text-gray-700 hover:border-gray-400"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 md:px-8 lg:px-12 py-8">
       <h1 className="text-3xl font-bold mb-6 text-center">
@@ -153,31 +215,23 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
       {/* Banner promocional */}
       {bannerConfig && <Banner config={bannerConfig} className="mb-10 max-w-7xl mx-auto" />}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8">
-        {(orderedItems.length === 0 && !loading)? (
-          <div className="col-span-3 text-center text-gray-500 text-lg py-4">
+      {/* Orden: barra horizontal debajo del título, arriba del grid */}
+      {sortBar}
+
+      {/* Grid a ancho completo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 items-stretch">
+        {(displayItems.length === 0 && !loading) ? (
+          <div className="col-span-full text-center text-gray-500 text-lg py-4">
             Vuelve pronto y encuentra las mejores ofertas
           </div>
         ) : (
-          orderedItems.map((item: MixedProductItem) => {
+          displayItems.map((item: MixedProductItem) => {
             if (item.itemType === 'bundle') {
-              // Renderizar BundleCard para bundles
               const { itemType, ...bundleProps } = item;
-              return (
-                <BundleCard 
-                  key={bundleProps.id} 
-                  {...bundleProps}
-                />
-              );
+              return <BundleCard key={bundleProps.id} {...bundleProps} />;
             } else {
-              // Renderizar ProductCard para productos
               const { itemType, ...productProps } = item;
-              return (
-                <ProductCard 
-                  key={productProps.id} 
-                  {...productProps}
-                />
-              );
+              return <ProductCard key={productProps.id} {...productProps} />;
             }
           })
         )}

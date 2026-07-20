@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Cookie, X, ChevronDown } from "lucide-react";
 import { saveLocationPermission } from "@/lib/consent/location";
 
 /**
@@ -155,8 +154,11 @@ function getCookie(name: string): string | null {
 
 export default function CookieBanner() {
   const [show, setShow] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Vista del modal: principal o preferencias (estilo "Configurar" de Samsung)
+  const [view, setView] = useState<"main" | "config">("main");
+  const [prefAnalytics, setPrefAnalytics] = useState(true);
+  const [prefMarketing, setPrefMarketing] = useState(true);
 
   // Montar componente
   useEffect(() => {
@@ -174,6 +176,12 @@ export default function CookieBanner() {
       setShow(true);
       return;
     }
+
+    // Hidratar los toggles con la elección REAL guardada. Sin esto arrancaban
+    // siempre en ON: un usuario que rechazó, al reabrir "Configurar" y dar
+    // "Guardar preferencias", otorgaba analytics+marketing sin querer.
+    setPrefAnalytics(!!consent.analytics);
+    setPrefMarketing(!!consent.marketing);
 
     // Verificar que la decisión sea explícita (no pending)
     if (consent.decision === "accepted") {
@@ -228,9 +236,15 @@ export default function CookieBanner() {
     setShow(false);
   };
 
-  const handleClose = () => {
-    // Solo ocultar visualmente, NO guardar nada
-    // El banner volverá a aparecer en la próxima navegación/recarga
+  const handleSavePreferences = () => {
+    // Preferencias granulares (el sistema de consentimiento ya distingue
+    // analytics vs marketing). Si apagó ambas, equivale a rechazo explícito.
+    const anyAccepted = prefAnalytics || prefMarketing;
+    saveConsentToAllSources(
+      prefAnalytics,
+      prefMarketing,
+      anyAccepted ? "accepted" : "rejected"
+    );
     setShow(false);
   };
 
@@ -239,140 +253,138 @@ export default function CookieBanner() {
     return null;
   }
 
+  // Modal centrado estilo Samsung oficial: wordmark + "Continuar sin aceptar"
+  // arriba, texto con links de políticas, botones pill Configurar/Aceptar Todo.
+  // Sin backdrop oscuro (como samsung.com): la página sigue visible detrás.
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-[99999] bg-white border-b-2 border-gray-300 shadow-lg"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 999999,
-      }}
+      className="pointer-events-none fixed inset-x-0 top-0 z-[99999] flex justify-center px-4 pt-6 sm:pt-8"
+      style={{ zIndex: 999999 }}
     >
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex flex-col sm:flex-row items-start gap-4">
-          {/* Icon */}
-          <Cookie className="h-6 w-6 text-black flex-shrink-0" />
+      <div
+        role="dialog"
+        aria-modal="false"
+        aria-label="Preferencias de cookies"
+        className="pointer-events-auto w-full max-w-[460px] rounded-xl bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
+      >
+        {/* Encabezado: wordmark + continuar sin aceptar */}
+        <div className="mb-4 flex items-start justify-between gap-4">
+          {/* Wordmark oficial de Samsung (mismo asset que usa el navbar) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://res.cloudinary.com/dnglv0zqg/image/upload/v1760575601/Samsung_black_ec1b9h.svg"
+            alt="Samsung"
+            className="-mt-1.5 h-7 w-auto"
+            style={{ height: "28px", width: "auto" }}
+          />
+          <button
+            onClick={handleReject}
+            className="text-sm font-semibold text-gray-900 underline underline-offset-2 hover:text-gray-600 whitespace-nowrap"
+          >
+            Continuar sin aceptar
+          </button>
+        </div>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-lg font-bold text-black">
-                Desbloquea ofertas exclusivas para ti
-              </h2>
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="text-gray-600 hover:text-black transition-colors"
-                aria-label={expanded ? "Contraer" : "Expandir"}
+        {view === "main" ? (
+          <>
+            <p className="mb-5 text-[13px] leading-relaxed text-gray-800">
+              Nuestra web usa cookies, incluidas las cookies opcionales, para
+              ofrecerle la mejor experiencia en nuestro sitio y para mostrarle
+              anuncios relevantes según su uso de nuestro sitio web. Usted puede
+              manejar sus preferencias o aceptar todas las cookies. Para obtener
+              más información, consulte nuestra{" "}
+              <a
+                href="/soporte/politica-cookies"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
               >
-                <ChevronDown
-                  className={`h-5 w-5 transition-transform duration-200 ${
-                    expanded ? "rotate-180" : ""
-                  }`}
-                />
+                Política de privacidad
+              </a>{" "}
+              y{" "}
+              <a
+                href="/soporte/politica-cookies"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
+              >
+                Política de cookies
+              </a>
+              .
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setView("config")}
+                className="flex-1 rounded-full border-2 border-[#000000] px-5 py-2.5 text-sm font-bold text-[#000000] transition-colors hover:bg-[#000000]/5"
+              >
+                Configurar
+              </button>
+              <button
+                onClick={handleAccept}
+                className="flex-1 rounded-full bg-[#000000] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#222222]"
+              >
+                Aceptar Todo
               </button>
             </div>
-
-            {!expanded && (
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Recibe promociones personalizadas, descuentos en tiendas cercanas y acceso anticipado a lanzamientos Samsung.
-              </p>
-            )}
-
-            {expanded && (
-              <div className="text-sm space-y-4 mt-3">
-                {/* Beneficios de aceptar */}
-                <div className="border-l-2 border-gray-900 pl-4 py-2">
-                  <p className="font-semibold text-gray-900 mb-3">
-                    Beneficios al aceptar cookies y ubicación:
-                  </p>
-                  <ul className="space-y-2.5">
-                    <li className="text-gray-700">
-                      <strong className="text-gray-900">Ofertas cerca de ti</strong> basadas en tu ubicación actual
-                    </li>
-                    <li className="text-gray-700">
-                      <strong className="text-gray-900">Promociones personalizadas</strong> según tus productos favoritos
-                    </li>
-                    <li className="text-gray-700">
-                      <strong className="text-gray-900">Envío gratis</strong> en productos de tiendas cercanas
-                    </li>
-                    <li className="text-gray-700">
-                      <strong className="text-gray-900">Acceso anticipado</strong> a lanzamientos de nuevos Galaxy
-                    </li>
-                    <li className="text-gray-700">
-                      <strong className="text-gray-900">Experiencia mejorada</strong> con recomendaciones inteligentes
-                    </li>
-                  </ul>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 space-y-3">
+              {/* Esenciales: siempre activas */}
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Esenciales</p>
+                  <p className="text-xs text-gray-500">Necesarias para que el sitio funcione</p>
                 </div>
-
-                {/* Información legal y técnica */}
-                <div className="border border-gray-200 rounded p-4 space-y-3 bg-gray-50">
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-2 text-xs">
-                      Tecnologías que utilizamos:
-                    </p>
-                    <div className="space-y-1.5 text-xs text-gray-600">
-                      <p>
-                        <strong className="text-gray-900">Análisis:</strong> Microsoft Clarity y Sentry para mejorar la experiencia del sitio y detectar errores.
-                      </p>
-                      <p>
-                        <strong className="text-gray-900">Marketing:</strong> Google Analytics, Meta (Facebook) y TikTok para mostrarte ofertas relevantes y medir el rendimiento de nuestras campañas.
-                      </p>
-                      <p>
-                        <strong className="text-gray-900">Ubicación:</strong> Geolocalización del navegador para ofrecerte productos de tiendas cercanas.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="border-l-2 border-gray-400 pl-3 py-1">
-                    <p className="font-semibold text-gray-900 text-xs mb-1">
-                      Protección de datos
-                    </p>
-                    <p className="text-xs text-gray-600 leading-relaxed">
-                      Cumplimos con la <strong className="text-gray-900">Ley 1581/2012 de Protección de Datos Personales de Colombia</strong>.
-                      Si rechazas cookies, seguiremos recopilando datos anónimos y agregados (sin identificarte)
-                      para mejorar nuestro servicio. Tus datos personales solo se procesan con tu consentimiento expreso
-                      y nunca se venden a terceros.
-                    </p>
-                  </div>
-
-                  <a
-                    href="/soporte/politica-cookies"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-gray-900 hover:text-black underline font-medium text-xs"
-                  >
-                    Ver política de cookies completa →
-                  </a>
-                </div>
+                <span className="text-xs font-semibold text-gray-400">Siempre activas</span>
               </div>
-            )}
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={handleReject}
-              className="text-sm text-gray-700 hover:text-gray-900 font-medium px-4 py-2 rounded-lg transition-colors border border-gray-300 hover:border-gray-400 bg-white"
-            >
-              Rechazar
-            </button>
-            <button
-              onClick={handleAccept}
-              className="text-sm bg-black text-white hover:bg-gray-800 font-semibold rounded-lg px-6 py-2 transition-all shadow-sm hover:shadow-md"
-            >
-              Aceptar
-            </button>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100 hidden sm:block"
-              aria-label="Cerrar"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+              {/* Análisis */}
+              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Análisis</p>
+                  <p className="text-xs text-gray-500">Nos ayudan a mejorar el sitio</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={prefAnalytics}
+                  onChange={(e) => setPrefAnalytics(e.target.checked)}
+                  className="h-5 w-5 accent-[#000000]"
+                />
+              </label>
+
+              {/* Marketing */}
+              <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Marketing</p>
+                  <p className="text-xs text-gray-500">Anuncios relevantes (Google, Meta, TikTok)</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={prefMarketing}
+                  onChange={(e) => setPrefMarketing(e.target.checked)}
+                  className="h-5 w-5 accent-[#000000]"
+                />
+              </label>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setView("main")}
+                className="flex-1 rounded-full border-2 border-gray-300 px-5 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Volver
+              </button>
+              <button
+                onClick={handleSavePreferences}
+                className="flex-1 rounded-full bg-[#000000] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#222222]"
+              >
+                Guardar preferencias
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ import { tradeInEndpoints } from "@/lib/api";
 import Step4OrderSummary from "./components/Step4OrderSummary";
 import TradeInCompletedSummary from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInCompletedSummary";
 import TradeInModal from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInModal";
+import CheckoutLoginModal from "./components/CheckoutLoginModal";
+import { useAuthContext } from "@/features/auth/context";
 import AddNewAddressForm from "./components/AddNewAddressForm";
 import type { Address } from "@/types/address";
 import { OTPStep } from "@/app/login/create-account/components/OTPStep";
@@ -124,6 +126,17 @@ export default function Step2({
 
   // Estado para verificar si ya se registró como invitado
   const [isRegisteredAsGuest, setIsRegisteredAsGuest] = useState(false);
+  // Modal de inicio de sesión: se abre cuando el correo del invitado pertenece
+  // a una cuenta REGISTRADA (rol 2). Ofrece login por clave o por OTP (email/tel).
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalEmail, setLoginModalEmail] = useState("");
+  // Teléfono enmascarado de la cuenta (últimos 4 dígitos) para mostrar en el
+  // modal a qué número llega el OTP por WhatsApp. Lo devuelve check-email (rol 2).
+  const [loginModalPhoneHint, setLoginModalPhoneHint] = useState<string | null>(null);
+  // login() del contexto: al autenticar desde el modal refresca el navbar/estado
+  // global (setUser + token en apiClient + evento user-changed), evitando que
+  // la UI quede "sin sesión" hasta recargar.
+  const { login: loginContext } = useAuthContext();
 
   // Analytics: garantiza un único evento CheckoutStep2 por avance del paso 2
   const step2TrackedRef = useRef(false);
@@ -319,6 +332,50 @@ export default function Step2({
    * Maneja el envío del formulario de invitado.
    * Solo registra sin verificar y envía OTP. La cuenta se crea después de verificar OTP.
    */
+  /**
+   * Persiste la sesión del invitado (token + user rol 3) y avanza a 'verified'.
+   * Extraído para reutilizar entre el flujo sin-OTP (auto-login) y el legacy
+   * de verificación OTP. Preserva el carrito a través del guardado del usuario.
+   */
+  const finalizeGuestSession = async (
+    accessToken: string,
+    guestUser: { id: string; email: string; rol?: number },
+  ) => {
+    const currentCart = localStorage.getItem("cart-items");
+    try {
+      const { clearPreviousUserData } = await import('@/app/carrito/utils/getUserId');
+      clearPreviousUserData();
+    } catch (err) {
+      console.error('❌ [Step2] Error limpiando datos anteriores:', err);
+    }
+
+    const userWithRole = { ...guestUser, role: guestUser.rol || 3, rol: guestUser.rol || 3 };
+    localStorage.setItem("imagiq_token", accessToken);
+    localStorage.setItem("imagiq_user", JSON.stringify(userWithRole));
+    applyKnownUserAM();
+
+    const { saveUserId } = await import('@/app/carrito/utils/getUserId');
+    saveUserId(guestUser.id, guestUser.email, false);
+
+    if (globalThis.window !== undefined) {
+      globalThis.window.localStorage.setItem("checkout-document", guestForm.cedula);
+    }
+    if (currentCart) {
+      try {
+        const cartData = JSON.parse(currentCart);
+        if (Array.isArray(cartData) && cartData.length > 0) {
+          localStorage.setItem("cart-items", currentCart);
+          globalThis.window?.dispatchEvent(new Event("storage"));
+        }
+      } catch (cartErr) {
+        console.error("Error restaurando carrito:", cartErr);
+      }
+    }
+    sessionStorage.removeItem("guest-otp-process");
+    setIsRegisteredAsGuest(true);
+    setGuestStep('verified');
+  };
+
   const handleGuestSubmit = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
@@ -336,9 +393,34 @@ export default function Step2({
 
     setLoading(true);
     try {
+      // 0. ¿El correo pertenece a una cuenta REGISTRADA (rol 2)? → modal de login.
+      //    check-email devuelve { exists:true } SOLO para rol 2; para invitados
+      //    (rol 3) devuelve { exists:false, isGuest:true } y seguimos como invitado.
+      const emailLower = guestForm.email.toLowerCase();
+      try {
+        const emailCheck = await apiPost<{ exists: boolean; isGuest?: boolean; telefonoMask?: string | null }>(
+          "/api/auth/check-email",
+          { email: emailLower }
+        );
+        if (emailCheck?.exists) {
+          setLoginModalEmail(emailLower);
+          setLoginModalPhoneHint(emailCheck.telefonoMask ?? null);
+          setShowLoginModal(true);
+          setFieldErrors((prev) => ({
+            ...prev,
+            email: "Este correo ya tiene una cuenta. Inicia sesión para continuar.",
+          }));
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Si check-email falla, seguir con el registro (register-unverified
+        // valida de nuevo y su error de "ya registrado" se maneja abajo).
+      }
+
       // 1. Registrar usuario sin verificar como invitado (rol 3, sin contraseña)
       const registerResult = await apiPost<{ message: string; userId: string }>("/api/auth/register-unverified", {
-        email: guestForm.email.toLowerCase(),
+        email: emailLower,
         nombre: guestForm.nombre,
         apellido: guestForm.apellido,
         contrasena: "", // Cuenta invitado sin contraseña → rol 3
@@ -349,28 +431,43 @@ export default function Step2({
         numero_documento: guestForm.cedula,
       });
 
-      // Guardar userId temporalmente (solo en estado, no en localStorage todavía)
       setGuestUserId(registerResult.userId);
-
-      // Associate guest email with PostHog session
-      associateEmailWithSession(guestForm.email.toLowerCase(), {
+      associateEmailWithSession(emailLower, {
         $name: `${guestForm.nombre} ${guestForm.apellido}`.trim(),
       });
 
-      // 2. Establecer estado inicial para OTP pero SIN enviarlo aún
-      // Esto permite que el usuario seleccione el método de envío (WhatsApp o Email)
-      setOtpSent(false);
+      // 2. SIN OTP: intentar autenticar de una vez con auto-login-guest.
+      //    IMPORTANTE: envuelto en su propio try/catch. El backend actual
+      //    (autoLoginGuest) RECHAZA con 400 a un invitado no verificado, y
+      //    apiPost lanza excepción en no-2xx; si no lo capturáramos aquí, el
+      //    invitado quedaría atascado. Ante CUALQUIER fallo → OTP legacy, así
+      //    el peor caso es "vuelve al OTP de hoy", nunca "checkout roto".
+      //    Cuando el backend permita login de invitado sin verificar (rol 3),
+      //    esta rama tendrá éxito y el flujo será realmente sin-OTP.
+      try {
+        const autoLogin = await apiPost<{
+          access_token: string;
+          user: { id: string; nombre: string; apellido: string; email: string; numero_documento: string; telefono: string; rol?: number };
+        }>("/api/auth/auto-login-guest", { userId: registerResult.userId });
 
-      // 3. Guardar estado temporal en sessionStorage (se elimina al cerrar navegador)
+        if (autoLogin?.access_token && autoLogin?.user) {
+          await finalizeGuestSession(autoLogin.access_token, autoLogin.user);
+          setLoading(false);
+          return;
+        }
+      } catch (autoLoginErr) {
+        console.warn("[Step2] auto-login-guest no disponible → fallback a OTP", autoLoginErr);
+      }
+
+      // Fallback OTP legacy (garantiza que el invitado SIEMPRE pueda continuar)
+      setOtpSent(false);
       sessionStorage.setItem("guest-otp-process", JSON.stringify({
         guestForm,
         userId: registerResult.userId,
-        sendMethod, // Método por defecto, pero no enviado aún
+        sendMethod,
         timestamp: Date.now(),
-        otpSent: false // Flag explícito
+        otpSent: false,
       }));
-
-      // 4. Cambiar a paso de OTP
       setGuestStep('otp');
       setLoading(false);
     } catch (error) {
@@ -402,13 +499,16 @@ export default function Step2({
           lowerErrorMessage.includes("registered") ||
           lowerErrorMessage.includes("duplicate"))
       ) {
-        setError(
-          `El correo ${guestForm.email} ya está asociado a una cuenta. Por favor, inicia sesión para continuar.`
-        );
+        // Cuenta registrada (rol 2): abrir el modal de inicio de sesión.
+        // Reset del phoneHint: este path no viene de check-email, así que sin
+        // limpiarlo se mostraría la máscara del teléfono de una cuenta anterior.
+        setLoginModalEmail(guestForm.email.toLowerCase());
+        setLoginModalPhoneHint(null);
+        setShowLoginModal(true);
         setFieldErrors((prev) => ({
           ...prev,
           email:
-            "Este correo ya está registrado. Inicia sesión para continuar.",
+            "Este correo ya tiene una cuenta. Inicia sesión para continuar.",
         }));
         return;
       }
@@ -1325,11 +1425,10 @@ export default function Step2({
       console.error('❌ Error limpiando caché:', error);
     }
 
-    // IMPORTANTE: Esperar un momento para que la dirección se guarde completamente en la BD
-    // antes de consultar candidate stores
-    // console.log('⏳ Esperando a que la dirección se guarde completamente...');
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // console.log('✅ Delay completado');
+    // Pequeño buffer por si hay lag de réplica antes de consultar candidate
+    // stores. La dirección ya se guardó (con ID) antes de este punto, así que
+    // no necesita 500ms; 100ms basta y hace el "Guardando" más rápido.
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Llamar al endpoint de candidate stores y esperar la respuesta
     try {
@@ -2020,7 +2119,8 @@ export default function Step2({
               }
               shouldCalculateCanPickUp={false}
               buttonVariant="green"
-              hideButton={guestStep === 'otp' || (isRegisteredAsGuest && !hasAddedAddress)}
+              hideButton={guestStep === 'otp'}
+              skipPickupCheck={isRegisteredAsGuest && !hasAddedAddress}
               shouldAnimateButton={shouldAnimateButton}
             />
           </div>
@@ -2099,6 +2199,41 @@ export default function Step2({
         productName={selectedProductForTradeIn?.name}
         skuPostback={selectedProductForTradeIn?.skuPostback}
       />
+
+      {/* Modal de inicio de sesión: correo del invitado = cuenta registrada (rol 2) */}
+      {showLoginModal && (
+        <CheckoutLoginModal
+          email={loginModalEmail}
+          phoneHint={loginModalPhoneHint}
+          onClose={() => setShowLoginModal(false)}
+          onSuccess={async (result) => {
+            // Cuenta registrada autenticada: persistir sesión con su rol real y
+            // avanzar al flujo de usuario registrado (step3, salta identificación).
+            const currentCart = localStorage.getItem("cart-items");
+            const roleNum = (result.user.rol ?? 2) as 1 | 2 | 3 | 4;
+            const userWithRole = { ...result.user, role: roleNum, rol: roleNum };
+            // Persistir el token ANTES de login(): el contexto lo lee de
+            // localStorage para setearlo en apiClient.
+            localStorage.setItem("imagiq_token", result.access_token);
+            // login() refresca el contexto (navbar), limpia datos del usuario
+            // anterior, guarda userId, setea el token en apiClient y dispara
+            // 'user-changed' + Advanced Matching. Reemplaza el seteo manual.
+            await loginContext(userWithRole);
+            // Persistir el documento del usuario para que el paso de pago lo
+            // autocomplete (useCheckoutLogic lee 'checkout-document'); el flujo
+            // invitado ya lo hace, el registrado por el modal no lo hacía.
+            if (result.user.numero_documento) {
+              localStorage.setItem("checkout-document", result.user.numero_documento);
+            }
+            if (currentCart) {
+              localStorage.setItem("cart-items", currentCart);
+              globalThis.window?.dispatchEvent(new Event("storage"));
+            }
+            setShowLoginModal(false);
+            router.push("/carrito/step3");
+          }}
+        />
+      )}
     </div>
   );
 }

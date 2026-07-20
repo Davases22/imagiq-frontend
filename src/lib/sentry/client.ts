@@ -81,6 +81,27 @@ export async function initSentry(): Promise<void> {
       tracesSampleRate: config.tracesSampleRate ?? 0.1,
       replaysSessionSampleRate: config.replaysSessionSampleRate ?? 0.1,
       replaysOnErrorSampleRate: config.replaysOnErrorSampleRate ?? 1,
+      // Filtrar ruido de terceros: Flixmedia genera la mayoría de errores en
+      // /productos/* — scripts async no cancelables que corren tras la navegación
+      // SPA, bugs dentro de su bundle minificado (opts/opts2), y puentes nativos
+      // de WebView (Android "Java object is gone" / iOS webkit.messageHandlers).
+      // No son fallos de la app y contaminan Sentry, así que se descartan aquí.
+      ignoreErrors: [
+        '_loadInpageCallback',
+        'flixCartClick',
+        'flixJsCallbacks',
+        'opts is not defined',
+        'opts2 is not defined',
+        'Java object is gone',
+        'webkit.messageHandlers',
+        'AbortError',
+      ],
+      denyUrls: [
+        /flixfacts\.com/,
+        /flixcar\.com/,
+        /flixsyndication/,
+        /modular\/js\/minify/,
+      ],
       integrations: [
         Sentry.browserTracingIntegration(),
         Sentry.replayIntegration({

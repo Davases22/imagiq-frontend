@@ -11,7 +11,9 @@ import {
   Store,
   Edit2,
   User as UserIcon,
+  Package,
 } from "lucide-react";
+import Image from "next/image";
 import { useAuthContext } from "@/features/auth/context";
 import { useCheckoutAddress } from "@/features/checkout";
 import { profileService } from "@/services/profile.service";
@@ -1948,32 +1950,13 @@ export default function Step7({ onBack }: Step7Props) {
         console.warn("❌ [STEP7] No se encontró usuario en authContext ni en loggedUser");
       }
 
-      // Verificar si tiene contraseña (usuario verdadero invitado sin contraseña)
-      const hasPassword = user?.contrasena || user?.password;
-      const isGuestWithoutPassword = userRole === 3 && !hasPassword;
-
-      // console.log("🔍 [STEP7] Verificando usuario para modal:", {
-      // rol: userRole,
-      // tieneContrasena: !!hasPassword,
-      // esInvitadoSinContrasena: isGuestWithoutPassword,
-      // showPasswordModal: showPasswordModal
-      // });
-
-      // Si es usuario invitado (rol 3) SIN contraseña, mostrar modal de registro
-      if (isGuestWithoutPassword) {
-        //         console.log("✅ [STEP7] ========== USUARIO INVITADO SIN CONTRASEÑA DETECTADO ==========");
-        //         console.log("✅ [STEP7] Activando modal de registro...");
-        setShowPasswordModal(true);
-        setPendingOrder(true);
-        //         console.log("✅ [STEP7] Estados actualizados:");
-        //         console.log("  - showPasswordModal: true");
-        //         console.log("  - pendingOrder: true");
-        //         console.log("✅ [STEP7] ================================================");
-        return;
-      }
-
-      // Si no es invitado, procesar la orden directamente
-      //       console.log("✅ [STEP7] Usuario regular (rol:", userRole, "), procesando orden directamente");
+      // El invitado YA NO ve el modal "Registra tu cuenta" al finalizar: se
+      // procesa la orden directamente, sin insistir en crear contraseña (a
+      // pedido del usuario). Equivale a que siempre eligiera "Continuar como
+      // invitado". Si algún día se quiere reactivar, este es el punto donde se
+      // abría RegisterGuestPasswordModal (según userRole === 3 && sin contraseña).
+      void user;
+      void userRole;
       await processOrder();
     } catch (error) {
       console.error("❌ [STEP7] ERROR en handleConfirmOrder:", error);
@@ -2595,6 +2578,52 @@ export default function Step7({ onBack }: Step7Props) {
                     </div>
                   </div>
                 )}
+
+                {/* Detalle de productos del carrito (igual que en quioscos):
+                    lo que el cliente está comprando, debajo de facturación */}
+                <div className="bg-white rounded-lg p-4 border border-gray-300">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Package className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">
+                        Detalle de compra
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        {products.reduce((acc, p) => acc + p.quantity, 0)} producto{products.reduce((acc, p) => acc + p.quantity, 0) !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {products.map((product) => (
+                      <div key={product.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="relative w-20 h-20 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200">
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              fill
+                              className="object-contain p-1"
+                              sizes="80px"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-6 h-6 text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                          <p className="text-xs text-gray-500">Cant: {product.quantity}</p>
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 flex-shrink-0">
+                          $ {Number(product.price * product.quantity).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Información del comprador: solo cuando la facturación es de otra persona */}
                 {compradorData &&

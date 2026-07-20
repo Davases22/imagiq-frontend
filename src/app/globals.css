@@ -14,6 +14,23 @@
   animation: fadeIn 0.5s ease-in-out;
 }
 
+/* Burbuja del chatbot: entra deslizándose de izquierda a derecha */
+@keyframes chatbotSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-chatbot-slide-in {
+  animation: chatbotSlideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: right center;
+}
+
 /* Animaciones para CheckoutSuccessOverlay y CheckoutErrorOverlay */
 @keyframes bgPop {
   0% {
@@ -570,6 +587,19 @@ GIF PAUSE CONTROL - ENHANCED VERSION WITH SMOOTH TRANSITIONS
   -webkit-backdrop-filter: blur(12px);
   box-shadow: -6px 0 32px 0 rgba(0, 0, 0, 0.15);
   z-index: 99999;
+  /* Entrada deslizándose de izquierda a derecha (drawer anclado a la izquierda) */
+  animation: chatbotPanelSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes chatbotPanelSlideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 640px) {

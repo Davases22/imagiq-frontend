@@ -28,6 +28,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (userData: User) => Promise<void>;
+  /** Actualiza campos del usuario en sesión sin re-loguear (p.ej. tras editar el perfil): refresca el estado, persiste imagiq_user y notifica al navbar. */
+  updateUser: (partial: Partial<User>) => void;
   logout: () => void;
   hasRole: (role: number | number[]) => boolean;
   isAdmin: () => boolean;
@@ -238,6 +240,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Actualiza campos del usuario en sesión SIN re-loguear (no limpia datos
+  // previos como login()). Úsalo tras editar el perfil: refresca el estado
+  // (navbar reactivo), persiste imagiq_user y notifica a los listeners.
+  const updateUser = (partial: Partial<User>) => {
+    if (!user) return;
+    const merged = { ...user, ...partial };
+    // El updater de setUser DEBE ser puro; los side-effects (persistencia +
+    // evento) van fuera para no ejecutarse dos veces en StrictMode/render
+    // concurrente de React 19.
+    setUser(merged);
+    try {
+      localStorage.setItem("imagiq_user", JSON.stringify(merged));
+    } catch { /* best-effort */ }
+    if (typeof window !== "undefined") {
+      const role = merged.role ?? (merged as User & { rol?: number }).rol;
+      window.dispatchEvent(
+        new CustomEvent("user-changed", {
+          detail: { userId: merged.id, role, email: merged.email },
+        })
+      );
+    }
+  };
+
   // Logout function
   const logout = () => {
     console.log('🚪 [AuthContext] Cerrando sesión...');
@@ -330,6 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user && isTokenValidBool,
     isLoading,
     login,
+    updateUser,
     logout,
     hasRole,
     isAdmin,
