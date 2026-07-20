@@ -336,8 +336,8 @@ const ProductCarousel = forwardRef<HTMLDivElement, ProductCarouselProps>(({
             <div 
               className="relative w-full max-w-4xl mx-auto flex items-center justify-center overflow-hidden zoom-safe-secondary-media px-4 sm:px-8"
               style={{
-                height: "min(70vh, 680px)",
-                minHeight: "320px",
+                height: "min(64vh, 600px)",
+                minHeight: "300px",
               }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
@@ -389,7 +389,7 @@ const ProductCarousel = forwardRef<HTMLDivElement, ProductCarouselProps>(({
               )}
             </div>
             {/* Botón Ver más - estilo Samsung */}
-            <div className="flex justify-center -mt-2 md:mt-1">
+            <div className="flex justify-center mt-2 md:mt-3 mb-6">
               <button
                 onClick={onOpenModal}
                 className="px-6 py-2.5 bg-white text-black border-2 border-black rounded-full text-sm font-medium hover:bg-black hover:text-white transition-all hover:scale-105"
