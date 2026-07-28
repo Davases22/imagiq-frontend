@@ -112,18 +112,36 @@ export default function AddNewAddressForm({
   const [currentStep, setCurrentStep] = useState<1 | 2>(1); // Control de pasos del formulario
   const [showTooltip, setShowTooltip] = useState(false);
 
+  // Facturación completa: usa la misma dirección o los campos manuales de facturación están llenos
+  // (la sugerencia de Google es opcional también para facturación)
+  const isBillingComplete = React.useMemo(() => (
+    formData.usarMismaParaFacturacion ||
+    !!(
+      formData.nombreDireccionFacturacion.trim() &&
+      formData.departamentoFacturacion.trim() &&
+      formData.nombreCalleFacturacion.trim() &&
+      formData.numeroPrincipalFacturacion.trim()
+    )
+  ), [
+    formData.usarMismaParaFacturacion,
+    formData.nombreDireccionFacturacion,
+    formData.departamentoFacturacion,
+    formData.nombreCalleFacturacion,
+    formData.numeroPrincipalFacturacion
+  ]);
+
   // Verificar si el formulario completo (paso 2) es válido
   const isFormComplete = React.useMemo(() => {
     // Solo validar si estamos en el paso 2
     if (currentStep !== 2) return false;
-    
+
     return !!(
       formData.instruccionesEntrega.trim() &&
       formData.departamento.trim() &&
       formData.ciudad.trim() &&
       formData.nombreCalle.trim() &&
       formData.numeroPrincipal.trim() &&
-      (formData.usarMismaParaFacturacion || selectedBillingAddress)
+      isBillingComplete
     );
   }, [
     currentStep,
@@ -132,8 +150,7 @@ export default function AddNewAddressForm({
     formData.ciudad,
     formData.nombreCalle,
     formData.numeroPrincipal,
-    formData.usarMismaParaFacturacion,
-    selectedBillingAddress
+    isBillingComplete
   ]);
 
   // Notificar cuando el formulario es válido
@@ -551,12 +568,8 @@ export default function AddNewAddressForm({
     }
 
     // Validar dirección de facturación si no usa la misma
+    // (la sugerencia de Google es opcional — los campos manuales son suficientes)
     if (!formData.usarMismaParaFacturacion) {
-      if (!selectedBillingAddress) {
-        newErrors.billingAddress =
-          "Selecciona una dirección de facturación usando el autocompletado";
-      }
-
       if (!formData.nombreDireccionFacturacion.trim()) {
         newErrors.nombreDireccionFacturacion =
           "El nombre de la dirección de facturación es requerido";
@@ -694,72 +707,88 @@ export default function AddNewAddressForm({
         : await addressesService.createAddress(shippingAddressRequest);
 
       // Si no usa la misma dirección, crear dirección de facturación separada
-      if (!formData.usarMismaParaFacturacion && selectedBillingAddress) {
+      if (!formData.usarMismaParaFacturacion) {
+        // Construir placeDetails de facturación: desde Google si disponible, o desde campos manuales
+        let transformedBillingPlaceDetails: Record<string, unknown>;
 
-        // Obtener coordenadas de la dirección de facturación de manera segura
-        let billingLatitude: number;
-        let billingLongitude: number;
+        if (selectedBillingAddress) {
+          // Obtener coordenadas de la dirección de facturación de manera segura
+          let billingLatitude: number;
+          let billingLongitude: number;
 
-        if (
-          selectedBillingAddress.latitude !== undefined &&
-          selectedBillingAddress.longitude !== undefined
-        ) {
-          // Estructura directa según PlaceDetails type
-          billingLatitude = selectedBillingAddress.latitude;
-          billingLongitude = selectedBillingAddress.longitude;
-        } else if (selectedBillingAddress.geometry?.location) {
-          // Estructura de Google Places API
-          billingLatitude = selectedBillingAddress.geometry.location.lat;
-          billingLongitude = selectedBillingAddress.geometry.location.lng;
+          if (
+            selectedBillingAddress.latitude !== undefined &&
+            selectedBillingAddress.longitude !== undefined
+          ) {
+            // Estructura directa según PlaceDetails type
+            billingLatitude = selectedBillingAddress.latitude;
+            billingLongitude = selectedBillingAddress.longitude;
+          } else if (selectedBillingAddress.geometry?.location) {
+            // Estructura de Google Places API
+            billingLatitude = selectedBillingAddress.geometry.location.lat;
+            billingLongitude = selectedBillingAddress.geometry.location.lng;
+          } else {
+            throw new Error(
+              "No se pudieron obtener las coordenadas de la dirección de facturación seleccionada"
+            );
+          }
+
+          // Transformar PlaceDetails de facturación al formato esperado por el backend
+          // Incluir todos los campos opcionales si están disponibles
+          transformedBillingPlaceDetails = {
+            placeId: selectedBillingAddress.placeId,
+            formattedAddress: selectedBillingAddress.formattedAddress,
+            name: selectedBillingAddress.name || "",
+            latitude: billingLatitude,
+            longitude: billingLongitude,
+            addressComponents: selectedBillingAddress.addressComponents || [],
+            types: selectedBillingAddress.types || [],
+            // Campos opcionales - incluir solo si existen
+            ...(selectedBillingAddress.postalCode && {
+              postalCode: selectedBillingAddress.postalCode,
+            }),
+            ...(selectedBillingAddress.city && {
+              city: selectedBillingAddress.city,
+            }),
+            ...(selectedBillingAddress.department && {
+              department: selectedBillingAddress.department,
+            }),
+            ...(selectedBillingAddress.locality && {
+              locality: selectedBillingAddress.locality,
+            }),
+            ...(selectedBillingAddress.neighborhood && {
+              neighborhood: selectedBillingAddress.neighborhood,
+            }),
+            ...(selectedBillingAddress.vicinity && {
+              vicinity: selectedBillingAddress.vicinity,
+            }),
+            ...(selectedBillingAddress.url && {
+              url: selectedBillingAddress.url,
+            }),
+            ...(selectedBillingAddress.nomenclature && {
+              nomenclature: selectedBillingAddress.nomenclature,
+            }),
+          };
         } else {
-          throw new Error(
-            "No se pudieron obtener las coordenadas de la dirección de facturación seleccionada"
-          );
+          // Sin Google Places: construir dirección de facturación desde campos manuales
+          const manualBillingAddress = `${formData.nombreCalleFacturacion} ${formData.numeroPrincipalFacturacion} # ${formData.numeroSecundarioFacturacion} - ${formData.numeroComplementarioFacturacion}`;
+          transformedBillingPlaceDetails = {
+            placeId: '',
+            formattedAddress: manualBillingAddress,
+            name: manualBillingAddress,
+            latitude: 0,
+            longitude: 0,
+            addressComponents: [],
+            types: [],
+          };
         }
-
-        // Transformar PlaceDetails de facturación al formato esperado por el backend
-        // Incluir todos los campos opcionales si están disponibles
-        const transformedBillingPlaceDetails = {
-          placeId: selectedBillingAddress.placeId,
-          formattedAddress: selectedBillingAddress.formattedAddress,
-          name: selectedBillingAddress.name || "",
-          latitude: billingLatitude,
-          longitude: billingLongitude,
-          addressComponents: selectedBillingAddress.addressComponents || [],
-          types: selectedBillingAddress.types || [],
-          // Campos opcionales - incluir solo si existen
-          ...(selectedBillingAddress.postalCode && {
-            postalCode: selectedBillingAddress.postalCode,
-          }),
-          ...(selectedBillingAddress.city && {
-            city: selectedBillingAddress.city,
-          }),
-          ...(selectedBillingAddress.department && {
-            department: selectedBillingAddress.department,
-          }),
-          ...(selectedBillingAddress.locality && {
-            locality: selectedBillingAddress.locality,
-          }),
-          ...(selectedBillingAddress.neighborhood && {
-            neighborhood: selectedBillingAddress.neighborhood,
-          }),
-          ...(selectedBillingAddress.vicinity && {
-            vicinity: selectedBillingAddress.vicinity,
-          }),
-          ...(selectedBillingAddress.url && {
-            url: selectedBillingAddress.url,
-          }),
-          ...(selectedBillingAddress.nomenclature && {
-            nomenclature: selectedBillingAddress.nomenclature,
-          }),
-        };
 
         const billingAddressRequest: CreateAddressRequest = {
           nombreDireccion: formData.nombreDireccionFacturacion,
           tipoDireccion: formData.tipoDireccionFacturacion,
           tipo: "FACTURACION",
           esPredeterminada: false,
-          placeDetails: transformedBillingPlaceDetails as PlaceDetails,
+          placeDetails: transformedBillingPlaceDetails as unknown as PlaceDetails,
           // Nuevos campos estructurados para facturación
           departamento: formData.departamentoFacturacion || undefined,
           nombreCalle: formData.nombreCalleFacturacion || undefined,
@@ -1778,12 +1807,11 @@ export default function AddNewAddressForm({
                 disabled={
                   disabled ||
                   isLoading ||
-                  !selectedAddress ||
                   !formData.instruccionesEntrega ||
-                  (!formData.usarMismaParaFacturacion && !selectedBillingAddress)
+                  !isBillingComplete
                 }
                 className={`flex-1 text-white px-6 py-3 rounded-xl font-bold transition border-2 ${
-                  !(disabled || isLoading || !selectedAddress || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
+                  !(disabled || isLoading || !formData.instruccionesEntrega || !isBillingComplete)
                     ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                     : "bg-gray-400 border-gray-300 cursor-not-allowed"
                 }`}
@@ -1827,10 +1855,10 @@ export default function AddNewAddressForm({
                 disabled={
                   isLoading ||
                   !formData.instruccionesEntrega ||
-                  (!formData.usarMismaParaFacturacion && !selectedBillingAddress)
+                  !isBillingComplete
                 }
                 className={`flex-1 text-white px-6 py-3 rounded-xl font-bold transition border-2 ${
-                  !(isLoading || !formData.instruccionesEntrega || (!formData.usarMismaParaFacturacion && !selectedBillingAddress))
+                  !(isLoading || !formData.instruccionesEntrega || !isBillingComplete)
                     ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                     : "bg-gray-400 border-gray-300 cursor-not-allowed"
                 }`}
