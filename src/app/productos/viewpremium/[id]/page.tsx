@@ -360,12 +360,40 @@ export default function ProductViewPage({ params }) {
     (seg) => seg?.toUpperCase() === "PREMIUM"
   );
 
-  // Nota: antes redirigíamos a /productos/view cuando el producto no tenía
-  // imagenPremium/videoPremium, pero eso causaba que productos PREMIUM sin
-  // assets premium no mostraran imágenes. Ahora el ProductCarousel cae a las
-  // imágenes del color seleccionado si premiumImages está vacío, así que el
-  // único gate que queda es el segmento PREMIUM del producto.
-  if (!isPremiumProduct) {
+  // Validar que el producto tenga contenido premium (imágenes o videos premium).
+  // IMPORTANTE: usamos EXACTAMENTE la misma definición que view/[id]
+  // (hasPremiumContent), porque view/[id] redirige HACIA aquí cuando
+  // (hasPremiumContent && segmento PREMIUM). Al hacer que este gate sea la
+  // negación exacta de esa condición, las dos vistas nunca pueden rebotar en un
+  // loop infinito de redirección. imagenPremium/videoPremium vienen como
+  // string[][] (array de arrays) a nivel apiProduct y string[] a nivel color.
+  const checkArrayOfArrays = (arr?: string[][]): boolean => {
+    if (!arr || !Array.isArray(arr)) return false;
+    return arr.some((innerArray: string[]) => {
+      if (!Array.isArray(innerArray) || innerArray.length === 0) return false;
+      return innerArray.some(item => item && typeof item === 'string' && item.trim() !== '');
+    });
+  };
+
+  const hasPremiumContent =
+    checkArrayOfArrays(productToUse.apiProduct?.imagenPremium) ||
+    checkArrayOfArrays(productToUse.apiProduct?.videoPremium) ||
+    checkArrayOfArrays(productToUse.apiProduct?.imagen_premium) ||
+    checkArrayOfArrays(productToUse.apiProduct?.video_premium) ||
+    (productToUse.colors?.some(color => {
+      const hasColorImages = color.imagen_premium && Array.isArray(color.imagen_premium) &&
+        color.imagen_premium.length > 0 &&
+        color.imagen_premium.some((img: string) => img && typeof img === 'string' && img.trim() !== '');
+      const hasColorVideos = color.video_premium && Array.isArray(color.video_premium) &&
+        color.video_premium.length > 0 &&
+        color.video_premium.some((vid: string) => vid && typeof vid === 'string' && vid.trim() !== '');
+      return hasColorImages || hasColorVideos;
+    }) || false);
+
+  // Si NO es PREMIUM por segmento, o SÍ es premium pero NO tiene ni imagen ni
+  // video premium, redirigir a la vista normal /productos/view/[id] (que ya
+  // renderiza las imágenes estándar del producto de forma independiente).
+  if (!isPremiumProduct || !hasPremiumContent) {
     router.replace(`/productos/view/${id}`);
     return <ViewPremiumSkeleton />;
   }
