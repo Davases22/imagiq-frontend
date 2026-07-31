@@ -29,6 +29,34 @@ const LOCAL_STORAGE_KEY = "imagiq_candidate_stores_cache";
 
 let cache: CacheEntry | null = null;
 
+/**
+ * Fallback del guard de Step3: ¿existe ALGÚN caché vigente (TTL) de este usuario,
+ * aunque la clave exacta (dirección / composición del carrito) no coincida?
+ * Rescata los mismatches de addressId o de items entre el escritor (Step1/useDelivery)
+ * y el lector (guard de step3) sin abrir el guard por completo. Reemplaza al antiguo
+ * fallback que buscaba el prefijo "global_canPickUp_" que ningún código escribía.
+ */
+export function hasAnyCacheForUser(userId: string): boolean {
+  if (!userId) return false;
+  const prefix = `${userId}::`;
+  if (cache && Date.now() - cache.timestamp <= TTL_MS && cache.key.startsWith(prefix)) {
+    return true;
+  }
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!stored) return false;
+    const parsed = JSON.parse(stored) as CacheEntry;
+    return (
+      typeof parsed?.key === "string" &&
+      Date.now() - parsed.timestamp <= TTL_MS &&
+      parsed.key.startsWith(prefix)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Flag global para evitar llamadas múltiples simultáneas
 let isFetching = false;
 

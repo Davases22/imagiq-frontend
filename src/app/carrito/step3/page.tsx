@@ -6,7 +6,8 @@ import useSecureStorage from "@/hooks/useSecureStorage";
 import { User } from "@/types/user";
 import {
   getFullCandidateStoresResponseFromCache,
-  buildGlobalCanPickUpKey
+  buildGlobalCanPickUpKey,
+  hasAnyCacheForUser
 } from "../utils/globalCanPickUpCache";
 import { useCheckoutAddress } from "@/features/checkout";
 
@@ -81,14 +82,12 @@ function checkCandidateStoresCache(userId: string, addressId: string | null | un
       return true;
     }
 
-    // Si no hay caché pero hay productos y dirección, intentar buscar cualquier caché relacionado
-    // Esto es un fallback para casos edge
-    const allCacheKeys = Object.keys(localStorage).filter(key =>
-      key.startsWith('global_canPickUp_') && key.includes(userId)
-    );
-
-    if (allCacheKeys.length > 0) {
-      console.log(`🔄 [checkCandidateStoresCache] Encontrados ${allCacheKeys.length} cachés relacionados, permitiendo acceso`);
+    // Fallback real: aceptar si existe CUALQUIER caché vigente de este usuario aunque
+    // la clave exacta no coincida (mismatch de addressId o de composición del carrito).
+    // El fallback anterior buscaba el prefijo 'global_canPickUp_' que ningún código
+    // escribía (código muerto) → rebote seguro a step1.
+    if (hasAnyCacheForUser(userId)) {
+      console.log(`🔄 [checkCandidateStoresCache] Caché relacionado del usuario encontrado, permitiendo acceso`);
       return true;
     }
 
