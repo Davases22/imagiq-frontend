@@ -1179,6 +1179,22 @@ export const useDelivery = (config?: UseDeliveryConfig) => {
           setStores([]);
           setFilteredStores([]);
           setAvailableStoresWhenCanPickUpFalse([]);
+
+          // CRÍTICO: Escribir caché de error también en fallos no-429.
+          // ApiClient nunca lanza (convierte 400/500/red en {success:false}), así que el
+          // catch de abajo es inalcanzable y esta rama era la única sin escritura de caché:
+          // el guard de step3 (checkCandidateStoresCache) no encontraba la clave y rebotaba
+          // a step1 en bucle hasta que el usuario limpiaba localStorage. Con esta entrada
+          // el guard pasa y el checkout continúa con canPickUp=false (solo domicilio).
+          console.error(`[useDelivery] candidate-stores falló (${response.message || 'sin mensaje'}); cacheando canPickUp=false`);
+          setGlobalCanPickUpCache(cacheKey, false, {
+            canPickUp: false,
+            stores: {},
+            success: false,
+            hasData: false,
+            message: response.message || 'candidate-stores request failed',
+            default_direction: null
+          } as unknown as CandidateStoresResponse, currentAddressId);
         }
       }
     } // Cierra el bloque try
