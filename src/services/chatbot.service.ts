@@ -57,11 +57,21 @@ export async function sendMessageToAgent(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 segundos = 2 minutos
 
+    // Token del usuario, si tiene sesión iniciada. Sin esto el asistente no
+    // puede consultar SU pedido: el backend deriva la identidad del JWT y trata
+    // como anónimo a quien no lo manda (nunca del user_id del cuerpo, que era
+    // falsificable y permitía leer pedidos ajenos).
+    const authToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("imagiq_token")
+        : null;
+
     const response = await fetch(`${API_BASE_URL}/api/agent`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(API_KEY && { "X-API-Key": API_KEY }),
+        ...(authToken && { Authorization: `Bearer ${authToken}` }),
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -70,7 +80,16 @@ export async function sendMessageToAgent(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+      // El backend acompaña sus rechazos (429, 400, 503) con un `answer` ya
+      // redactado en español. Mostrarlo es más útil que un código de estado.
+      const errorBody = (await response.json().catch(() => null)) as
+        | { answer?: string; message?: string }
+        | null;
+      throw new Error(
+        errorBody?.answer ||
+          errorBody?.message ||
+          `Error ${response.status}: ${response.statusText}`
+      );
     }
 
     const data: ChatbotResponse = await response.json();
