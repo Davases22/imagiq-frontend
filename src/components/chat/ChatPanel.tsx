@@ -159,6 +159,11 @@ export default function ChatPanel({ onClose }: Readonly<{ onClose: () => void }>
     }
   };
 
+  // El contexto siembra un saludo del asistente, así que `messages.length === 0`
+  // nunca se cumple y las sugerencias no llegaban a verse. Lo que marca el
+  // arranque de la conversación es que el CLIENTE aún no haya escrito.
+  const conversationStarted = messages.some((m) => m.from === "user");
+
   const lastAssistantMessage =
     [...messages].reverse().find((m) => m.from === "bot")?.text ?? "";
 
@@ -168,7 +173,7 @@ export default function ChatPanel({ onClose }: Readonly<{ onClose: () => void }>
       role="dialog"
       aria-labelledby={titleId}
       className={cn(
-        "fixed z-[60] flex flex-col overflow-hidden bg-background text-foreground",
+        "fixed z-[60] flex flex-col overflow-hidden bg-card text-card-foreground",
         // Móvil: pantalla completa, usando el alto visible real.
         "inset-0 h-[var(--chat-vh,100dvh)] w-full",
         // Escritorio: tarjeta acotada, anclada sobre el lanzador.
@@ -200,7 +205,7 @@ export default function ChatPanel({ onClose }: Readonly<{ onClose: () => void }>
 
       {/* Conversación */}
       <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-        {messages.length === 0 && (
+        {!conversationStarted && messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center px-2 text-center">
             <p className="text-[15px] font-medium">¿En qué te ayudo?</p>
             <p className="mt-1 text-[13px] text-muted-foreground">
@@ -262,7 +267,7 @@ export default function ChatPanel({ onClose }: Readonly<{ onClose: () => void }>
       </p>
 
       {/* Sugerencias: sólo al principio, para no competir con la conversación */}
-      {messages.length === 0 && (
+      {!conversationStarted && (
         <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {QUICK_REPLIES.map((reply) => (
             <Button
@@ -302,10 +307,10 @@ export default function ChatPanel({ onClose }: Readonly<{ onClose: () => void }>
           onCompositionStart={() => (composingRef.current = true)}
           onCompositionEnd={() => (composingRef.current = false)}
           aria-label="Escribe tu mensaje"
-          placeholder="Pregunta por un modelo, precio o tu pedido…"
+          placeholder="Escribe tu pregunta…"
           disabled={loading}
           className={cn(
-            "max-h-[120px] min-h-[42px] flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5",
+            "max-h-[120px] min-h-[44px] flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5",
             // 16px exactos: por debajo, iOS hace zoom al enfocar y descoloca
             // toda la página.
             "text-[16px] leading-snug outline-none placeholder:text-muted-foreground",
