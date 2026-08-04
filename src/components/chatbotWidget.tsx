@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import ChatbotButton from "./chatbotButton";
-import ChatbotPanel from "@/app/chatbot/chatbotPanel";
+import ChatLauncher from "./chat/ChatLauncher";
+import ChatPanel from "./chat/ChatPanel";
 import { useChatbotVisibility } from "@/hooks/useChatbotVisibility";
 import { useChatbot } from "@/contexts/ChatbotContext";
 
@@ -23,8 +23,8 @@ export default function ChatbotWidget() {
 
   return (
     <>
-      {!isOpen && <ChatbotButton onClick={openChat} />}
-      {isOpen && <ChatbotPanel onClose={closeChat} />}
+      <ChatLauncher onClick={openChat} hidden={isOpen} />
+      {isOpen && <ChatPanel onClose={closeChat} />}
     </>
   );
 }

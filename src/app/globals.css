@@ -579,34 +579,11 @@ GIF PAUSE CONTROL - ENHANCED VERSION WITH SMOOTH TRANSITIONS
 }
 
 /* Agrega esto en tu archivo global de estilos, por ejemplo src/app/globals.css */
-.chatbot-panel {
-  width: min(420px, 100vw);
-  max-width: 100vw;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: -6px 0 32px 0 rgba(0, 0, 0, 0.15);
-  z-index: 99999;
-  /* Entrada deslizándose de izquierda a derecha (drawer anclado a la izquierda) */
-  animation: chatbotPanelSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes chatbotPanelSlideIn {
-  from {
-    transform: translateX(-100%);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@media (max-width: 640px) {
-  .chatbot-panel {
-    width: 100vw;
-  }
-}
+/* La regla .chatbot-panel se eliminó: combinaba `width: min(420px,100vw)` con
+   un elemento `fixed inset-0`. Como `inset-0` fija left y right a la vez, la
+   caja quedaba sobre-restringida y el navegador resolvía `left:0`, pegando el
+   panel al borde IZQUIERDO a toda altura y tapando el logo y el menú.
+   La geometría vive ahora en src/components/chat/ChatPanel.tsx. */
 
 .step1-overlay {
   min-height: 100vh;
