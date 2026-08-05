@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getCloudinaryUrl } from "@/lib/cloudinary";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { SeriesItem } from "../config/series-configs";
 import type { FilterState } from "../../components/FilterSidebar";
@@ -125,7 +126,10 @@ export default function SeriesSlider({
 
       <div
         ref={scrollContainerRef}
-        className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+        // pt-2/px-1: el contenedor con overflow recorta lo que sobresale por arriba
+        // y por los lados; sin este aire, la tarjeta activa (whileHover/scale 1.02 +
+        // borde negro) se veía cortada en el borde superior.
+        className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pt-2 pb-2 px-1"
         style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -162,10 +166,11 @@ export default function SeriesSlider({
                   "hover:shadow-sm"
                 ],
                 // Estilos cuando SÍ está activo - SIMPLIFICADO
+                // Sin sombra: con la tarjeta ya sin recortar, el shadow-lg se veía
+                // como una franja gris debajo del borde negro.
                 isActive && [
                   "bg-white",
-                  "border-2 border-black",
-                  "shadow-lg"
+                  "border-2 border-black"
                 ]
               )}
               type="button"
@@ -192,7 +197,10 @@ export default function SeriesSlider({
               {serie.image ? (
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex-shrink-0">
                   <Image
-                    src={serie.image}
+                    // `menu-icon` recorta el lienzo vacío del PNG (traen ~57% de
+                    // margen lateral): el producto llena la tarjeta en vez de verse
+                    // diminuto, y se sirve optimizado en alta calidad.
+                    src={getCloudinaryUrl(serie.image, "menu-icon")}
                     alt={serie.name}
                     fill
                     className={cn(
