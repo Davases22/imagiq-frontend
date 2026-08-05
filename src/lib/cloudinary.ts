@@ -13,6 +13,8 @@ const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}
  * Tipos de transformación disponibles por contexto de uso
  */
 export type ImageTransformType =
+  // Menú / submenú
+  | 'menu-icon'        // Iconos de menú y submenú (recortados al producto)
   // Productos
   | 'catalog'          // Grid de productos (1000x1000)
   | 'product-main'     // Vista principal de producto (1200x1200)
@@ -39,6 +41,11 @@ export type ImageTransformType =
  * - b_auto:predominant: Rellena espacios vacíos con color predominante
  */
 const TRANSFORM_CONFIGS: Record<ImageTransformType, string> = {
+  // Iconos de menú/submenú: e_trim recorta el lienzo vacío del PNG (los assets del
+  // catálogo traen ~57% de margen lateral transparente, por eso el producto se veía
+  // diminuto dentro de la tarjeta). c_limit nunca amplía; q_auto:best = alta calidad.
+  'menu-icon': 'e_trim,f_auto,q_auto:best,c_limit,w_512',
+
   // Catálogo - 1000x1000, ALTA CALIDAD optimizada para velocidad
   // q_90: Calidad premium (diferencia imperceptible vs q_100, 40% menos peso)
   // SIN dpr_2.0: Next.js maneja Retina con srcset automático, evita timeouts de generación
@@ -224,6 +231,8 @@ export function getResponsiveSrcSet(
  * Dimensiones optimizadas para balance calidad/rendimiento
  */
 export const IMAGE_DIMENSIONS: Record<ImageTransformType, { width: number; height: number }> = {
+  // Menú / submenú
+  'menu-icon': { width: 512, height: 512 },
   // Productos
   catalog: { width: 1000, height: 1000 },
   'product-main': { width: 1200, height: 1200 },
