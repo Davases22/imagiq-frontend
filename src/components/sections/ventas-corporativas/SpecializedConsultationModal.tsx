@@ -49,6 +49,35 @@ export default function SpecializedConsultationModal({
   // La clave pública viene del backend (claves solo en Railway). Sin clave,
   // el widget no se muestra y no se exige el token (protege el rate limit).
   const [recaptchaSiteKey, setRecaptchaSiteKey] = useState<string | null>(null);
+  // Adjuntos: mismas reglas que el gateway (imágenes/PDF, máx 5, 4 MB c/u).
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState("");
+  const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError("");
+    const nuevos = Array.from(e.target.files || []).filter((f) => {
+      if (!/\.(png|jpe?g|gif|webp|heic|pdf)$/i.test(f.name)) {
+        setFileError(`"${f.name}" no es imagen ni PDF.`);
+        return false;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        setFileError(`"${f.name}" supera 4 MB.`);
+        return false;
+      }
+      return true;
+    });
+    setFiles((prev) => [...prev, ...nuevos].slice(0, 5));
+    e.target.value = "";
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+      reader.onerror = () => reject(new Error(`No se pudo leer ${file.name}`));
+      reader.readAsDataURL(file);
+    });
 
   useEffect(() => {
     apiClient
@@ -91,11 +120,17 @@ export default function SpecializedConsultationModal({
     setErrors(prev => ({ ...prev, [field]: "" }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (validateForm()) {
-      onSubmit?.(formData);
-    }
+    if (!validateForm()) return;
+    const attachments = await Promise.all(
+      files.map(async (f) => ({
+        filename: f.name,
+        contentBase64: await fileToBase64(f),
+        contentType: f.type || undefined,
+      }))
+    );
+    onSubmit?.({ ...formData, attachments: attachments.length ? attachments : undefined });
   };
 
   const handleInputChange = (
@@ -233,6 +268,40 @@ export default function SpecializedConsultationModal({
             placeholder="Cuéntanos más sobre tus necesidades..."
             disabled={isLoading}
           />
+        </div>
+
+        {/* Adjuntos opcionales (cotizaciones, fotos, fichas) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Adjuntar imagen o documento (opcional)
+          </label>
+          <input
+            type="file"
+            multiple
+            accept="image/png,image/jpeg,image/gif,image/webp,image/heic,.pdf"
+            onChange={handleFilesChange}
+            disabled={isLoading}
+            className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-black file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gray-800"
+          />
+          <p className="mt-1 text-xs text-gray-500">Solo imágenes o PDF · máx. 5 archivos · 4 MB c/u</p>
+          {fileError && <p className="mt-1 text-xs text-red-500">{fileError}</p>}
+          {files.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                  <span className="truncate">{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="ml-2 text-red-500 hover:text-red-700"
+                    aria-label={`Quitar ${f.name}`}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {recaptchaSiteKey && (

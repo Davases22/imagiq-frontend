@@ -34,6 +34,12 @@ export interface ContactFormData {
   acceptMarketing: boolean;
 }
 
+export interface CorporateLeadAttachment {
+  filename: string;
+  contentBase64: string;
+  contentType?: string;
+}
+
 export interface SpecializedConsultationFormData {
   fullName: string;
   phone: string;
@@ -43,6 +49,8 @@ export interface SpecializedConsultationFormData {
   message: string;
   acceptPrivacy: boolean;
   recaptchaToken: string | null;
+  /** Imágenes/PDF que el cliente adjunta (van en el correo del lead). */
+  attachments?: CorporateLeadAttachment[];
 }
 
 export type SolutionInterestOption =

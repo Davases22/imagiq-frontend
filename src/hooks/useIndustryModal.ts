@@ -47,6 +47,7 @@ export function useIndustryModal(
           solutionInterest: data.solutionInterest,
           message: data.message?.trim() || undefined,
           recaptchaToken: data.recaptchaToken ?? undefined,
+          attachments: data.attachments,
           sourceUrl: typeof window !== "undefined" ? window.location.href : undefined,
         });
 
