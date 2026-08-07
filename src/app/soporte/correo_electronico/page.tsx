@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
+import { apiClient } from "@/lib/api";
 import { associateEmailWithSession, identifyEmailEarly } from "@/lib/posthogClient";
 
 export default function CorreoElectronicoPage() {
@@ -28,23 +30,110 @@ export default function CorreoElectronicoPage() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setFormData(prev => ({ ...prev, files: [...prev.files, ...files].slice(0, 5) }));
+    // Mismo filtro que valida el gateway: solo imágenes o PDF (el accept del input
+    // es apenas una sugerencia del selector de archivos, no una garantía).
+    const permitidos = Array.from(e.target.files || []).filter((f) =>
+      /\.(png|jpe?g|gif|webp|heic|pdf)$/i.test(f.name)
+    );
+    setFormData(prev => ({ ...prev, files: [...prev.files, ...permitidos].slice(0, 5) }));
   };
 
   const removeFile = (index: number) => {
     setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // La clave pública viene del backend (ambas claves viven solo en Railway).
+  // Sin clave configurada el captcha NO se muestra y el gateway no lo exige;
+  // al configurar RECAPTCHA_SITE_KEY + RECAPTCHA_SECRET_KEY se activa solo.
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState<string | null>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+
+  useEffect(() => {
+    apiClient
+      .get<{ siteKey: string | null }>("/api/messaging/recaptcha-config")
+      .then((r) => setRecaptchaSiteKey(r.data?.siteKey ?? null))
+      .catch(() => setRecaptchaSiteKey(null));
+  }, []);
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+  const [submitError, setSubmitError] = useState("");
+
+  // 4 MB por archivo: el gateway valida el mismo tope sobre el base64.
+  const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      // reader.result = "data:<mime>;base64,<contenido>" -> solo el contenido
+      reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+      reader.onerror = () => reject(new Error(`No se pudo leer ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError("");
+
+    if (formData.email.trim().toLowerCase() !== formData.emailConfirm.trim().toLowerCase()) {
+      setSubmitError("El correo y su confirmación no coinciden.");
+      return;
+    }
+    if (!formData.privacyPolicy) {
+      setSubmitError("Debes aceptar la política de privacidad para continuar.");
+      return;
+    }
+    if (recaptchaSiteKey && !recaptchaToken) {
+      setSubmitError('Completa la verificación "No soy un robot".');
+      return;
+    }
+    const oversized = formData.files.find((f) => f.size > MAX_FILE_BYTES);
+    if (oversized) {
+      setSubmitError(`El archivo "${oversized.name}" supera el máximo de 4 MB.`);
+      return;
+    }
+
     if (formData.email) {
       associateEmailWithSession(formData.email, {
         $name: `${formData.firstName} ${formData.lastName}`.trim() || undefined,
       });
     }
-    // Handle form submission
-    console.log("Form submitted:", formData);
+
+    setIsSubmitting(true);
+    try {
+      const attachments = await Promise.all(
+        formData.files.map(async (f) => ({
+          filename: f.name,
+          contentBase64: await fileToBase64(f),
+          contentType: f.type || undefined,
+        }))
+      );
+
+      await apiClient.post("/api/messaging/support-email", {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        contactNumber: formData.contactNumber.trim() || undefined,
+        type: formData.type || undefined,
+        modelCode: formData.modelCode.trim() || undefined,
+        message: formData.message.trim(),
+        attachments: attachments.length ? attachments : undefined,
+        recaptchaToken: recaptchaToken ?? undefined,
+      });
+
+      setSubmitStatus("success");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("Error enviando solicitud de soporte:", err);
+      setSubmitStatus("error");
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
+      setSubmitError(
+        "No pudimos enviar tu solicitud. Por favor intenta de nuevo en unos minutos."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -215,6 +304,7 @@ export default function CorreoElectronicoPage() {
               <input
                 type="file"
                 multiple
+                accept="image/png,image/jpeg,image/gif,image/webp,image/heic,.pdf"
                 onChange={handleFileChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -264,13 +354,42 @@ export default function CorreoElectronicoPage() {
           </div>
 
 
+          {/* Verificación "No soy un robot": solo se muestra con clave real configurada */}
+          {recaptchaSiteKey && (
+            <div className="flex justify-center pt-4">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={recaptchaSiteKey}
+                onChange={(token) => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+                onError={() => setRecaptchaToken(null)}
+              />
+            </div>
+          )}
+
+          {/* Estado del envío */}
+          {submitStatus === "success" && (
+            <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+              <p className="font-bold text-green-800">¡Solicitud enviada!</p>
+              <p className="mt-1 text-sm text-green-700">
+                Recibimos tu mensaje y te responderemos al correo indicado.
+              </p>
+            </div>
+          )}
+          {submitError && (
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
+
           {/* Submit Button */}
           <div className="flex justify-center pt-8">
             <button
               type="submit"
-              className="bg-black text-white px-12 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition-colors duration-200"
+              disabled={isSubmitting || submitStatus === "success"}
+              className="bg-black text-white px-12 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              ENVIAR
+              {isSubmitting ? "ENVIANDO..." : submitStatus === "success" ? "ENVIADO ✓" : "ENVIAR"}
             </button>
           </div>
         </form>
