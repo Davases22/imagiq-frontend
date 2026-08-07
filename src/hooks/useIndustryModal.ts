@@ -6,6 +6,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { apiClient } from "@/lib/api";
 import { SpecializedConsultationFormData } from "@/types/corporate-sales";
 
 interface UseIndustryModalReturn {
@@ -37,15 +38,17 @@ export function useIndustryModal(
       setIsSubmitting(true);
 
       try {
-        console.log(
-          `Formulario ${industryName || "corporativo"} enviado:`,
-          data
-        );
+        await apiClient.post("/api/messaging/corporate-lead", {
+          fullName: data.fullName.trim(),
+          company: data.company.trim(),
+          email: data.email.trim(),
+          phone: data.phone.trim(),
+          industry: industryName || "General",
+          solutionInterest: data.solutionInterest,
+          message: data.message?.trim() || undefined,
+          recaptchaToken: data.recaptchaToken ?? undefined,
+        });
 
-        // Simular delay de envío
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Mostrar mensaje de éxito
         alert(
           "¡Gracias por tu interés! Nos pondremos en contacto contigo pronto."
         );

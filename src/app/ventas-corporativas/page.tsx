@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { apiClient } from "@/lib/api";
 import {
   IndustrySelector,
   ProductShowcase,
@@ -36,8 +37,16 @@ export default function VentasCorporativasPage() {
   const handleFormSubmit = async (data: SpecializedConsultationFormData) => {
     setIsSubmitting(true);
     try {
-      console.log("Formulario enviado:", data);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await apiClient.post("/api/messaging/corporate-lead", {
+        fullName: data.fullName.trim(),
+        company: data.company.trim(),
+        email: data.email.trim(),
+        phone: data.phone.trim(),
+        industry: selectedIndustry?.name || "General",
+        solutionInterest: data.solutionInterest,
+        message: data.message?.trim() || undefined,
+        recaptchaToken: data.recaptchaToken ?? undefined,
+      });
       alert(
         "¡Gracias por tu interés! Nos pondremos en contacto contigo pronto."
       );
