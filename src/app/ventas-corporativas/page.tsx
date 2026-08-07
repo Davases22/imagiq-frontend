@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { apiClient } from "@/lib/api";
+import { toast } from "sonner";
 import {
   IndustrySelector,
   ProductShowcase,
@@ -49,15 +50,17 @@ export default function VentasCorporativasPage() {
         attachments: data.attachments,
         sourceUrl: typeof window !== "undefined" ? window.location.href : undefined,
       });
-      alert(
-        "¡Gracias por tu interés! Nos pondremos en contacto contigo pronto."
-      );
       setIsModalOpen(false);
+      toast.success("¡Gracias por tu interés!", {
+        description: "Nos pondremos en contacto contigo pronto.",
+        duration: 6000,
+      });
     } catch (error) {
       console.error("Error al enviar formulario:", error);
-      alert(
-        "Hubo un error al enviar el formulario. Por favor intenta de nuevo."
-      );
+      toast.error("No pudimos enviar tu solicitud", {
+        description: "Por favor intenta de nuevo en unos minutos.",
+        duration: 6000,
+      });
     } finally {
       setIsSubmitting(false);
     }
