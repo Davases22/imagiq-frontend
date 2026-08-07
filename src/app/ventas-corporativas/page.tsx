@@ -46,6 +46,7 @@ export default function VentasCorporativasPage() {
         solutionInterest: data.solutionInterest,
         message: data.message?.trim() || undefined,
         recaptchaToken: data.recaptchaToken ?? undefined,
+        sourceUrl: typeof window !== "undefined" ? window.location.href : undefined,
       });
       alert(
         "¡Gracias por tu interés! Nos pondremos en contacto contigo pronto."
