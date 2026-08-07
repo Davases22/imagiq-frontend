@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { apiClient } from "@/lib/api";
 import Modal from "@/components/Modal";
 import FormField from "./FormField";
 import LoadingButton from "./LoadingButton";
@@ -45,6 +46,16 @@ export default function SpecializedConsultationModal({
   });
 
   const recaptchaRef = useRef<ReCAPTCHA>(null);
+  // La clave pública viene del backend (claves solo en Railway). Sin clave,
+  // el widget no se muestra y no se exige el token (protege el rate limit).
+  const [recaptchaSiteKey, setRecaptchaSiteKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get<{ siteKey: string | null }>("/api/messaging/recaptcha-config")
+      .then((r) => setRecaptchaSiteKey(r.data?.siteKey ?? null))
+      .catch(() => setRecaptchaSiteKey(null));
+  }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -68,7 +79,7 @@ export default function SpecializedConsultationModal({
     if (!formData.acceptPrivacy) {
       newErrors.acceptPrivacy = "Debes aceptar la política de privacidad";
     }
-    if (!formData.recaptchaToken) {
+    if (recaptchaSiteKey && !formData.recaptchaToken) {
       newErrors.recaptchaToken = "Debes completar la verificación reCAPTCHA";
     }
 
@@ -114,7 +125,7 @@ export default function SpecializedConsultationModal({
           disabled={isLoading}
         />
         <label htmlFor="consultationPrivacy" className="text-sm text-gray-700 leading-relaxed">
-          Acepto la <a href="#" className="text-blue-600 underline hover:text-blue-800 transition-colors">política de privacidad de Samsung Electronics S.A.</a>
+          Acepto la <a href="/soporte/politicas-generales" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 transition-colors">política de privacidad de Samsung Electronics S.A.</a>
           <div className="text-gray-500 text-xs mt-1">* Obligatorio</div>
         </label>
       </div>
@@ -224,16 +235,18 @@ export default function SpecializedConsultationModal({
           />
         </div>
 
-        <div className="flex flex-col items-center gap-2">
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-            onChange={(token) => handleInputChange("recaptchaToken", token)}
-            onExpired={() => handleInputChange("recaptchaToken", null)}
-            onError={() => handleInputChange("recaptchaToken", null)}
-          />
-          {errors.recaptchaToken && <p className="text-red-500 text-xs">{errors.recaptchaToken}</p>}
-        </div>
+        {recaptchaSiteKey && (
+          <div className="flex flex-col items-center gap-2">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={recaptchaSiteKey}
+              onChange={(token) => handleInputChange("recaptchaToken", token)}
+              onExpired={() => handleInputChange("recaptchaToken", null)}
+              onError={() => handleInputChange("recaptchaToken", null)}
+            />
+            {errors.recaptchaToken && <p className="text-red-500 text-xs">{errors.recaptchaToken}</p>}
+          </div>
+        )}
       </form>
     </Modal>
   );
