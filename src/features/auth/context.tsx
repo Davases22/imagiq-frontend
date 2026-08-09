@@ -17,6 +17,7 @@ import {
   ReactNode,
 } from "react";
 import { apiClient } from "@/lib/api";
+import { setUser as setSentryUser, clearUser as clearSentryUser } from "@/lib/sentry/client";
 import { User } from "@/types/user";
 import { addressesService } from "@/services/addresses.service";
 import { setPosthogUserId, posthogUtils } from "@/lib/posthogClient";
@@ -68,6 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = JSON.parse(savedUser);
           setUser(userData);
           apiClient.setAuthToken(savedToken!);
+
+          // Identificar también en sesiones RESTAURADAS (no solo en login): sin
+          // esto la mayoría de sesiones reportaban errores anónimos. El cliente
+          // de Sentry decide cuánto enviar según el consentimiento (solo id sin él).
+          try {
+            setSentryUser({ id: String(userData.id ?? ""), email: userData.email });
+          } catch { /* Sentry puede no estar inicializado aún */ }
 
           // Identify user in PostHog on session restore
           const userRole = userData.role ?? (userData as User & { rol?: number }).rol;
@@ -154,6 +162,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(userData);
+    // Identificar al usuario en Sentry: sin esto los issues muestran 0 usuarios
+    // afectados y no se puede dimensionar el impacto real de un error.
+    try {
+      setSentryUser({ id: String(userData.id ?? ""), email: userData.email });
+    } catch { /* Sentry puede no estar inicializado aún */ }
     localStorage.setItem("imagiq_user", JSON.stringify(userData));
 
     // IMPORTANTE: Guardar userId de forma consistente
@@ -269,7 +282,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Reset PostHog user session
     posthogUtils.reset();
-    
+
+    try {
+      clearSentryUser();
+    } catch { /* noop */ }
+
     setUser(null);
 
     // CRÍTICO: Usar función especializada para logout que limpia TODO

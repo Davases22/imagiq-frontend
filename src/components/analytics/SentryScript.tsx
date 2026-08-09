@@ -7,7 +7,7 @@ import { initSentry } from '@/lib/sentry/client';
 /**
  * Sentry - First-Party Loading
  *
- * SOLO se carga si el usuario acepta cookies de analytics
+ * Errores: siempre. Tracing/Replay: solo con consentimiento de analytics.
  */
 export default function SentryScript() {
   const [mounted, setMounted] = useState(false);
@@ -20,13 +20,11 @@ export default function SentryScript() {
     if (!mounted || typeof window === 'undefined') return;
 
     const loadSentry = () => {
-      // Verificar consentimiento
-      if (!hasAnalyticsConsent()) {
-        return;
-      }
-
-      // Ejecutar inicialización asíncrona
-      void initSentry();
+      // SIEMPRE se inicializa la captura de ERRORES (monitoreo técnico sin
+      // tracing/replay/PII). Antes Sentry solo arrancaba con consentimiento de
+      // analytics -> quedaba ciego para la mayoría de usuarios (~2 eventos/día).
+      // Con consentimiento se activa el modo completo (tracing + replay).
+      void initSentry(hasAnalyticsConsent());
     };
 
     // Cargar inmediatamente
