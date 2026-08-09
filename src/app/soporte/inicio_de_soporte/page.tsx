@@ -66,7 +66,9 @@ interface CardData {
 async function fetchBanks(): Promise<Bank[]> {
   try {
     const response = await apiClient.get<Bank[]>("/api/payments/epayco/banks");
-    return response.data;
+    // Si el endpoint responde 400/errores, data puede llegar como objeto de
+    // error y el .map() de bancos reventaba la página (visto en Sentry).
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error("Error fetching banks:", error);
     return [];

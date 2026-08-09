@@ -14,8 +14,14 @@ import * as Sentry from '@sentry/nextjs';
 import { sentryConfig } from './config';
 import { apiGet } from '@/lib/api-client';
 
-/** Flag para evitar inicializaciones múltiples */
-let sentryInitialized = false;
+/**
+ * Modo con el que quedó inicializado el SDK.
+ * 'errors' -> captura técnica sin tracing/replay/PII (sin consentimiento).
+ * 'full'   -> monitoreo completo (con consentimiento).
+ * El upgrade errors->full SÍ re-inicializa (Sentry.init reemplaza el cliente);
+ * sin esto, aceptar cookies a mitad de sesión quedaba sin efecto hasta un F5.
+ */
+let initializedMode: 'none' | 'errors' | 'full' = 'none';
 
 /** Flag para rastrear si la configuración está siendo cargada */
 let configLoading = false;
@@ -38,13 +44,15 @@ let configLoading = false;
  * }
  * ```
  */
-export async function initSentry(): Promise<void> {
+export async function initSentry(fullMode: boolean = true): Promise<void> {
   // Validaciones previas
   if (!sentryConfig.enabled) {
     return;
   }
 
-  if (sentryInitialized) {
+  const targetMode = fullMode ? 'full' : 'errors';
+  // Ya estamos en el modo pedido (o superior): nada que hacer.
+  if (initializedMode === 'full' || initializedMode === targetMode) {
     return;
   }
 
@@ -74,13 +82,17 @@ export async function initSentry(): Promise<void> {
       return;
     }
 
-    // Inicializar Sentry con la configuración obtenida del backend
+    // Inicializar Sentry con la configuración obtenida del backend.
+    // Modo 'errors-only' (sin consentimiento de analytics): captura errores sin
+    // tracing ni replays ni PII — monitoreo técnico por interés legítimo.
+    // Modo completo (con consentimiento): tracing + session replay.
     Sentry.init({
       dsn: config.dsn,
       environment: config.environment || 'production',
-      tracesSampleRate: config.tracesSampleRate ?? 0.1,
-      replaysSessionSampleRate: config.replaysSessionSampleRate ?? 0.1,
-      replaysOnErrorSampleRate: config.replaysOnErrorSampleRate ?? 1,
+      tracesSampleRate: fullMode ? (config.tracesSampleRate ?? 0.1) : 0,
+      replaysSessionSampleRate: fullMode ? (config.replaysSessionSampleRate ?? 0.1) : 0,
+      replaysOnErrorSampleRate: fullMode ? (config.replaysOnErrorSampleRate ?? 1) : 0,
+      sendDefaultPii: fullMode,
       // Filtrar ruido de terceros: Flixmedia genera la mayoría de errores en
       // /productos/* — scripts async no cancelables que corren tras la navegación
       // SPA, bugs dentro de su bundle minificado (opts/opts2), y puentes nativos
@@ -95,20 +107,29 @@ export async function initSentry(): Promise<void> {
         'Java object is gone',
         'webkit.messageHandlers',
         'AbortError',
+        // El JSON malformado del 3DS de ePayco se filtra por denyUrls (abajo):
+        // filtrarlo por mensaje ocultaría JSON.parse PROPIOS rotos en iOS/WebKit.
+        // Grabadores de sesión de terceros (Clarity/PostHog) compitiendo.
+        'session recording is available',
       ],
       denyUrls: [
         /flixfacts\.com/,
         /flixcar\.com/,
         /flixsyndication/,
         /modular\/js\/minify/,
+        // Script 3DS de ePayco servido desde su CDN.
+        /general\/3DS\//,
+        /apiflow\.epayco\.co/,
       ],
-      integrations: [
-        Sentry.browserTracingIntegration(),
-        Sentry.replayIntegration({
-          maskAllText: false,
-          blockAllMedia: false,
-        }),
-      ],
+      integrations: fullMode
+        ? [
+            Sentry.browserTracingIntegration(),
+            Sentry.replayIntegration({
+              maskAllText: false,
+              blockAllMedia: false,
+            }),
+          ]
+        : [],
     });
 
     // Exponer Sentry globalmente para compatibilidad
@@ -116,7 +137,7 @@ export async function initSentry(): Promise<void> {
       globalThis.window.Sentry = Sentry as unknown as typeof globalThis.window.Sentry;
     }
 
-    sentryInitialized = true;
+    initializedMode = targetMode;
     configLoading = false;
   } catch (error) {
     console.error('[Sentry] Error during initialization:', error);
@@ -146,7 +167,7 @@ export async function initSentry(): Promise<void> {
  * ```
  */
 export function captureError(error: Error, context?: Record<string, unknown>): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -178,7 +199,7 @@ export function captureMessage(
   message: string,
   level: 'info' | 'warning' | 'error' = 'info'
 ): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -213,11 +234,17 @@ export function setUser(user: {
   email?: string;
   username?: string;
 }): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
   try {
+    // Sin consentimiento de analytics (modo errores) NO se envía PII:
+    // solo el id pseudónimo, suficiente para contar usuarios afectados.
+    if (initializedMode === 'errors') {
+      Sentry.setUser(user.id ? { id: user.id } : null);
+      return;
+    }
     Sentry.setUser(user);
   } catch (err) {
     console.error('[Sentry] Failed to set user:', err);
@@ -238,7 +265,7 @@ export function setUser(user: {
  * ```
  */
 export function clearUser(): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -264,5 +291,5 @@ export function clearUser(): void {
  * ```
  */
 export function isSentryInitialized(): boolean {
-  return sentryInitialized;
+  return initializedMode !== 'none';
 }
