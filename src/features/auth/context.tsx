@@ -70,6 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData);
           apiClient.setAuthToken(savedToken!);
 
+          // Identificar también en sesiones RESTAURADAS (no solo en login): sin
+          // esto la mayoría de sesiones reportaban errores anónimos. El cliente
+          // de Sentry decide cuánto enviar según el consentimiento (solo id sin él).
+          try {
+            setSentryUser({ id: String(userData.id ?? ""), email: userData.email });
+          } catch { /* Sentry puede no estar inicializado aún */ }
+
           // Identify user in PostHog on session restore
           const userRole = userData.role ?? (userData as User & { rol?: number }).rol;
           setPosthogUserId(userData.id, {

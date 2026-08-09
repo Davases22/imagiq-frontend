@@ -130,7 +130,9 @@ export async function payWithPse(props: PsePaymentData): Promise<{ redirectUrl: 
 export async function fetchBanks(): Promise<{ bankCode: string; bankName: string }[]> {
   try {
     const data = await apiGet<{ bankCode: string; bankName: string }[]>('/api/payments/epayco/banks');
-    return data;
+    // Si el endpoint responde error, data puede ser un objeto y el .map() del
+    // selector de bancos PSE reventaría el checkout (mismo guard que en soporte).
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     // Provide detailed error information for debugging
     if (error instanceof Error) {

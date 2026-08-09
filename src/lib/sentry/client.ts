@@ -14,8 +14,14 @@ import * as Sentry from '@sentry/nextjs';
 import { sentryConfig } from './config';
 import { apiGet } from '@/lib/api-client';
 
-/** Flag para evitar inicializaciones múltiples */
-let sentryInitialized = false;
+/**
+ * Modo con el que quedó inicializado el SDK.
+ * 'errors' -> captura técnica sin tracing/replay/PII (sin consentimiento).
+ * 'full'   -> monitoreo completo (con consentimiento).
+ * El upgrade errors->full SÍ re-inicializa (Sentry.init reemplaza el cliente);
+ * sin esto, aceptar cookies a mitad de sesión quedaba sin efecto hasta un F5.
+ */
+let initializedMode: 'none' | 'errors' | 'full' = 'none';
 
 /** Flag para rastrear si la configuración está siendo cargada */
 let configLoading = false;
@@ -44,7 +50,9 @@ export async function initSentry(fullMode: boolean = true): Promise<void> {
     return;
   }
 
-  if (sentryInitialized) {
+  const targetMode = fullMode ? 'full' : 'errors';
+  // Ya estamos en el modo pedido (o superior): nada que hacer.
+  if (initializedMode === 'full' || initializedMode === targetMode) {
     return;
   }
 
@@ -99,9 +107,8 @@ export async function initSentry(fullMode: boolean = true): Promise<void> {
         'Java object is gone',
         'webkit.messageHandlers',
         'AbortError',
-        // 3DS de ePayco (validateThreeds.min.js): parsea postMessage ajenos y
-        // revienta con JSON malformado — script de terceros, no nuestro código.
-        'JSON Parse error: Unexpected identifier',
+        // El JSON malformado del 3DS de ePayco se filtra por denyUrls (abajo):
+        // filtrarlo por mensaje ocultaría JSON.parse PROPIOS rotos en iOS/WebKit.
         // Grabadores de sesión de terceros (Clarity/PostHog) compitiendo.
         'session recording is available',
       ],
@@ -130,7 +137,7 @@ export async function initSentry(fullMode: boolean = true): Promise<void> {
       globalThis.window.Sentry = Sentry as unknown as typeof globalThis.window.Sentry;
     }
 
-    sentryInitialized = true;
+    initializedMode = targetMode;
     configLoading = false;
   } catch (error) {
     console.error('[Sentry] Error during initialization:', error);
@@ -160,7 +167,7 @@ export async function initSentry(fullMode: boolean = true): Promise<void> {
  * ```
  */
 export function captureError(error: Error, context?: Record<string, unknown>): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -192,7 +199,7 @@ export function captureMessage(
   message: string,
   level: 'info' | 'warning' | 'error' = 'info'
 ): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -227,11 +234,17 @@ export function setUser(user: {
   email?: string;
   username?: string;
 }): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
   try {
+    // Sin consentimiento de analytics (modo errores) NO se envía PII:
+    // solo el id pseudónimo, suficiente para contar usuarios afectados.
+    if (initializedMode === 'errors') {
+      Sentry.setUser(user.id ? { id: user.id } : null);
+      return;
+    }
     Sentry.setUser(user);
   } catch (err) {
     console.error('[Sentry] Failed to set user:', err);
@@ -252,7 +265,7 @@ export function setUser(user: {
  * ```
  */
 export function clearUser(): void {
-  if (!sentryInitialized) {
+  if (initializedMode === 'none') {
     return;
   }
 
@@ -278,5 +291,5 @@ export function clearUser(): void {
  * ```
  */
 export function isSentryInitialized(): boolean {
-  return sentryInitialized;
+  return initializedMode !== 'none';
 }
