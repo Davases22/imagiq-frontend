@@ -102,12 +102,27 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
       }
     }
 
-    // Cargar tarjetas guardadas desde el cache
+    // Cargar tarjetas guardadas desde el cache — SOLO para usuarios registrados
+    // (rol 2). Un invitado (rol 3, identificado solo con el email) NO debe ver
+    // métodos de pago guardados; además limpiamos el caché persistido para que no
+    // queden tarjetas de una sesión rol 2 anterior en el mismo navegador.
     try {
-      const cardsData = localStorage.getItem("checkout-cards-cache");
-      if (cardsData) {
-        const parsed = JSON.parse(cardsData) as DBCard[];
-        setSavedCards(parsed);
+      let rol: number | null = null;
+      try {
+        const u = JSON.parse(localStorage.getItem("imagiq_user") || "null");
+        rol = typeof u?.rol === "number" ? u.rol : (typeof u?.role === "number" ? u.role : null);
+      } catch {
+        rol = null;
+      }
+      if (rol === 2) {
+        const cardsData = localStorage.getItem("checkout-cards-cache");
+        if (cardsData) {
+          const parsed = JSON.parse(cardsData) as DBCard[];
+          setSavedCards(parsed);
+        }
+      } else {
+        setSavedCards([]);
+        localStorage.removeItem("checkout-cards-cache");
       }
     } catch (error) {
       console.error("Error loading saved cards:", error);
