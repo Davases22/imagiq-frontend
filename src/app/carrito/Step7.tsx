@@ -2596,8 +2596,8 @@ export default function Step7({ onBack }: Step7Props) {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {products.map((product) => (
-                      <div key={product.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    {products.map((product, index) => (
+                      <div key={`${product.sku ?? product.id}-${index}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                         <div className="relative w-20 h-20 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200">
                           {product.image ? (
                             <Image
@@ -2614,7 +2614,7 @@ export default function Step7({ onBack }: Step7Props) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate">{product.displayName || product.desDetallada || product.name}</p>
                           <p className="text-xs text-gray-500">Cant: {product.quantity}</p>
                         </div>
                         <p className="text-sm font-bold text-gray-900 flex-shrink-0">
