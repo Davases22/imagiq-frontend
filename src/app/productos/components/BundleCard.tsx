@@ -12,6 +12,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { prefetchBundle } from "@/features/products/useProducts";
 import { Plus, Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -798,6 +799,13 @@ export default function BundleCard({
         "rounded-lg w-full h-full flex flex-col mx-auto",
         className
       )}
+      onMouseEnter={() => {
+        // Prefetch del bundle al pasar el mouse: al hacer click, los datos ya
+        // están en caché y la vista aparece casi al instante.
+        if (baseCodigoMarket && codCampana && selectedOption?.product_sku) {
+          void prefetchBundle(baseCodigoMarket, codCampana, selectedOption.product_sku);
+        }
+      }}
     >
       {/* Sección de imágenes del bundle - overflow visible para que las imágenes se "salgan" - Clickable */}
       <div

@@ -1311,21 +1311,71 @@ export const useProduct = (productId: string) => {
 };
 
 /**
+ * Caché en memoria de bundles ya resueltos (el proyecto no usa React Query).
+ * Permite que las revisitas al mismo bundle Y el prefetch desde el card sean
+ * instantáneos, en vez de re-pedir todo en cada entrada.
+ */
+const bundleCache = new Map<string, BundleCardProps>();
+const bundleCacheKey = (b: string, c: string, s: string) => `${b}|${c}|${s}`;
+
+/**
+ * Prefetch de un bundle (best-effort) para llenar la caché ANTES de navegar.
+ * Se dispara al pasar el mouse por el card: al hacer click, los datos ya están
+ * y la vista aparece casi al instante. Si falla, useBundle hace el fetch normal.
+ */
+export async function prefetchBundle(
+  baseCodigoMarket: string,
+  codCampana: string,
+  productSku: string,
+): Promise<void> {
+  if (!baseCodigoMarket || !codCampana || !productSku) return;
+  const key = bundleCacheKey(baseCodigoMarket, codCampana, productSku);
+  if (bundleCache.has(key)) return;
+  try {
+    const response = await productEndpoints.getBundleById(baseCodigoMarket, codCampana, productSku);
+    if (response.success && response.data) {
+      bundleCache.set(key, mapDirectBundleResponseToFrontend(response.data));
+    }
+  } catch {
+    /* prefetch best-effort */
+  }
+}
+
+/**
  * Hook para obtener un bundle específico por sus 3 parámetros
  * @param baseCodigoMarket - Código base del producto principal
  * @param codCampana - Código de la campaña
  * @param productSku - SKU de la opción del bundle
  * @returns Bundle, loading state, y error state
+ *
+ * Usa la caché en memoria: si el bundle ya fue prefetcheado o visitado, se
+ * muestra al instante (sin skeleton) y se refresca en segundo plano.
  */
 export const useBundle = (baseCodigoMarket: string, codCampana: string, productSku: string) => {
-  const [bundle, setBundle] = useState<BundleCardProps | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedInitial =
+    baseCodigoMarket && codCampana && productSku
+      ? bundleCache.get(bundleCacheKey(baseCodigoMarket, codCampana, productSku))
+      : undefined;
+  const [bundle, setBundle] = useState<BundleCardProps | null>(cachedInitial ?? null);
+  const [loading, setLoading] = useState(!cachedInitial);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const key =
+      baseCodigoMarket && codCampana && productSku
+        ? bundleCacheKey(baseCodigoMarket, codCampana, productSku)
+        : null;
+    const hit = key ? bundleCache.get(key) : undefined;
+
+    // Con caché: mostrar al instante y refrescar en segundo plano (sin skeleton).
+    if (hit) {
+      setBundle(hit);
+      setLoading(false);
+      setError(null);
+    }
+
     const fetchBundle = async () => {
-      // No hay cache, hacer petición normal con loading
-      setLoading(true);
+      if (!hit) setLoading(true);
       setError(null);
 
       try {
@@ -1333,17 +1383,16 @@ export const useBundle = (baseCodigoMarket: string, codCampana: string, productS
         const response = await productEndpoints.getBundleById(baseCodigoMarket, codCampana, productSku);
 
         if (response.success && response.data) {
-          const apiData = response.data;
-          const mappedBundle = mapDirectBundleResponseToFrontend(apiData);
-
+          const mappedBundle = mapDirectBundleResponseToFrontend(response.data);
+          if (key) bundleCache.set(key, mappedBundle);
           setBundle(mappedBundle);
           setError(null);
-        } else {
+        } else if (!hit) {
           setError("Bundle no encontrado");
         }
       } catch (err) {
         console.error("Error fetching bundle:", err);
-        setError("Error al cargar el bundle");
+        if (!hit) setError("Error al cargar el bundle");
       } finally {
         setLoading(false);
       }

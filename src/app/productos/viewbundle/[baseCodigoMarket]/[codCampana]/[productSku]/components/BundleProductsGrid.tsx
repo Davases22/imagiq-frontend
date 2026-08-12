@@ -43,6 +43,16 @@ function ProductCard({ product }: { product: BundleProduct }) {
 
   const imageUrl = getValidImageUrl();
 
+  // Normaliza valores placeholder ("No aplica", "0", "-", vacío) a "" para no
+  // mostrarlos: el cliente no debe ver "No aplica | 50\"" ni "Negro | -".
+  const clean = (v?: string) => {
+    const s = (v || "").trim();
+    if (!s || s === "-" || s === "0" || /^no\s*aplica$/i.test(s)) return "";
+    return s;
+  };
+  const colorLabel = clean(product.nombreColor);
+  const capacidadLabel = clean(product.capacidad);
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full">
       {/* Imagen del producto */}
@@ -62,12 +72,12 @@ function ProductCard({ product }: { product: BundleProduct }) {
           {product.modelo}
         </h3>
         
-        {/* Detalles (color, capacidad) */}
-        {(product.nombreColor || product.capacidad) && (
+        {/* Detalles (color, capacidad) — placeholders "No aplica"/"0"/"-" se ocultan */}
+        {(colorLabel || capacidadLabel) && (
           <div className="text-sm text-gray-600 mb-4">
-            {product.nombreColor && <span>{product.nombreColor}</span>}
-            {product.nombreColor && product.capacidad && <span> | </span>}
-            {product.capacidad && <span>{product.capacidad}</span>}
+            {colorLabel && <span>{colorLabel}</span>}
+            {colorLabel && capacidadLabel && <span> | </span>}
+            {capacidadLabel && <span>{capacidadLabel}</span>}
           </div>
         )}
 
@@ -77,7 +87,33 @@ function ProductCard({ product }: { product: BundleProduct }) {
         {/* Botón "Saber más" */}
         <Link
           href={productUrl}
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => {
+            // Guardar la VARIANTE del bundle para que la PDP destino la
+            // preseleccione (misma clave/estructura que usa ProductCard). Sin
+            // esto la PDP cae a la "mejor"/primera variante (58" en vez de 50",
+            // 15kg en vez de 21kg) y confunde al cliente con otro precio.
+            try {
+              localStorage.setItem(
+                `product_selection_${baseCodigoMarket}`,
+                JSON.stringify({
+                  productId: baseCodigoMarket,
+                  productName: product.modelo,
+                  price: product.product_discount_price,
+                  originalPrice: product.product_original_price,
+                  color: product.nombreColor, // nombre display
+                  colorHex: product.color, // hex
+                  capacity: product.capacidad,
+                  ram: product.memoriaram,
+                  sku: product.sku,
+                  ean: product.ean,
+                  image: product.imagePreviewUrl,
+                })
+              );
+            } catch {
+              /* localStorage no disponible: navegar sin preselección */
+            }
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
           className="mt-4 w-full py-2.5 px-4 bg-white text-gray-900 border-2 border-gray-900 rounded-full font-medium text-center hover:bg-gray-900 hover:text-white transition-colors duration-200"
         >
           Saber más

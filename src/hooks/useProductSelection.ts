@@ -162,7 +162,11 @@ export interface UseProductSelectionReturn {
 
 }
 
-export function useProductSelection(apiProduct: ProductApiData, productColors?: Array<{ label: string, hex: string }>, activeFilterHints?: ActiveFilterHints): UseProductSelectionReturn {
+export function useProductSelection(apiProduct: ProductApiData, productColors?: Array<{ label: string, hex: string }>, activeFilterHints?: ActiveFilterHints, preselectHints?: ActiveFilterHints): UseProductSelectionReturn {
+  // `activeFilterHints` (catálogo) PRESELECCIONA y además FILTRA las opciones
+  // visibles. `preselectHints` (deep-link desde un bundle / "Más información")
+  // SOLO preselecciona la variante inicial y NO filtra: el selector debe seguir
+  // mostrando TODAS las opciones (43", 55", 58"...) con la del bundle marcada.
   // Crear todas las variantes del producto basadas en los arrays indexados
   const allVariants = useMemo((): ProductVariant[] => {
     const variants: ProductVariant[] = [];
@@ -364,7 +368,7 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
   const [selection, setSelection] = useState<SelectionState>(() => {
     // Si hay variantes disponibles, seleccionar la mejor (stock > 0, mejor precio, características comunes)
     if (allVariants.length > 0) {
-      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints);
+      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints ?? preselectHints);
       if (bestVariant) {
         return {
           selectedColor: bestVariant.color || null,
@@ -386,7 +390,7 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
   useEffect(() => {
     // Si no hay selección actual y hay variantes disponibles, seleccionar la mejor
     if (!selection.selectedColor && allVariants.length > 0) {
-      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints);
+      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints ?? preselectHints);
       if (bestVariant) {
         setSelection({
           selectedColor: bestVariant.color || null,
@@ -401,7 +405,7 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
   // Re-seleccionar variante cuando cambien los filtros del catálogo
   useEffect(() => {
     if (allVariants.length > 0) {
-      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints);
+      const bestVariant = findBestVariantToDisplay(allVariants, activeFilterHints ?? preselectHints);
       if (bestVariant) {
         setSelection({
           selectedColor: bestVariant.color || null,

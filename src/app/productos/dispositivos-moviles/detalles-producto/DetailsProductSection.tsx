@@ -7,7 +7,7 @@ import { useCartContext } from "@/features/cart/CartContext";
 import { useFavorites } from "@/features/products/useProducts";
 import type { ProductCardProps } from "@/app/productos/components/ProductCard";
 import type { StaticImageData } from "next/image";
-import type { ProductVariant, ColorOption } from "@/hooks/useProductSelection";
+import type { ProductVariant, ColorOption, ActiveFilterHints } from "@/hooks/useProductSelection";
 import fallbackImage from "@/img/dispositivosmoviles/cel1.png";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { cleanProductName } from "@/lib/utils";
@@ -49,6 +49,35 @@ const DetailsProductSection: React.FC<{
   }) => void;
   hideBreadcrumbs?: boolean;
 }> = ({ product, onVariantsReady, onProductSelectionChange, hideBreadcrumbs = false }) => {
+  // Preselección de variante: si venimos de un bundle (o de "Más información"),
+  // hay una selección guardada en localStorage; la traducimos a hints para que
+  // useProductSelection muestre la MISMA variante (p.ej. 50"/21kg) y no la "mejor".
+  const bundleHints = React.useMemo((): ActiveFilterHints | undefined => {
+    if (typeof window === "undefined") return undefined;
+    try {
+      const raw = localStorage.getItem(`product_selection_${product.id}`);
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw) as {
+        color?: string;
+        colorHex?: string;
+        capacity?: string;
+        ram?: string;
+      };
+      const capacidad = (parsed.capacity || "").trim();
+      const ram = (parsed.ram || "").trim();
+      const colorVals = [parsed.color, parsed.colorHex]
+        .map((c) => (c || "").trim())
+        .filter(Boolean);
+      const hints: ActiveFilterHints = {};
+      if (capacidad) hints.capacidad = [capacidad];
+      if (colorVals.length) hints.color = colorVals;
+      if (ram) hints.memoriaram = [ram];
+      return Object.keys(hints).length ? hints : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [product.id]);
+
   // Hooks - Usar el mismo sistema que ProductCard
   const productSelection = useProductSelection(
     product.apiProduct || {
@@ -76,7 +105,10 @@ const DetailsProductSection: React.FC<{
       precioeccommerce: [],
       fechaInicioVigencia: [],
       fechaFinalVigencia: [],
-    }
+    },
+    undefined,
+    undefined,
+    bundleHints
   );
 
   // Notificar cuando las variantes estén listas (usando productSelection)
