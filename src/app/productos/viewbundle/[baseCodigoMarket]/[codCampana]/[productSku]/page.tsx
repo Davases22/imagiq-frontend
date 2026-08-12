@@ -64,13 +64,10 @@ export default function BundleViewPage({ params }: BundleViewPageProps) {
     };
   }, [showStickyBar]);
 
-  // Transición suave al cargar
+  // Mostrar el contenido en cuanto los datos estén listos (sin retraso artificial
+  // de 150 ms que alargaba el skeleton aunque el bundle ya hubiera cargado).
   useEffect(() => {
-    if (!loading && bundle) {
-      const timer = setTimeout(() => setShowContent(true), 150);
-      return () => clearTimeout(timer);
-    }
-    setShowContent(false);
+    setShowContent(!loading && !!bundle);
   }, [loading, bundle]);
 
   // AHORA SÍ PODEMOS HACER VALIDACIONES Y RETURNS CONDICIONALES
