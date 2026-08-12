@@ -38,6 +38,31 @@ const CheckoutAddressContext = createContext<
 // Provider
 // ---------------------------------------------------------------------------
 
+// Rol del usuario (2 = registrado, 3 = invitado). Solo los REGISTRADOS pueden
+// ver direcciones guardadas de la cuenta; un invitado (rol 3, identificado solo
+// con el email) no debe ver los datos de un tercero (parte del account takeover).
+function roleFromObj(u: unknown): number | null {
+  if (u && typeof u === "object") {
+    const o = u as { rol?: unknown; role?: unknown };
+    if (typeof o.rol === "number") return o.rol;
+    if (typeof o.role === "number") return o.role;
+  }
+  return null;
+}
+function readUserRole(u: unknown): number | null {
+  const fromObj = roleFromObj(u);
+  if (fromObj !== null) return fromObj;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("imagiq_user");
+      if (stored) return roleFromObj(JSON.parse(stored));
+    } catch {
+      /* noop */
+    }
+  }
+  return null;
+}
+
 export function CheckoutAddressProvider({ children }: { children: ReactNode }) {
   const { user } = useAuthContext();
   const userId = user?.id ?? null;
@@ -49,14 +74,17 @@ export function CheckoutAddressProvider({ children }: { children: ReactNode }) {
 
   // ---- Fetch addresses from DB ----
   const fetchAddresses = useCallback(async () => {
-    if (!userId) {
-      // No user yet — try reading from localStorage as transient fallback
+    // Un invitado (rol 3) NO debe ver las direcciones GUARDADAS de la cuenta: con
+    // solo el email se accedería a datos de un tercero (dónde vive). Solo se usa
+    // la dirección transitoria que el invitado agregó en esta sesión.
+    if (!userId || readUserRole(user) !== 2) {
       try {
         const raw = localStorage.getItem("checkout-address");
         if (raw) {
           setSelectedAddress(JSON.parse(raw) as Address);
         }
       } catch { /* ignore */ }
+      setAddresses([]);
       setIsLoading(false);
       return;
     }
@@ -95,7 +123,7 @@ export function CheckoutAddressProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, user]);
 
   // Fetch on mount and when user changes
   useEffect(() => {

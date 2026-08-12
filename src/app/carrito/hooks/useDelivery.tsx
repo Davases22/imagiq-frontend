@@ -1831,13 +1831,23 @@ export const useDelivery = (config?: UseDeliveryConfig) => {
     };
   }, []); // IMPORTANTE: Array vacío - solo ejecutar al montar. fetchCandidateStores es estable via useCallback
 
-  // Cargar direcciones del usuario usando AddressesService
+  // Cargar direcciones del usuario usando AddressesService.
+  // Un invitado (rol 3) NO debe ver las direcciones guardadas de la cuenta (con
+  // solo el email se accedería a datos de un tercero). Solo usuarios rol 2.
   useEffect(() => {
-    const userInfo = safeGetLocalStorage<{ id?: string; email?: string }>(
-      "imagiq_user",
-      {}
-    );
-    if (userInfo && (userInfo.id || userInfo.email)) {
+    const userInfo = safeGetLocalStorage<{
+      id?: string;
+      email?: string;
+      rol?: number;
+      role?: number;
+    }>("imagiq_user", {});
+    const rol =
+      typeof userInfo?.rol === "number"
+        ? userInfo.rol
+        : typeof userInfo?.role === "number"
+          ? userInfo.role
+          : null;
+    if (rol === 2 && userInfo && (userInfo.id || userInfo.email)) {
       addressesService
         .getUserAddresses()
         .then((addresses: Address[]) => {
@@ -1847,6 +1857,8 @@ export const useDelivery = (config?: UseDeliveryConfig) => {
           console.error("Error loading addresses:", error);
           setAddresses([]);
         });
+    } else {
+      setAddresses([]);
     }
   }, []);
 
@@ -2008,7 +2020,20 @@ export const useDelivery = (config?: UseDeliveryConfig) => {
     // Esta función refresca la lista de direcciones y opcionalmente
     // dispara la consulta de candidate stores si se proporciona la nueva dirección
     try {
-      let addresses = await addressesService.getUserAddresses();
+      // Invitado (rol 3): NO traer las direcciones guardadas de la cuenta; solo la
+      // dirección nueva que agregó en esta sesión. Solo rol 2 ve las guardadas.
+      const userInfo = safeGetLocalStorage<{ rol?: number; role?: number }>(
+        "imagiq_user",
+        {}
+      );
+      const rol =
+        typeof userInfo?.rol === "number"
+          ? userInfo.rol
+          : typeof userInfo?.role === "number"
+            ? userInfo.role
+            : null;
+      let addresses: Address[] =
+        rol === 2 ? await addressesService.getUserAddresses() : [];
 
       // FIX: Asegurar que la nueva dirección esté en la lista (manejar lag de replicación/DB)
       if (newAddress && newAddress.id) {
