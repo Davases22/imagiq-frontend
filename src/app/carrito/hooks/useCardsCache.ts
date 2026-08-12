@@ -68,6 +68,34 @@ export function useCardsCache() {
     return null;
   }, [authContext.user?.id, loggedUser?.id]);
 
+  // Rol del usuario (2 = registrado, 3 = invitado). Solo los REGISTRADOS pueden
+  // ver métodos de pago guardados; un invitado (rol 3, auto-logueado solo con el
+  // email) NO debe ver tarjetas de esa cuenta — eso expondría datos de pago de un
+  // tercero (parte del account takeover). Ver [[reference_usuarios_rol_invitado]].
+  const getUserRole = useCallback((): number | null => {
+    const readRole = (u: unknown): number | null => {
+      if (!u || typeof u !== "object") return null;
+      const o = u as { rol?: unknown; role?: unknown };
+      if (typeof o.rol === "number") return o.rol;
+      if (typeof o.role === "number") return o.role;
+      return null;
+    };
+    const fromCtx = readRole(authContext.user);
+    if (fromCtx !== null) return fromCtx;
+    const fromLogged = readRole(loggedUser);
+    if (fromLogged !== null) return fromLogged;
+    try {
+      const stored = localStorage.getItem("imagiq_user");
+      if (stored) return readRole(JSON.parse(stored));
+    } catch {
+      /* noop */
+    }
+    return null;
+  }, [authContext.user, loggedUser]);
+
+  // Solo los usuarios registrados (rol 2) pueden cargar tarjetas guardadas.
+  const canUseSavedCards = useCallback((): boolean => getUserRole() === 2, [getUserRole]);
+
   // Verificar si el caché es válido
   const isCacheValid = useCallback(() => {
     const now = Date.now();
@@ -83,6 +111,12 @@ export function useCardsCache() {
   const loadSavedCards = useCallback(async (forceReload = false): Promise<DBCard[]> => {
     const userId = getUserId();
     if (!userId) {
+      setSavedCards([]);
+      return [];
+    }
+
+    // Seguridad: un invitado (rol 3) NO debe ver tarjetas guardadas.
+    if (!canUseSavedCards()) {
       setSavedCards([]);
       return [];
     }
@@ -138,12 +172,15 @@ export function useCardsCache() {
     } finally {
       setIsLoadingCards(false);
     }
-  }, [getUserId, isCacheValid]);
+  }, [getUserId, isCacheValid, canUseSavedCards]);
 
   // Precargar tarjetas sin mostrar loading (para precarga anticipada)
   const preloadCards = useCallback(async () => {
     const userId = getUserId();
     if (!userId) return;
+
+    // Seguridad: un invitado (rol 3) NO debe ver tarjetas guardadas.
+    if (!canUseSavedCards()) return;
 
     // Si ya hay caché válido, no hacer nada
     if (isCacheValid() && cardsCache.data) {
@@ -187,7 +224,7 @@ export function useCardsCache() {
     } catch (error) {
 
     }
-  }, [getUserId, isCacheValid]);
+  }, [getUserId, isCacheValid, canUseSavedCards]);
 
   // Invalidar caché manualmente
   const invalidateCache = useCallback(() => {
@@ -320,6 +357,7 @@ export function useCardsCache() {
     preloadCards,
     invalidateCache,
     isCacheValid,
+    canUseSavedCards,
     zeroInterestData,
     isLoadingZeroInterest,
     loadZeroInterest,

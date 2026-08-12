@@ -87,13 +87,17 @@ export default function Step3({
   }, [canPickUp, stores.length, storesLoading, availableStoresWhenCanPickUpFalse.length, availableCities.length, deliveryMethod, address]);
 
   // Hook para precarga de tarjetas y zero interest
-  const { preloadCards, preloadZeroInterest } = useCardsCache();
+  const { preloadCards, preloadZeroInterest, canUseSavedCards } = useCardsCache();
 
   // Precargar tarjetas y zero interest en segundo plano al entrar al Step3
   React.useEffect(() => {
     const preloadData = async () => {
       // Primero precargar las tarjetas
       await preloadCards();
+
+      // Seguridad: un invitado (rol 3) no debe cargar tarjetas guardadas (ni para
+      // el cálculo de zero-interest). Solo usuarios registrados (rol 2).
+      if (!canUseSavedCards()) return;
 
       // Luego precargar zero interest si hay productos en el carrito
       if (products.length > 0) {
@@ -131,7 +135,7 @@ export default function Step3({
     };
 
     preloadData();
-  }, [preloadCards, preloadZeroInterest, products, calculations.total]);
+  }, [preloadCards, preloadZeroInterest, canUseSavedCards, products, calculations.total]);
 
   // Trade-In state management - ahora soporta múltiples productos
   // Inicialización perezosa para evitar parpadeos y asegurar estado correcto desde el inicio
