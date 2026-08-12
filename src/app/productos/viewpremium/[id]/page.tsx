@@ -7,7 +7,7 @@ import ViewPremiumSkeleton from "./ViewPremiumSkeleton";
 import StickyPriceBar from "@/app/productos/dispositivos-moviles/detalles-producto/StickyPriceBar";
 import { useScrollNavbar } from "@/hooks/useScrollNavbar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { useProductSelection } from "@/hooks/useProductSelection";
+import { useProductSelection, type ActiveFilterHints } from "@/hooks/useProductSelection";
 import { useCartContext } from "@/features/cart/CartContext";
 import { useRouter } from "next/navigation";
 import fallbackImage from "@/img/dispositivosmoviles/cel1.png";
@@ -149,6 +149,35 @@ export default function ProductViewPage({ params }) {
     goToImage,
   } = useProductLogic(product);
 
+  // Preselección de variante desde la selección guardada (bundle / "Más
+  // información"): mismos hints que view, para que la variante (p.ej. TV 50")
+  // coincida con la del bundle y no caiga a la "mejor"/primera.
+  const bundleHints = React.useMemo((): ActiveFilterHints | undefined => {
+    if (typeof window === "undefined" || !id) return undefined;
+    try {
+      const raw = localStorage.getItem(`product_selection_${id}`);
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw) as {
+        color?: string;
+        colorHex?: string;
+        capacity?: string;
+        ram?: string;
+      };
+      const capacidad = (parsed.capacity || "").trim();
+      const ram = (parsed.ram || "").trim();
+      const colorVals = [parsed.color, parsed.colorHex]
+        .map((c) => (c || "").trim())
+        .filter(Boolean);
+      const hints: ActiveFilterHints = {};
+      if (capacidad) hints.capacidad = [capacidad];
+      if (colorVals.length) hints.color = colorVals;
+      if (ram) hints.memoriaram = [ram];
+      return Object.keys(hints).length ? hints : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [id]);
+
   // Hook para manejo inteligente de selección de productos - compartido entre componentes
   const productSelection = useProductSelection(
     product?.apiProduct || {
@@ -179,7 +208,10 @@ export default function ProductViewPage({ params }) {
       indRetoma: [],
       indcerointeres: [],
       skuPostback: [],
-    }
+    },
+    undefined,
+    undefined,
+    bundleHints
   );
 
   // 🔥 ViewContent: una vez por producto, cuando productSelection resuelve el

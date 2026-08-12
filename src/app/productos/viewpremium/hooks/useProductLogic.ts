@@ -19,22 +19,52 @@ export const useProductLogic = (product: ProductCardProps | null) => {
   // Inicializar selecciones cuando el producto se carga
   React.useEffect(() => {
     if (product) {
-      // Seleccionar el primer color disponible
+      // Selección guardada (bundle / "Más información"): si existe, preseleccionar
+      // ESA variante en vez de la primera, para que el TV 50"/lavadora 21kg del
+      // combo no abran otra variante. Sin selección o sin coincidencia -> fallback
+      // al comportamiento anterior (primera/mínima).
+      let saved: { color?: string; capacity?: string; ram?: string } | null = null;
+      if (typeof window !== "undefined" && product.id) {
+        try {
+          const raw = localStorage.getItem(`product_selection_${product.id}`);
+          if (raw) saved = JSON.parse(raw);
+        } catch {
+          saved = null;
+        }
+      }
+      const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+
+      // Seleccionar el color guardado si coincide, sino el primero disponible
       if (product.colors && product.colors.length > 0) {
-        setSelectedColor(product.colors[0].name);
+        const match = saved?.color
+          ? product.colors.find(
+              (c) => norm(c.name) === norm(saved!.color) || norm(c.label) === norm(saved!.color),
+            )
+          : undefined;
+        setSelectedColor((match ?? product.colors[0]).name);
       }
-      // Seleccionar la primera capacidad disponible
+      // Seleccionar la capacidad guardada si coincide, sino la primera disponible
       if (product.capacities && product.capacities.length > 0) {
-        setSelectedStorage(product.capacities[0].value);
+        const match = saved?.capacity
+          ? product.capacities.find(
+              (c) => norm(c.value) === norm(saved!.capacity) || norm(c.label) === norm(saved!.capacity),
+            )
+          : undefined;
+        setSelectedStorage((match ?? product.capacities[0]).value);
       }
-      // Seleccionar la RAM mínima si hay opciones disponibles
+      // Seleccionar la RAM guardada si coincide, sino la mínima (comportamiento previo)
       if (product.apiProduct?.memoriaram) {
         const ramOptions = Array.from(new Set(product.apiProduct.memoriaram))
           .filter(ram => ram && ram.trim() !== '');
 
         if (ramOptions.length > 0) {
-          // Si solo hay una opción, preseleccionarla
-          if (ramOptions.length === 1) {
+          const savedRam = saved?.ram
+            ? ramOptions.find((r) => norm(r) === norm(saved!.ram))
+            : undefined;
+          if (savedRam) {
+            setSelectedRam(savedRam);
+          } else if (ramOptions.length === 1) {
+            // Si solo hay una opción, preseleccionarla
             setSelectedRam(ramOptions[0]);
           } else {
             // Si hay múltiples opciones, seleccionar la mínima
