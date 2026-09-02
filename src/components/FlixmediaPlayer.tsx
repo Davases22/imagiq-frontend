@@ -3,6 +3,11 @@
  *
  * Usa la API de Match de Flixmedia para verificar contenido ANTES de cargar.
  * Si no hay contenido, redirige inmediatamente sin esperar.
+ *
+ * Telemetría: cada inicialización emite UN evento PostHog `flixmedia_result`
+ * con `outcome` ∈ inpage_callback | content_detected | noshow_callback |
+ * visual_error | loader_error | timeout_no_content | no_mpn, más mpn,
+ * product_id, elapsed_ms, mode y si redirigió.
  */
 
 "use client";
@@ -10,6 +15,7 @@
 import { useEffect, memo, useCallback, useState, useRef } from "react";
 import { parseSkuString, checkFlixmediaAvailability, checkFlixmediaAvailabilityByEan, hasPremiumContent as checkPremiumContent } from "@/lib/flixmedia";
 import { useRouter } from "next/navigation";
+import { posthogUtils } from "@/lib/posthogClient";
 
 declare global {
   interface Window {
@@ -49,6 +55,15 @@ interface FlixmediaPlayerProps {
 
 const DISTRIBUTOR_ID = "17257";
 const LANGUAGE = "f5";
+
+// Ventana de "sin contenido": se cuenta desde que loader.js está LISTO (onload),
+// no desde que se inyecta. Antes eran 4s desde la inyección: en una red/máquina
+// lenta el propio loader + service.js + t.json consumían el presupuesto y la
+// página expulsaba a view aunque Flixmedia SÍ tuviera contenido (S90F, M75H...).
+// Los productos realmente sin contenido se resuelven antes por el callback NOSHOW.
+const NO_CONTENT_TIMEOUT_MS = 8000;
+// Tope absoluto desde el init, por si loader.js nunca responde (ni onload ni onerror).
+const NO_CONTENT_HARD_CAP_MS = 15000;
 
 
 function FlixmediaPlayerComponent({
@@ -179,6 +194,8 @@ function FlixmediaPlayerComponent({
     let observer: MutationObserver | null = null;
     let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let cartClickGuardId: ReturnType<typeof setInterval> | null = null;
+    let noContentTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let hardCapTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     // Limpiar scripts y callbacks de Flixmedia para inicialización limpia.
     // IMPORTANTE: Solo se llama al INICIO de una nueva inicialización (dentro del setTimeout),
@@ -194,11 +211,35 @@ function FlixmediaPlayerComponent({
       document.querySelectorAll('script[data-flix-distributor]').forEach(s => s.remove());
       document.querySelectorAll('script[src*="flixfacts.com"], script[src*="flixcar.com"]').forEach(s => s.remove());
       document.querySelectorAll('iframe[src*="flixcar.com"], iframe[src*="flixfacts.com"]').forEach(el => el.remove());
-      // Solo limpiar callbacks para evitar que scripts del producto anterior invoquen nuestros handlers
-      delete window.flixJsCallbacks;
+      // NO borrar window.flixJsCallbacks: los scripts de Flixmedia del producto
+      // anterior (inpage.js con polling) acceden a window.flixJsCallbacks._loadInpageCallback
+      // y con el objeto borrado lanzan "flixJsCallbacks is undefined" (visto en
+      // PostHog). init() lo reemplaza por el objeto nuevo justo antes de cargar
+      // loader.js; los handlers viejos ya están neutralizados por su isMounted=false.
     };
 
     const initStartTime = performance.now();
+
+    // Telemetría (PostHog): UN resultado por inicialización, el primero que ocurra.
+    // Sin esto era imposible saber desde producción por qué la página multimedia
+    // "no muestra" contenido: console.log se elimina en el build y el replay
+    // solo guarda warnings.
+    let outcomeReported = false;
+    const reportOutcome = (outcome: string, extra: Record<string, unknown> = {}) => {
+      if (outcomeReported) return;
+      outcomeReported = true;
+      const positive = outcome === "inpage_callback" || outcome === "content_detected";
+      posthogUtils.capture("flixmedia_result", {
+        outcome,
+        product_id: productIdRef.current || null,
+        mpn: mpn || null,
+        ean: ean || null,
+        elapsed_ms: Math.round(performance.now() - initStartTime),
+        mode: skipMatchApiRef.current ? "multimedia" : (preventRedirectRef.current ? "embedded" : "match"),
+        redirects: !positive && !preventRedirectRef.current,
+        ...extra,
+      });
+    };
 
     const init = async () => {
       let targetMpn: string | null = null;
@@ -216,6 +257,7 @@ function FlixmediaPlayerComponent({
       console.log('[FLIX] Init (+0ms) SKU:', { mpn, targetMpn, targetEan });
 
       if (!targetMpn && !targetEan) {
+        reportOutcome("no_mpn");
         if (!preventRedirectRef.current) {
           redirectToView();
         } else {
@@ -305,12 +347,14 @@ function FlixmediaPlayerComponent({
             console.log(`[FLIX] Callback INPAGE: contenido listo (+${Math.round(performance.now() - initStartTime)}ms)`);
             applyStyles();
             if (isMounted) {
+              reportOutcome("inpage_callback");
               setHasContent(true);
               setContentReady(true);
             }
           } else if (callbackType === 'noshow') {
             console.log(`[FLIX] Callback NOSHOW: sin contenido (+${Math.round(performance.now() - initStartTime)}ms)`);
             if (!isMounted) return;
+            reportOutcome("noshow_callback");
             observer?.disconnect();
             setHasContent(false);
             setHasFlixError(true);
@@ -377,16 +421,53 @@ function FlixmediaPlayerComponent({
         if (!isMounted) { observer?.disconnect(); return; }
         const cont = document.getElementById(containerId);
         if (cont && hasRealContent(cont)) {
+          reportOutcome("content_detected", { detected_by: "mutation" });
           setContentReady(true);
         }
         if (checkForFlixError()) {
           console.log('[FLIX] Error visual de Flixmedia detectado → redirigiendo');
+          reportOutcome("visual_error");
           observer?.disconnect();
           setHasFlixError(true);
           if (!preventRedirectRef.current) redirectToView();
         }
       });
       observer.observe(container, { childList: true, subtree: true, attributes: true });
+
+      // Verificación de "sin contenido": cubre el caso donde ni inpage ni noshow
+      // se disparan. Se programa (a) NO_CONTENT_TIMEOUT_MS después de que loader.js
+      // esté listo y (b) como tope absoluto NO_CONTENT_HARD_CAP_MS desde el init.
+      const verifyNoContent = (reason: string) => {
+        if (!isMounted || outcomeReported) return;
+        const cont = document.getElementById(containerId);
+        if (!cont) return;
+
+        if (checkForFlixError() || !hasRealContent(cont)) {
+          console.log(`[FLIX] Sin contenido real (${reason}) → redirigiendo`, {
+            children: cont.children.length,
+            innerHTML_length: cont.innerHTML.length,
+            hasIframe: !!cont.querySelector('iframe'),
+            hasImages: cont.querySelectorAll('img').length,
+          });
+          reportOutcome("timeout_no_content", {
+            timeout_reason: reason,
+            children: cont.children.length,
+            inner_html_length: cont.innerHTML.length,
+            has_iframe: !!cont.querySelector('iframe'),
+            images: cont.querySelectorAll('img').length,
+          });
+          observer?.disconnect();
+          setHasContent(false);
+          setHasFlixError(true);
+          if (!preventRedirectRef.current) redirectToView();
+        } else {
+          // Sí hay contenido real: asegurar que el skeleton se retire aunque
+          // ningún callback ni mutación lo haya marcado (red de seguridad)
+          reportOutcome("content_detected", { detected_by: reason });
+          setContentReady(true);
+        }
+      };
+      hardCapTimeoutId = setTimeout(() => verifyNoContent("hard_cap"), NO_CONTENT_HARD_CAP_MS);
 
       // Cargar loader.js
       console.log(`[FLIX] Cargando loader.js MPN: ${targetMpn} (+${Math.round(performance.now() - initStartTime)}ms)`);
@@ -416,6 +497,7 @@ function FlixmediaPlayerComponent({
               console.log(`[FLIX] Registered INPAGE callback fired (+${Math.round(performance.now() - initStartTime)}ms)`);
               applyStyles();
               if (isMounted) {
+                reportOutcome("inpage_callback");
                 setHasContent(true);
                 setContentReady(true);
               }
@@ -423,6 +505,7 @@ function FlixmediaPlayerComponent({
             window.flixJsCallbacks.setLoadCallback(() => {
               console.log(`[FLIX] Registered NOSHOW callback fired (+${Math.round(performance.now() - initStartTime)}ms)`);
               if (!isMounted) return;
+              reportOutcome("noshow_callback");
               observer?.disconnect();
               setHasContent(false);
               setHasFlixError(true);
@@ -433,10 +516,15 @@ function FlixmediaPlayerComponent({
         // Flixmedia ya cargó y pudo reemplazar el objeto de callbacks: reasignar
         // flixCartClick sobre el objeto vigente antes de que corra pagedata-specific.js
         ensureFlixCartClick();
+        // La ventana de "sin contenido" empieza AQUÍ, con Flixmedia ya alcanzable
+        if (isMounted && !outcomeReported) {
+          noContentTimeoutId = setTimeout(() => verifyNoContent("loader_ready_timeout"), NO_CONTENT_TIMEOUT_MS);
+        }
       };
       script.onerror = () => {
         console.log('[FLIX] Error cargando loader.js → redirigiendo');
         if (!isMounted) return;
+        reportOutcome("loader_error");
         setHasContent(false);
         if (!preventRedirectRef.current) redirectToView();
       };
@@ -452,30 +540,6 @@ function FlixmediaPlayerComponent({
         if (cartClickGuardId) { clearInterval(cartClickGuardId); cartClickGuardId = null; }
       }, 6000);
 
-      // Verificación a los 4s: si loader.js cargó pero no renderizó contenido real → redirigir
-      // Esto cubre el caso donde ni inpage ni noshow callbacks se disparan
-      setTimeout(() => {
-        if (!isMounted) return;
-        const cont = document.getElementById(containerId);
-        if (!cont) return;
-
-        if (checkForFlixError() || !hasRealContent(cont)) {
-          console.log('[FLIX] Sin contenido real después de 4s → redirigiendo', {
-            children: cont.children.length,
-            innerHTML_length: cont.innerHTML.length,
-            hasIframe: !!cont.querySelector('iframe'),
-            hasImages: cont.querySelectorAll('img').length,
-          });
-          observer?.disconnect();
-          setHasContent(false);
-          setHasFlixError(true);
-          if (!preventRedirectRef.current) redirectToView();
-        } else {
-          // Sí hay contenido real: asegurar que el skeleton se retire aunque
-          // ningún callback ni mutación lo haya marcado (red de seguridad)
-          setContentReady(true);
-        }
-      }, 4000);
     };
 
     // Siempre limpiar y re-inicializar. No intentar "reutilizar" contenido existente:
@@ -493,6 +557,8 @@ function FlixmediaPlayerComponent({
       isMounted = false;
       if (initTimeoutId) clearTimeout(initTimeoutId);
       if (cartClickGuardId) clearInterval(cartClickGuardId);
+      if (noContentTimeoutId) clearTimeout(noContentTimeoutId);
+      if (hardCapTimeoutId) clearTimeout(hardCapTimeoutId);
       abortController.abort();
       observer?.disconnect();
     };
