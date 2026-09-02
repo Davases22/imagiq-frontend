@@ -21,6 +21,8 @@ interface MultimediaBottomBarProps {
   allPrices?: number[]; // Todos los precios del producto (precioeccommerce)
   onViewDetailsClick?: () => void;
   isVisible?: boolean;
+  // SKU de la variante mostrada, para el enlace compartido (`?sku=`)
+  shareSku?: string | null;
 }
 
 /**
@@ -42,6 +44,7 @@ export default function MultimediaBottomBar({
   allPrices = [],
   onViewDetailsClick,
   isVisible = true,
+  shareSku = null,
 }: MultimediaBottomBarProps) {
   // Hook para cuotas sin interés (solo cuando indcerointeres === 1)
   const ceroInteres = useCeroInteres(
@@ -217,7 +220,7 @@ export default function MultimediaBottomBar({
 
               {/* DERECHA: Share + CTA */}
               <div className="flex-shrink-0 flex items-center gap-1">
-                <ShareButtons />
+                <ShareButtons title={productName} sku={shareSku} />
                 <motion.button
                   onClick={onViewDetailsClick}
                   whileHover={{ scale: 1.02 }}

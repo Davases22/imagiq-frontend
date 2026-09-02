@@ -7,7 +7,7 @@ import ViewPremiumSkeleton from "./ViewPremiumSkeleton";
 import StickyPriceBar from "@/app/productos/dispositivos-moviles/detalles-producto/StickyPriceBar";
 import { useScrollNavbar } from "@/hooks/useScrollNavbar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { useProductSelection, type ActiveFilterHints } from "@/hooks/useProductSelection";
+import { useProductSelection, getPreselectHintsFromSku, getSkuFromLocation, type ActiveFilterHints } from "@/hooks/useProductSelection";
 import { useCartContext } from "@/features/cart/CartContext";
 import { useRouter } from "next/navigation";
 import fallbackImage from "@/img/dispositivosmoviles/cel1.png";
@@ -154,6 +154,10 @@ export default function ProductViewPage({ params }) {
   // coincida con la del bundle y no caiga a la "mejor"/primera.
   const bundleHints = React.useMemo((): ActiveFilterHints | undefined => {
     if (typeof window === "undefined" || !id) return undefined;
+    // 1) `?sku=` de un enlace compartido manda sobre la selección guardada
+    const sharedHints = getPreselectHintsFromSku(product?.apiProduct, getSkuFromLocation());
+    if (sharedHints) return sharedHints;
+    // 2) selección guardada (bundle / "Más información")
     try {
       const raw = localStorage.getItem(`product_selection_${id}`);
       if (!raw) return undefined;
@@ -176,7 +180,7 @@ export default function ProductViewPage({ params }) {
     } catch {
       return undefined;
     }
-  }, [id]);
+  }, [id, product?.apiProduct]);
 
   // Hook para manejo inteligente de selección de productos - compartido entre componentes
   const productSelection = useProductSelection(
@@ -470,6 +474,7 @@ export default function ProductViewPage({ params }) {
         hasStock={hasStock()}
         onNotifyStock={stockNotification.openModal}
         showShareButton={true}
+        shareSku={productSelection.selectedSku}
       />
 
       {/* Barra de navegación rápida entre secciones - siempre visible */}

@@ -59,8 +59,8 @@ export default function ProductHeader({
               }`}
             />
           </button>
-          {/* Botón de compartir */}
-          <ShareButtons />
+          {/* Botón de compartir: nombre y SKU de la variante mostrada */}
+          <ShareButtons title={cleanProductName(name)} sku={sku} />
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 import React from "react";
 import { useScrollNavbar } from "@/hooks/useScrollNavbar";
 import { useSelectedColor } from "@/contexts/SelectedColorContext";
-import { useProductSelection } from "@/hooks/useProductSelection";
+import { useProductSelection, getPreselectHintsFromSku, getSkuFromLocation } from "@/hooks/useProductSelection";
 import { useCartContext } from "@/features/cart/CartContext";
 import { useFavorites } from "@/features/products/useProducts";
 import type { ProductCardProps } from "@/app/productos/components/ProductCard";
@@ -54,6 +54,11 @@ const DetailsProductSection: React.FC<{
   // useProductSelection muestre la MISMA variante (p.ej. 50"/21kg) y no la "mejor".
   const bundleHints = React.useMemo((): ActiveFilterHints | undefined => {
     if (typeof window === "undefined") return undefined;
+    // 1) `?sku=` de un enlace compartido manda sobre la selección guardada:
+    //    quien abre el enlace debe ver la MISMA variante que se compartió.
+    const sharedHints = getPreselectHintsFromSku(product.apiProduct, getSkuFromLocation());
+    if (sharedHints) return sharedHints;
+    // 2) selección guardada (bundle / "Más información")
     try {
       const raw = localStorage.getItem(`product_selection_${product.id}`);
       if (!raw) return undefined;
@@ -76,7 +81,7 @@ const DetailsProductSection: React.FC<{
     } catch {
       return undefined;
     }
-  }, [product.id]);
+  }, [product.id, product.apiProduct]);
 
   // Hooks - Usar el mismo sistema que ProductCard
   const productSelection = useProductSelection(
@@ -404,6 +409,7 @@ const DetailsProductSection: React.FC<{
     <>
       <StickyPriceBar
         deviceName={cleanProductName(productSelection.selectedModelo || product.name)}
+        shareSku={productSelection.selectedSku}
         basePrice={getCurrentPrice()}
         originalPrice={originalPrice}
         selectedColor={

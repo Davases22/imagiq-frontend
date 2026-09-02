@@ -768,3 +768,42 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
     allVariants
   };
 }
+
+/**
+ * Hints de preselección a partir de un SKU concreto: traduce el SKU de una
+ * variante (deep-link `?sku=` de un enlace compartido) a color/capacidad/RAM
+ * para que useProductSelection arranque en ESA variante y no en la "mejor".
+ */
+export function getPreselectHintsFromSku(
+  apiProduct: Pick<ProductApiData, "sku" | "color" | "capacidad" | "memoriaram"> | undefined | null,
+  sku: string | null | undefined
+): ActiveFilterHints | undefined {
+  if (!apiProduct || !sku) return undefined;
+  const wanted = sku.trim().toLowerCase();
+  const idx = (apiProduct.sku || []).findIndex(
+    (s) => (s || "").trim().toLowerCase() === wanted
+  );
+  if (idx < 0) return undefined;
+  const hints: ActiveFilterHints = {};
+  const capacidad = (apiProduct.capacidad?.[idx] || "").trim();
+  const color = (apiProduct.color?.[idx] || "").trim();
+  const ram = (apiProduct.memoriaram?.[idx] || "").trim();
+  if (capacidad) hints.capacidad = [capacidad];
+  if (color) hints.color = [color];
+  if (ram) hints.memoriaram = [ram];
+  return Object.keys(hints).length ? hints : undefined;
+}
+
+/**
+ * SKU de variante que viaja en el query string (`?sku=`) de un enlace
+ * compartido. Solo en cliente; en SSR devuelve null.
+ */
+export function getSkuFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const sku = new URLSearchParams(window.location.search).get("sku");
+    return sku && sku.trim() ? sku.trim() : null;
+  } catch {
+    return null;
+  }
+}

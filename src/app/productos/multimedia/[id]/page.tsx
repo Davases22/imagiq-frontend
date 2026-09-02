@@ -15,8 +15,10 @@
 
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ProductApiData } from "@/lib/api";
+import { getSkuFromLocation } from "@/hooks/useProductSelection";
 import { useProduct } from "@/features/products/useProducts";
 import { useAnalyticsWithUser } from "@/lib/analytics";
 import { posthogUtils } from "@/lib/posthogClient";
@@ -25,6 +27,57 @@ import MultimediaBottomBar from "@/components/MultimediaBottomBar";
 import { usePrefetchProduct } from "@/hooks/usePrefetchProduct";
 import { hasPremiumContent } from "@/lib/flixmedia";
 import MultimediaQuickNavBar from "./MultimediaQuickNavBar";
+
+type SelectedProductData = {
+  productName?: string;
+  price?: number;
+  originalPrice?: number;
+  color?: string;
+  colorHex?: string;
+  capacity?: string;
+  ram?: string;
+  sku?: string;
+  ean?: string;
+  image?: string;
+  indcerointeres?: number;
+  allPrices?: number[];
+  skuflixmedia?: string;
+  segmento?: string | string[];
+};
+
+/**
+ * Construye la "selección" equivalente a la de localStorage a partir del SKU de
+ * variante que viaja en un enlace compartido (`?sku=`), usando los arrays
+ * indexados del API. Devuelve null si el SKU no pertenece al producto.
+ */
+function selectionFromSku(
+  product: { name?: string; apiProduct?: ProductApiData } | null | undefined,
+  sku: string | null
+): SelectedProductData | null {
+  const api = product?.apiProduct;
+  if (!api || !sku) return null;
+  const wanted = sku.trim().toLowerCase();
+  const i = (api.sku || []).findIndex((s) => (s || "").trim().toLowerCase() === wanted);
+  if (i < 0) return null;
+  const price = api.precioeccommerce?.[i];
+  const originalPrice = api.precioNormal?.[i];
+  return {
+    productName: api.nombreMarket?.[i] || product?.name,
+    price: typeof price === "number" && price > 0 ? price : undefined,
+    originalPrice: typeof originalPrice === "number" && originalPrice > 0 ? originalPrice : undefined,
+    color: api.nombreColor?.[i] || undefined,
+    colorHex: api.color?.[i] || undefined,
+    capacity: api.capacidad?.[i] || undefined,
+    ram: api.memoriaram?.[i] || undefined,
+    sku: api.sku[i],
+    ean: api.ean?.[i] || undefined,
+    image: api.imagePreviewUrl?.[i] || undefined,
+    indcerointeres: api.indcerointeres?.[i],
+    allPrices: api.precioeccommerce || [],
+    skuflixmedia: api.skuflixmedia?.[i] || undefined,
+    segmento: api.segmento?.[i] || undefined,
+  };
+}
 
 // Skeleton de carga mejorado
 function MultimediaPageSkeleton() {
@@ -109,22 +162,12 @@ export default function MultimediaPage({
 
   // Estado para almacenar la selección del usuario desde localStorage
   // Inicializar como null para evitar hydration mismatch (servidor no tiene acceso a localStorage)
-  const [selectedProductData, setSelectedProductData] = useState<{
-    productName?: string;
-    price?: number;
-    originalPrice?: number;
-    color?: string;
-    colorHex?: string;
-    capacity?: string;
-    ram?: string;
-    sku?: string;
-    ean?: string;
-    image?: string;
-    indcerointeres?: number;
-    allPrices?: number[];
-    skuflixmedia?: string;
-    segmento?: string | string[];
-  } | null>(null);
+  const [savedSelectionData, setSavedSelectionData] = useState<SelectedProductData | null>(null);
+
+  // SKU de variante que viaja en un enlace compartido (`?sku=`). Cuando existe,
+  // manda sobre la selección guardada en localStorage: quien abre el enlace debe
+  // ver la MISMA variante (talla/color) que se compartió, no la de su navegador.
+  const [urlSku, setUrlSku] = useState<string | null>(null);
 
   // selección guardada ya leída de localStorage ("settled"): evita disparar
   // ViewContent/product_viewed con un SKU de fallback antes de resolver la variante.
@@ -137,12 +180,23 @@ export default function MultimediaPage({
   if (currentId !== id) {
     console.log('[MULTIMEDIA] ID cambió:', { from: currentId, to: id, resettingSelectedData: true });
     setCurrentId(id);
-    setSelectedProductData(null);
+    setSavedSelectionData(null);
+    setUrlSku(null);
     setSelectionResolved(false);
   }
 
   // Leer localStorage después del mount para evitar hydration mismatch
   useEffect(() => {
+    const sharedSku = getSkuFromLocation();
+    setUrlSku(sharedSku);
+    if (sharedSku) {
+      // La variante se resuelve contra el producto del API (urlVariantData);
+      // se ignora la selección guardada para no arrancar Flixmedia con otro MPN.
+      console.log('[MULTIMEDIA] SKU del enlace compartido para', id, ':', sharedSku);
+      setSavedSelectionData(null);
+      setSelectionResolved(true);
+      return;
+    }
     const savedSelection = localStorage.getItem(`product_selection_${id}`);
     if (savedSelection) {
       try {
@@ -152,17 +206,23 @@ export default function MultimediaPage({
           sku: parsed?.sku,
           productName: parsed?.productName,
         });
-        setSelectedProductData(parsed);
+        setSavedSelectionData(parsed);
       } catch (e) {
         console.error("Error parsing saved product selection:", e);
-        setSelectedProductData(null);
+        setSavedSelectionData(null);
       }
     } else {
       console.log('[MULTIMEDIA] Sin localStorage para', id);
-      setSelectedProductData(null);
+      setSavedSelectionData(null);
     }
     setSelectionResolved(true);
   }, [id]);
+
+  // Variante del enlace compartido resuelta contra el producto del API. Se
+  // calcula en el render (useMemo), no en un effect: así el PRIMER montaje de
+  // FlixmediaPlayer ya recibe el MPN correcto y no hay doble inicialización.
+  const urlVariantData = useMemo(() => selectionFromSku(product, urlSku), [product, urlSku]);
+  const selectedProductData = urlSku ? urlVariantData : savedSelectionData;
 
   // ViewContent (Meta pixel + CAPI, deduplicados por el MISMO event_id que genera
   // el pipeline) + product_viewed (PostHog) — los mismos eventos que view/[id] y
@@ -366,6 +426,7 @@ export default function MultimediaPage({
       {/* Top Bar con info del producto y CTA - Fixed debajo del Navbar */}
       <MultimediaBottomBar
         productName={displayProductName || ""}
+        shareSku={selectedProductData?.sku ?? null}
         price={numericPrice}
         originalPrice={numericOriginalPrice}
         indcerointeres={indcerointeres}

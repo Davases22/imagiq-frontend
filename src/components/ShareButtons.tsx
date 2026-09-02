@@ -5,9 +5,16 @@ import { createPortal } from "react-dom";
 
 interface ShareButtonsProps {
   className?: string;
+  // Nombre de la variante que el usuario está viendo (p.ej. 'Televisor Smart 65" ...').
+  // Sin esto se usaba document.title, que el servidor genera con la variante base
+  // y NO refleja la talla/color elegidos.
+  title?: string;
+  // SKU de la variante mostrada: viaja en el enlace (`?sku=`) para que quien lo
+  // abra vea la misma variante (la selección local vive solo en localStorage).
+  sku?: string | null;
 }
 
-export default function ShareButtons({ className = "" }: ShareButtonsProps) {
+export default function ShareButtons({ className = "", title, sku }: ShareButtonsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [popoverPos, setPopoverPos] = useState<{ top: number; right: number } | null>(null);
@@ -53,13 +60,21 @@ export default function ShareButtons({ className = "" }: ShareButtonsProps) {
 
   const getShareUrl = useCallback(() => {
     if (typeof window === "undefined") return "";
-    return window.location.href;
-  }, []);
+    try {
+      const url = new URL(window.location.href);
+      if (sku) url.searchParams.set("sku", sku);
+      return url.toString();
+    } catch {
+      return window.location.href;
+    }
+  }, [sku]);
 
   const getShareTitle = useCallback(() => {
+    const variantTitle = (title || "").trim();
+    if (variantTitle) return `${variantTitle} | Samsung Store`;
     if (typeof document === "undefined") return "";
     return document.title;
-  }, []);
+  }, [title]);
 
   const handleShare = useCallback((platform: string) => {
     const url = getShareUrl();
