@@ -61,8 +61,12 @@ const LANGUAGE = "f5";
 // lenta el propio loader + service.js + t.json consumían el presupuesto y la
 // página expulsaba a view aunque Flixmedia SÍ tuviera contenido (S90F, M75H...).
 // Los productos realmente sin contenido se resuelven antes por el callback NOSHOW.
-const NO_CONTENT_TIMEOUT_MS = 8000;
-// Tope absoluto desde el init, por si loader.js nunca responde (ni onload ni onerror).
+const NO_CONTENT_TIMEOUT_MS = 10000;
+// Si al vencer la ventana Flixmedia ya inyectó su wrapper (está renderizando pero
+// los assets aún no llegan), se concede UNA prórroga antes de decidir.
+const NO_CONTENT_GRACE_MS = 6000;
+// Tope absoluto desde el init SOLO mientras loader.js no responde (ni onload ni
+// onerror); al cargar el loader se cancela y manda la ventana de arriba.
 const NO_CONTENT_HARD_CAP_MS = 15000;
 
 
@@ -437,10 +441,20 @@ function FlixmediaPlayerComponent({
       // Verificación de "sin contenido": cubre el caso donde ni inpage ni noshow
       // se disparan. Se programa (a) NO_CONTENT_TIMEOUT_MS después de que loader.js
       // esté listo y (b) como tope absoluto NO_CONTENT_HARD_CAP_MS desde el init.
+      let graceUsed = false;
       const verifyNoContent = (reason: string) => {
         if (!isMounted || outcomeReported) return;
         const cont = document.getElementById(containerId);
         if (!cont) return;
+
+        // Flixmedia ya montó su wrapper (encontró el producto) pero el contenido
+        // real (imágenes/video) sigue en vuelo: una prórroga en vez de expulsar.
+        if (!graceUsed && !checkForFlixError() && !hasRealContent(cont) && cont.querySelector('[id^="flixinpage_"]')) {
+          graceUsed = true;
+          console.log(`[FLIX] Wrapper presente sin contenido real (${reason}) → prórroga ${NO_CONTENT_GRACE_MS}ms`);
+          noContentTimeoutId = setTimeout(() => verifyNoContent(`${reason}+grace`), NO_CONTENT_GRACE_MS);
+          return;
+        }
 
         if (checkForFlixError() || !hasRealContent(cont)) {
           console.log(`[FLIX] Sin contenido real (${reason}) → redirigiendo`, {
@@ -516,7 +530,9 @@ function FlixmediaPlayerComponent({
         // Flixmedia ya cargó y pudo reemplazar el objeto de callbacks: reasignar
         // flixCartClick sobre el objeto vigente antes de que corra pagedata-specific.js
         ensureFlixCartClick();
-        // La ventana de "sin contenido" empieza AQUÍ, con Flixmedia ya alcanzable
+        // La ventana de "sin contenido" empieza AQUÍ, con Flixmedia ya alcanzable;
+        // el tope absoluto deja de aplicar (era solo para un loader que no responde).
+        if (hardCapTimeoutId) { clearTimeout(hardCapTimeoutId); hardCapTimeoutId = null; }
         if (isMounted && !outcomeReported) {
           noContentTimeoutId = setTimeout(() => verifyNoContent("loader_ready_timeout"), NO_CONTENT_TIMEOUT_MS);
         }
