@@ -21,6 +21,8 @@ interface StickyPriceBarProps {
   hasStock?: boolean;
   onNotifyStock?: () => void;
   showShareButton?: boolean;
+  // SKU de la variante mostrada, para el enlace compartido (`?sku=`)
+  shareSku?: string | null;
 }
 
 /**
@@ -44,6 +46,7 @@ const StickyPriceBar: React.FC<StickyPriceBarProps> = ({
   hasStock = true,
   onNotifyStock,
   showShareButton = false,
+  shareSku = null,
 }) => {
   // Hook para cuotas sin interés (solo cuando indcerointeres === 1)
   const ceroInteres = useCeroInteres(
@@ -207,7 +210,7 @@ const StickyPriceBar: React.FC<StickyPriceBarProps> = ({
 
           {/* DERECHA: Share + CTA (mismo para móvil y desktop) */}
           <div className="flex-shrink-0 flex items-center gap-1">
-            {showShareButton && <ShareButtons />}
+            {showShareButton && <ShareButtons title={deviceName} sku={shareSku} />}
             {hasStock ? (
               <motion.button
                 onClick={onBuyClick}
