@@ -6,20 +6,21 @@ import { NextRequest, NextResponse } from "next/server";
  * Esta llamada es el gate de TODA la PDP (view/viewpremium/multimedia): sin
  * ella no hay MPN y Flixmedia no puede arrancar. Hoy cada navegador la paga
  * completa contra Railway (~0.3-1.5s). Este proxy la cachea con el Data Cache
- * de Next (revalidate 120s) compartido entre todos los usuarios: el primer
+ * de Next (revalidate 30s) compartido entre todos los usuarios: el primer
  * visitante de un producto la paga una vez, el resto la recibe en ~20-80ms.
  *
- * El catálogo es público (las páginas de listado lo consultan sin login) y la
- * tolerancia a datos con ≤2 min de antigüedad ya existe: el cliente cachea
- * 10 min en memoria y refresca en background (stale-while-revalidate). El
- * consumidor (useProduct) mantiene ese refresh en background contra el
- * endpoint directo, así que cualquier cambio de precio/stock se corrige solo
- * segundos después del primer render.
+ * El catálogo es público (las páginas de listado lo consultan sin login). El
+ * backend refleja los cambios de Novasoft en ~1 min, así que esta capa se
+ * mantiene corta (30s + 30s stale). El consumidor (useProduct) además refresca
+ * en background contra el endpoint directo, así que un cambio de precio/stock
+ * se corrige solo segundos después del primer render.
  *
  * GET /api/pcache/product?codigoMarket=<id>
  */
 
-const PRODUCT_REVALIDATE_SECONDS = 120;
+// Corto a propósito: el backend refleja cambios de Novasoft en ~1 min
+// (CatalogSyncService); una capa larga aquí sumaría minutos de precio viejo.
+const PRODUCT_REVALIDATE_SECONDS = 30;
 
 function backendUrl(): string {
   return (
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, {
       headers: {
         "Cache-Control":
-          "public, max-age=60, s-maxage=120, stale-while-revalidate=300",
+          "public, max-age=0, s-maxage=30, stale-while-revalidate=30",
       },
     });
   } catch {
