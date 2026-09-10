@@ -224,6 +224,18 @@ export default function MultimediaPage({
   const urlVariantData = useMemo(() => selectionFromSku(product, urlSku), [product, urlSku]);
   const selectedProductData = urlSku ? urlVariantData : savedSelectionData;
 
+  // PRECIO EN VIVO. La selección de localStorage (escrita al hacer clic en la card)
+  // no tiene TTL y congela el precio de ESE momento: si Novasoft cambiaba el precio o
+  // la variante dejaba de existir, la PDP seguía mostrando el precio viejo (caso The
+  // Frame LS03H, 10-sep-2026). Regla: en cuanto llegan datos del API, precio, precio
+  // tachado, cuotas e interés salen del API para el SKU seleccionado; localStorage
+  // solo alimenta el primer render (Optimistic UI).
+  const priceSource = useMemo<SelectedProductData | null>(() => {
+    if (urlSku) return urlVariantData;
+    if (!product?.apiProduct) return savedSelectionData;
+    return selectionFromSku(product, savedSelectionData?.sku ?? null);
+  }, [product, urlSku, urlVariantData, savedSelectionData]);
+
   // ViewContent (Meta pixel + CAPI, deduplicados por el MISMO event_id que genera
   // el pipeline) + product_viewed (PostHog) — los mismos eventos que view/[id] y
   // viewpremium/[id]. /productos/multimedia/[id] es la PDP MÁS visitada (destino de
@@ -233,7 +245,7 @@ export default function MultimediaPage({
     if (viewFiredRef.current === product.id) return;
     const parsePriceLocal = (p?: string | number): number =>
       typeof p === "number" ? p : p ? parseInt(String(p).replace(/[^\d]/g, "")) || 0 : 0;
-    const price = selectedProductData?.price ?? parsePriceLocal(product.price);
+    const price = priceSource?.price ?? parsePriceLocal(product.price);
     if (!price) return; // esperar a que resuelva el precio (igual que viewpremium)
     // SKU REAL de variante: selección del usuario → primera variante de color →
     // codigoMarketBase solo como último recurso.
@@ -258,7 +270,7 @@ export default function MultimediaPage({
       category,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, selectionResolved, selectedProductData]);
+  }, [product?.id, selectionResolved, selectedProductData, priceSource]);
 
   // Precargar los datos del producto para la vista de detalle (view/viewpremium)
   // mientras el usuario ve el multimedia. Esto hace que la navegación sea instantánea
@@ -329,14 +341,15 @@ export default function MultimediaPage({
     return parseInt(price.replace(/[^\d]/g, "")) || 0;
   };
 
-  // Usar datos de localStorage si existen, sino usar los del producto general
-  const numericPrice = selectedProductData?.price ?? parsePrice(product?.price);
+  // Precio de la variante seleccionada (en vivo del API; ver priceSource), sino el del producto general
+  const numericPrice = priceSource?.price ?? parsePrice(product?.price);
 
-  // Para originalPrice: usar localStorage, o product.originalPrice, o precioNormal del apiProduct
+  // Para originalPrice: variante seleccionada, o product.originalPrice, o precioNormal del apiProduct
   const getOriginalPrice = (): number | undefined => {
-    // 1. Primero verificar localStorage
-    if (selectedProductData?.originalPrice) {
-      return selectedProductData.originalPrice;
+    // 1. Variante seleccionada: si existe, manda aunque no tenga descuento (sin
+    //    tachado), para no caer en un precio normal de OTRA variante.
+    if (priceSource) {
+      return priceSource.originalPrice;
     }
     // 2. Luego verificar product.originalPrice directo
     if (product?.originalPrice) {
@@ -356,9 +369,9 @@ export default function MultimediaPage({
 
   // Obtener indcerointeres del producto (puede venir como array del API)
   const getIndcerointeres = (): number => {
-    // Si hay datos de localStorage, usar esos
-    if (selectedProductData?.indcerointeres !== undefined) {
-      return selectedProductData.indcerointeres;
+    // Variante seleccionada (en vivo del API; ver priceSource)
+    if (priceSource?.indcerointeres !== undefined) {
+      return priceSource.indcerointeres;
     }
     // Si el producto tiene apiProduct (datos del API)
     if (product?.apiProduct?.indcerointeres) {
@@ -373,7 +386,7 @@ export default function MultimediaPage({
   const indcerointeres = getIndcerointeres();
 
   // Obtener allPrices: usar de localStorage si existe, sino del producto, sino usar el precio actual
-  const rawAllPrices = selectedProductData?.allPrices ?? product?.apiProduct?.precioeccommerce ?? [];
+  const rawAllPrices = priceSource?.allPrices ?? product?.apiProduct?.precioeccommerce ?? [];
   // Asegurar que allPrices tenga al menos el precio actual para el cálculo de cuotas
   const allPrices = rawAllPrices.length > 0 ? rawAllPrices : (numericPrice > 0 ? [numericPrice] : []);
 
