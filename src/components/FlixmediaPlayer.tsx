@@ -13,7 +13,7 @@
 "use client";
 
 import { useEffect, memo, useCallback, useState, useRef } from "react";
-import { parseSkuString, checkFlixmediaAvailability, checkFlixmediaAvailabilityByEan, hasPremiumContent as checkPremiumContent } from "@/lib/flixmedia";
+import { parseSkuString, resolveFlixmediaMpn, checkFlixmediaAvailabilityByEan, hasPremiumContent as checkPremiumContent } from "@/lib/flixmedia";
 import { useRouter } from "next/navigation";
 import { posthogUtils } from "@/lib/posthogClient";
 
@@ -30,6 +30,12 @@ declare global {
 }
 
 interface FlixmediaPlayerProps {
+  /**
+   * MPN o lista de candidatos separados por coma, en orden de preferencia
+   * (ver buildFlixmediaMpnCandidates). Con más de un candidato, el player
+   * consulta el Match API (cacheado 24h en /api/flixmedia/match) y carga el
+   * primero que tenga contenido; si ninguno matchea usa el primero.
+   */
   mpn?: string | null;
   ean?: string | null;
   productName?: string;
@@ -229,6 +235,8 @@ function FlixmediaPlayerComponent({
     // "no muestra" contenido: console.log se elimina en el build y el replay
     // solo guarda warnings.
     let outcomeReported = false;
+    // MPN realmente usado por loader.js (puede diferir de `mpn` si hubo candidatos)
+    let resolvedMpn: string | null = null;
     const reportOutcome = (outcome: string, extra: Record<string, unknown> = {}) => {
       if (outcomeReported) return;
       outcomeReported = true;
@@ -236,7 +244,8 @@ function FlixmediaPlayerComponent({
       posthogUtils.capture("flixmedia_result", {
         outcome,
         product_id: productIdRef.current || null,
-        mpn: mpn || null,
+        mpn: resolvedMpn || mpn || null,
+        mpn_candidates: mpn || null,
         ean: ean || null,
         elapsed_ms: Math.round(performance.now() - initStartTime),
         mode: skipMatchApiRef.current ? "multimedia" : (preventRedirectRef.current ? "embedded" : "match"),
@@ -249,16 +258,21 @@ function FlixmediaPlayerComponent({
       let targetMpn: string | null = null;
       let targetEan: string | null = null;
 
-      if (mpn) {
-        const skus = parseSkuString(mpn);
-        if (skus.length > 0) targetMpn = skus[0];
+      const mpnCandidates = mpn ? parseSkuString(mpn) : [];
+      // Un MPN con "/" también se prueba por su base (Flixmedia a veces solo conoce esa)
+      for (const c of [...mpnCandidates]) {
+        if (c.includes('/')) {
+          const base = c.split('/')[0];
+          if (base && !mpnCandidates.includes(base)) mpnCandidates.push(base);
+        }
       }
+      if (mpnCandidates.length > 0) targetMpn = mpnCandidates[0];
       if (!targetMpn && ean) {
         const eans = parseSkuString(ean);
         if (eans.length > 0) targetEan = eans[0];
       }
 
-      console.log('[FLIX] Init (+0ms) SKU:', { mpn, targetMpn, targetEan });
+      console.log('[FLIX] Init (+0ms) SKU:', { mpn, mpnCandidates, targetEan });
 
       if (!targetMpn && !targetEan) {
         reportOutcome("no_mpn");
@@ -277,29 +291,39 @@ function FlixmediaPlayerComponent({
       preloadLink.href = '//media.flixfacts.com/js/loader.js';
       document.head.appendChild(preloadLink);
 
-      // Modo embebido (preventRedirect) o skipMatchApi: cargar loader.js directo sin Match API
-      if (preventRedirectRef.current || skipMatchApiRef.current) {
+      // Los candidatos ya vienen ordenados por probabilidad (flixmediaCandidatesForVariant),
+      // así que la página multimedia (skipMatchApi) carga loader.js DIRECTO con el
+      // primero: cero latencia extra. En modo embebido (view/viewpremium, bajo el
+      // pliegue) con varios candidatos se consulta el Match API (cacheado 24h) con un
+      // tope corto para afinar la elección sin retrasar la carga.
+      let matched = false;
+      if (skipMatchApiRef.current) {
+        setHasContent(true);
+      } else if (preventRedirectRef.current) {
+        if (mpnCandidates.length > 1) {
+          try {
+            const resolved = await resolveFlixmediaMpn(mpnCandidates, abortController.signal, 700);
+            if (!isMounted) return;
+            targetMpn = resolved.mpn;
+            matched = resolved.matched;
+            console.log('[FLIX] MPN resuelto entre candidatos:', { candidates: mpnCandidates, targetMpn, matched, timedOut: resolved.timedOut });
+          } catch (error) {
+            if (abortController.signal.aborted || !isMounted) return;
+            console.log('[FLIX] Error resolviendo candidatos → usando el primero', error);
+          }
+        }
         setHasContent(true);
       } else {
-        // Verificar si hay contenido con la API de Match
+        // Modo match (redirige si no hay contenido): verificar TODOS los candidatos
+        // con el Match API, como antes se hacía con uno solo.
         try {
-          let matched = false;
-
           if (targetMpn) {
-            console.log('[FLIX] Verificando Match API para:', targetMpn);
-
-            const checks: Promise<{ available: boolean }>[] = [
-              checkFlixmediaAvailability(targetMpn, undefined, undefined, abortController.signal)
-            ];
-            if (targetMpn.includes('/')) {
-              const baseMpn = targetMpn.split('/')[0];
-              checks.push(checkFlixmediaAvailability(baseMpn, undefined, undefined, abortController.signal));
-            }
-
-            const results = await Promise.all(checks);
+            console.log('[FLIX] Verificando Match API para:', mpnCandidates);
+            const resolved = await resolveFlixmediaMpn(mpnCandidates, abortController.signal);
             if (!isMounted) return;
+            targetMpn = resolved.mpn;
 
-            if (results.some(r => r.available)) {
+            if (resolved.matched) {
               matched = true;
               setHasContent(true);
             }
@@ -328,6 +352,8 @@ function FlixmediaPlayerComponent({
           // noshow callback manejará la detección de "sin contenido"
         }
       }
+
+      resolvedMpn = targetMpn;
 
       // Limpiar estado de Flixmedia antes de cargar nuevo contenido
       cleanupFlixmedia();

@@ -9,6 +9,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ProductApiData } from '@/lib/api';
+import { flixmediaCandidatesForVariant } from '@/lib/flixmedia';
 // colorMap deprecado: el API ahora entrega hex
 
 export interface ProductVariant {
@@ -31,6 +32,8 @@ export interface ProductVariant {
   indcerointeres: number;
   indRetoma: number; // Indicador de retoma (0 o 1)
   skuflixmedia: string;
+  /** SKU padre (descGeneral): el que Flixmedia conoce cuando la variante es un bundle F- */
+  descGeneral: string;
 }
 
 export interface SelectionState {
@@ -135,6 +138,8 @@ export interface UseProductSelectionReturn {
   selectedSku: string | null;
   selectedSkuPostback: string | null;
   selectedSkuflixmedia: string | null;
+  /** Candidatos de MPN para Flixmedia separados por coma (ver flixmediaCandidatesForVariant) */
+  selectedFlixmediaMpn: string | null;
   selectedCodigoMarket: string | null;
   selectedPrice: number | null;
   selectedOriginalPrice: number | null;
@@ -210,6 +215,7 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
         indcerointeres: apiProduct.indcerointeres?.[i] ?? 0,
         indRetoma: apiProduct.indRetoma?.[i] ?? 0,
         skuflixmedia: apiProduct.skuflixmedia?.[i] || '',
+        descGeneral: apiProduct.descGeneral?.[i] || '',
       });
     }
 
@@ -748,6 +754,10 @@ export function useProductSelection(apiProduct: ProductApiData, productColors?: 
     selectedSku,
     selectedSkuPostback: selectedVariant?.skuPostback || null,
     selectedSkuflixmedia: selectedVariant?.skuflixmedia || null,
+    // Candidatos de MPN para Flixmedia (orden: ver flixmediaCandidatesForVariant)
+    selectedFlixmediaMpn: selectedVariant
+      ? flixmediaCandidatesForVariant(selectedVariant).join(',') || null
+      : null,
     selectedCodigoMarket,
     selectedPrice,
     selectedOriginalPrice,
