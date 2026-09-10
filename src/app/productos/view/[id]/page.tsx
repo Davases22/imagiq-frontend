@@ -25,6 +25,7 @@ import { useScrollNavbar } from "@/hooks/useScrollNavbar";
 import BenefitsSection from "../../dispositivos-moviles/detalles-producto/BenefitsSection";
 import TradeInSection from "../../viewpremium/components/sections/TradeInSection";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
+import { flixmediaCandidatesForVariant } from "@/lib/flixmedia";
 
 // Type for the product selection data passed from DetailsProductSection
 // This is a subset of UseProductSelectionReturn with only the properties passed by the callback
@@ -457,7 +458,12 @@ export default function ProductViewPage({ params }) {
       {/* SECCIÓN: Detalles - Contenido multimedia de Flixmedia */}
       <section id="detalles-section" className="bg-white scroll-mt-[180px]">
         <FlixmediaPlayer
-          mpn={productSelectionState?.selectedSkuflixmedia || productSelection.selectedSkuflixmedia || productToUse.skuflixmedia || productToUse.apiProduct?.skuflixmedia?.[0]}
+          mpn={
+            (productSelectionState?.selectedVariant && flixmediaCandidatesForVariant(productSelectionState.selectedVariant).join(',')) ||
+            productSelection.selectedFlixmediaMpn ||
+            productToUse.skuflixmedia ||
+            productToUse.apiProduct?.skuflixmedia?.[0]
+          }
           ean={productSelectionState?.selectedVariant?.ean || productSelection.selectedVariant?.ean}
           productName={productToUse.name}
           productId={productToUse.id}

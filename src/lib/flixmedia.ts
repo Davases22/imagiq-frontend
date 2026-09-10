@@ -243,6 +243,74 @@ export function parseSkuString(skuString: string): string[] {
     .filter((sku) => sku.length > 0);
 }
 
+function cleanSku(v: string | null | undefined): string {
+  const s = (v || "").trim();
+  // Novasoft usa "0" como "sin padre"
+  return s === "0" ? "" : s;
+}
+
+/**
+ * Candidatos de MPN para Flixmedia de UNA variante, en orden de preferencia y
+ * sin repetidos (el player los recibe unidos por coma).
+ *
+ * Regla (verificada contra el Match API el 10-sep-2026 sobre los 76 SKUs con
+ * padre distinto): si Novasoft asignó un `skuflixmedia` propio (≠ sku) se
+ * respeta; si `skuflixmedia` es simplemente el sku y existe un SKU padre
+ * (`descGeneral`), el padre va PRIMERO. Los únicos casos reales son los bundles
+ * "F-QN55LS03HEKB" (The Frame + marco): Flixmedia solo conoce el padre
+ * "QN55LS03HEKXZL". Cuando Novasoft retiró los SKUs individuales, el player
+ * quedó con el F- y Flixmedia respondía NOSHOW. Con el padre primero, la
+ * página multimedia carga directo con el MPN correcto, sin consultas extra.
+ */
+export function flixmediaCandidatesForVariant(v: {
+  skuflixmedia?: string | null;
+  descGeneral?: string | null;
+  sku?: string | null;
+}): string[] {
+  const flix = cleanSku(v.skuflixmedia);
+  const padre = cleanSku(v.descGeneral);
+  const sku = cleanSku(v.sku);
+  const ordered =
+    flix && flix !== sku ? [flix, padre, sku] : padre ? [padre, flix, sku] : [flix, sku];
+  const out: string[] = [];
+  for (const c of ordered) {
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
+/**
+ * Elige el MPN a usar entre varios candidatos: el primero (en orden) con
+ * contenido según el Match API. Si ninguno matchea, o se agota `maxWaitMs`,
+ * devuelve el primero: loader.js/NOSHOW siguen siendo la verificación final.
+ * Las consultas siguen en background y quedan cacheadas (24h) para la próxima.
+ */
+export async function resolveFlixmediaMpn(
+  candidates: string[],
+  signal?: AbortSignal,
+  maxWaitMs?: number
+): Promise<{ mpn: string | null; matched: boolean; productId?: string; timedOut?: boolean }> {
+  if (candidates.length === 0) return { mpn: null, matched: false };
+  const resolution = Promise.all(
+    candidates.map((c) => checkFlixmediaAvailability(c, undefined, undefined, signal))
+  ).then((results) => {
+    const hit = results.findIndex((r) => r.available);
+    return hit >= 0
+      ? { mpn: candidates[hit], matched: true, productId: results[hit].productId }
+      : { mpn: candidates[0], matched: false };
+  });
+  if (!maxWaitMs) return resolution;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{ mpn: string; matched: false; timedOut: true }>((resolve) => {
+    timer = setTimeout(() => resolve({ mpn: candidates[0], matched: false, timedOut: true }), maxWaitMs);
+  });
+  try {
+    return await Promise.race([resolution, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
  * Prefetch del script de Flixmedia para mejorar la velocidad de carga
  */
