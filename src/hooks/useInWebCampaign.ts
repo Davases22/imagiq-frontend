@@ -43,15 +43,39 @@ function shouldShowCampaign(pathname: string, previewUrl?: string): boolean {
   // Si es "*", mostrar en todas las rutas
   if (previewUrl === "*") return true;
 
+  // El dashboard permite guardar preview_url con query string
+  // (ej. "/productos/dispositivos-moviles?seccion=galaxy-buds"), pero
+  // `pathname` de Next.js NUNCA incluye query: comparar el string completo
+  // hacía la coincidencia IMPOSIBLE y la campaña quedaba pendiente para
+  // siempre, incluso en su propia página objetivo (caso "Slider Aniversario",
+  // 10-sep-2026: 0 impresiones). Se separa la ruta del query: la ruta se
+  // compara contra pathname y, si hay query, se valida contra la URL real
+  // del navegador.
+  const [previewPath, previewQuery] = previewUrl.split("?");
+
+  const queryMatches = (): boolean => {
+    if (!previewQuery) return true;
+    if (typeof window === "undefined") return true;
+    const actual = new URLSearchParams(window.location.search);
+    const wanted = new URLSearchParams(previewQuery);
+    for (const [key, value] of wanted.entries()) {
+      if (actual.get(key) !== value) return false;
+    }
+    return true;
+  };
+
   // Si termina con "/*", es un wildcard
-  if (previewUrl.endsWith("/*")) {
-    const prefix = previewUrl.slice(0, -2); // Remover "/*"
+  if (previewPath.endsWith("/*")) {
+    const prefix = previewPath.slice(0, -2); // Remover "/*"
     // Coincide si la ruta es exactamente el prefijo o empieza con el prefijo seguido de "/"
-    return pathname === prefix || pathname.startsWith(prefix + "/");
+    return (
+      (pathname === prefix || pathname.startsWith(prefix + "/")) &&
+      queryMatches()
+    );
   }
 
-  // Coincidencia exacta
-  return pathname === previewUrl;
+  // Coincidencia exacta de ruta + validación del query si lo hay
+  return pathname === previewPath && queryMatches();
 }
 
 /**
