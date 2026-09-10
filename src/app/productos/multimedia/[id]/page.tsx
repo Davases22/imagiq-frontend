@@ -25,7 +25,7 @@ import { posthogUtils } from "@/lib/posthogClient";
 import FlixmediaPlayer from "@/components/FlixmediaPlayer";
 import MultimediaBottomBar from "@/components/MultimediaBottomBar";
 import { usePrefetchProduct } from "@/hooks/usePrefetchProduct";
-import { hasPremiumContent } from "@/lib/flixmedia";
+import { hasPremiumContent, flixmediaCandidatesForVariant } from "@/lib/flixmedia";
 import MultimediaQuickNavBar from "./MultimediaQuickNavBar";
 
 type SelectedProductData = {
@@ -307,12 +307,22 @@ export default function MultimediaPage({
     });
   }
 
-  // SOLO usar el campo skuflixmedia - NO usar otros SKUs
-  // Si no hay skuflixmedia, intentar usar el SKU normal del producto como fallback
-  const productSku = selectedProductData?.skuflixmedia
-    ? selectedProductData.skuflixmedia
-    : (product?.skuflixmedia || product?.apiProduct?.skuflixmedia?.[0] ||
-       selectedProductData?.sku || allSkus[0] || null);
+  // MPN para Flixmedia: candidatos de la variante seleccionada resueltos contra el
+  // API (skuflixmedia / SKU padre / sku, ver flixmediaCandidatesForVariant). Si la
+  // variante no está en el API (o aún no cargó), se usa lo guardado o el producto.
+  const productSku = ((): string | null => {
+    const api = product?.apiProduct;
+    const wanted = (selectedProductData?.sku || "").trim().toLowerCase();
+    const i = api && wanted ? (api.sku || []).findIndex((s) => (s || "").trim().toLowerCase() === wanted) : -1;
+    const fromVariant = i >= 0 && api
+      ? flixmediaCandidatesForVariant({ skuflixmedia: api.skuflixmedia?.[i], descGeneral: api.descGeneral?.[i], sku: api.sku[i] })
+      : flixmediaCandidatesForVariant({ skuflixmedia: selectedProductData?.skuflixmedia, sku: selectedProductData?.sku });
+    if (fromVariant.length > 0) return fromVariant.join(",");
+    const fromProduct = api
+      ? flixmediaCandidatesForVariant({ skuflixmedia: api.skuflixmedia?.[0], descGeneral: api.descGeneral?.[0], sku: api.sku?.[0] })
+      : [];
+    return fromProduct.join(",") || product?.skuflixmedia || allSkus[0] || null;
+  })();
 
   // EAN solo como respaldo si hay skuflixmedia pero se necesita EAN
   const productEan = productSku ? (allEans.length > 0 ? allEans[0] : null) : null;

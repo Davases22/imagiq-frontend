@@ -561,7 +561,7 @@ export default function ProductViewPage({ params }) {
       {/* SECCIÓN: Detalles - Contenido multimedia de Flixmedia (sin márgenes para mejor presentación) */}
       <section id="detalles-section" className="bg-white scroll-mt-[180px]">
         <FlixmediaPlayer
-          mpn={productSelection.selectedSkuflixmedia || productToUse.skuflixmedia || productToUse.apiProduct?.skuflixmedia?.[0]}
+          mpn={productSelection.selectedFlixmediaMpn || productToUse.skuflixmedia || productToUse.apiProduct?.skuflixmedia?.[0]}
           ean={productSelection.selectedVariant?.ean}
           productName={productToUse.name}
           productId={productToUse.id}
