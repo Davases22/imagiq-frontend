@@ -319,6 +319,25 @@ export default function CategorySection({
   const compositeLoading =
     loading || menuLoading || (!seccion && categoryMenusLoading);
 
+  // El contador de resultados sufre el mismo hueco que el mensaje de vacío:
+  // en la cascada (menú → sección → filtros → productos) hay instantes con
+  // totalItems=0 y compositeLoading=false, y el sidebar afirmaba
+  // "0 resultados" medio segundo antes de mostrar 114. Se exige que el cero
+  // SE SOSTENGA; hasta entonces se pasa null y el sidebar muestra "…".
+  const sinResultados = !compositeLoading && !totalItems;
+  const [ceroEstable, setCeroEstable] = useState(false);
+
+  useEffect(() => {
+    if (!sinResultados) {
+      setCeroEstable(false);
+      return;
+    }
+    const t = setTimeout(() => setCeroEstable(true), 700);
+    return () => clearTimeout(t);
+  }, [sinResultados]);
+
+  const resultCountVisible = totalItems || (ceroEstable ? 0 : null);
+
   // Configurar scroll infinito
   // Usar isLoadingMore en lugar de loading para evitar bloquear mientras se cargan productos adicionales
   const loadMoreRef = useInfiniteScroll({
@@ -429,7 +448,7 @@ export default function CategorySection({
                 // Props comunes
                 expandedFilters={expandedFilters}
                 onToggleFilter={handleToggleFilter}
-                resultCount={totalItems || 0}
+                resultCount={resultCountVisible}
               />
             )}
           </aside>
@@ -448,7 +467,7 @@ export default function CategorySection({
           // Props comunes
           expandedFilters={expandedFilters}
           onToggleFilter={handleToggleFilter}
-          resultCount={totalItems || 0}
+          resultCount={resultCountVisible}
           loading={dynamicFiltersLoading}
         />
 

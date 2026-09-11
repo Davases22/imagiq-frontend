@@ -26,7 +26,8 @@ interface Props {
   // Props comunes
   readonly expandedFilters?: Set<string>;
   readonly onToggleFilter?: (filterKey: string) => void;
-  readonly resultCount: number;
+  /** `null` = todavía cargando: el sidebar muestra "…" en vez de 0. */
+  readonly resultCount: number | null;
   readonly loading?: boolean;
 }
 
