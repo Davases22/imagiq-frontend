@@ -10,6 +10,7 @@ import {
   trackInWebCampaignRedirect,
 } from "@/lib/posthogClient";
 import { useAuthContext } from "@/features/auth/context";
+import { normalizeCampaignUrl } from "@/lib/campaignUrl";
 
 interface InWebCampaignDisplayProps {
   campaign: CampaignData | null;
@@ -298,15 +299,18 @@ export function InWebCampaignDisplay({
     // Track click event
     trackInWebNotificationClicked(campaign, user?.id);
     
-    if (campaign.content_url) {
+    // Normalizar SIEMPRE: una URL guardada sin "/" inicial ("productos/…") se
+    // resolvería relativa a la página actual → /productos/productos/… → 404.
+    const destination = normalizeCampaignUrl(campaign.content_url);
+    if (destination) {
       // Store redirect info for cross-page tracking before opening new tab
       storeInWebCampaignRedirect(campaign, user?.id);
-      
+
       // Track redirect event
       trackInWebCampaignRedirect(campaign, user?.id);
-      
+
       // Open the destination URL
-      window.open(campaign.content_url, "_blank");
+      window.open(destination, "_blank");
     }
   };
 
