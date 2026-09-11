@@ -77,16 +77,12 @@ async function loadImage(src?: string): Promise<HTMLImageElement | null> {
 /**
  * Skeleton de carga
  */
-function BannerSkeleton({ className = "" }: { className?: string }) {
-  // Debe ocupar EXACTAMENTE la misma caja que el banner real: mismo contenedor,
-  // mismo padding y misma proporción (21/29 en móvil, 9/5 en escritorio). Antes
-  // usaba min-h-[400px] fijo, así que al llegar el banner la altura cambiaba y
-  // todo lo de abajo saltaba.
+function BannerSkeleton() {
   return (
-    <div
-      className={`relative w-full max-w-[1440px] mx-auto px-4 md:px-6 lg:px-8 ${className}`}
-    >
-      <div className="relative w-full aspect-[21/29] md:aspect-[9/5] rounded-lg overflow-hidden bg-gray-200 animate-pulse" />
+    <div className="relative w-full min-h-[400px] bg-gray-200 animate-pulse">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-gray-400">Cargando banner...</div>
+      </div>
     </div>
   );
 }
@@ -522,9 +518,8 @@ export default function DynamicBannerClean({
     }
   }, [banners, controller, displayDuration]);
 
-  // Esqueleto con la MISMA caja que el banner real (misma proporción), para que
-  // al llegar la imagen no cambie la altura y no salte el contenido de abajo.
-  if (loading) return <BannerSkeleton className={className} />;
+  // Renderizar skeleton mientras carga
+  if (loading) return <BannerSkeleton />;
 
   // Renderizar children si no hay banners
   if (banners.length === 0) return <>{children || null}</>;

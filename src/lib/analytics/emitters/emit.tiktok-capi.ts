@@ -57,41 +57,6 @@ import { canSendAds } from '../utils';
  * });
  * ```
  */
-/**
- * Eventos que NO se difieren: si el usuario se va de la página justo después,
- * perderlos costaría atribución de una venta real. El resto (ViewContent,
- * navegación) se puede esperar sin consecuencias.
- */
-const EVENTOS_CRITICOS = new Set(['CompletePayment', 'PlaceAnOrder', 'AddToCart']);
-
-/**
- * Espera a que el navegador esté libre antes de mandar la analítica.
- *
- * El POST a la Events API tardaba ~306 ms y salía DURANTE la carga de la
- * página, compitiendo por conexiones con las peticiones que sí traen los
- * productos (medido el 11-sep-2026: era la petición más lenta al abrir una
- * categoría, más lenta incluso que la que trae el catálogo). La analítica no
- * pinta nada en pantalla, así que puede esperar a que la página termine.
- *
- * Con timeout: si el navegador nunca queda libre, se manda igual al segundo.
- */
-function cuandoElNavegadorEsteLibre(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve();
-
-  return new Promise((resolve) => {
-    const enIdle = () => {
-      const ric = (window as unknown as {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      }).requestIdleCallback;
-      if (typeof ric === 'function') ric(() => resolve(), { timeout: 1000 });
-      else setTimeout(resolve, 300);
-    };
-
-    if (document.readyState === 'complete') enIdle();
-    else window.addEventListener('load', enIdle, { once: true });
-  });
-}
-
 export async function sendTikTokCapi(
   eventName: string,
   eventId: string,
@@ -120,13 +85,6 @@ export async function sendTikTokCapi(
       user,
       properties: event_properties,
     };
-
-    // La analítica espera a que la página termine de cargar: no debe robarle
-    // conexiones a las peticiones que traen el contenido. Los eventos
-    // críticos (compra) se mandan de inmediato.
-    if (!EVENTOS_CRITICOS.has(eventName)) {
-      await cuandoElNavegadorEsteLibre();
-    }
 
     // Enviar al backend usando api-client
     const response = await apiPost<CapiResponse>(

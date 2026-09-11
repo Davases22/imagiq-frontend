@@ -5,7 +5,7 @@
 
 'use client';
 
-import { forwardRef, useState, useMemo, useEffect } from "react";
+import { forwardRef, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import SkeletonCard from "@/components/SkeletonCard";
 import ProductCard, {
@@ -70,52 +70,6 @@ export const CategoryProductsGrid = forwardRef<
     ref
   ) => {
     const [showGuestModal, setShowGuestModal] = useState(false);
-
-    // El mensaje "no se encontraron" solo se muestra si el vacío SE MANTIENE.
-    //
-    // La carga de una categoría es una cascada (menú → sección → filtros →
-    // productos) y entre un paso y otro hay instantes en los que la consulta
-    // ya respondió vacía, `loading` es false y `hasLoadedOnce` ya está marcado
-    // —aunque la consulta buena aún no ha salido—. En esos instantes la página
-    // afirmaba "No se encontraron dispositivos móviles" y medio segundo
-    // después aparecían 114. Medido el 11-sep-2026 al entrar por el menú:
-    // el mensaje falso era visible ~487 ms en cada navegación.
-    //
-    // Exigir que el vacío se sostenga un momento elimina el mensaje falso sin
-    // retrasar nada: cuando de verdad no hay resultados, aparece igual.
-    const vacio = products.length === 0 && bundles.length === 0 && hasLoadedOnce;
-    const [vacioEstable, setVacioEstable] = useState(false);
-
-    useEffect(() => {
-      if (!vacio || loading || isLoadingMore) {
-        setVacioEstable(false);
-        return;
-      }
-      const t = setTimeout(() => setVacioEstable(true), 700);
-      return () => clearTimeout(t);
-    }, [vacio, loading, isLoadingMore]);
-
-    // Retraso de gracia del indicador de carga.
-    //
-    // Al volver a una categoría ya visitada los datos salen de caché en ~65 ms
-    // y sin ninguna petición, pero el grid alcanzaba a pintar "Cargando…" y
-    // los skeletons: un parpadeo que hacía parecer que la página recarga
-    // entera cada vez que se navega entre categorías.
-    //
-    // Mostrando el indicador sólo si la espera SUPERA 200 ms, una carga
-    // servida por caché pasa directa al contenido —sin parpadeo— y una carga
-    // real lo sigue mostrando como siempre.
-    const cargandoAlgo = loading || (vacio && !vacioEstable);
-    const [mostrarCarga, setMostrarCarga] = useState(false);
-
-    useEffect(() => {
-      if (!cargandoAlgo) {
-        setMostrarCarga(false);
-        return;
-      }
-      const t = setTimeout(() => setMostrarCarga(true), 200);
-      return () => clearTimeout(t);
-    }, [cargandoAlgo]);
     const [pendingFavorite, setPendingFavorite] = useState<string | null>(null);
 
     const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
@@ -241,18 +195,9 @@ export const CategoryProductsGrid = forwardRef<
         ref={ref}
         className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 lg:gap-6 items-stretch" : "flex flex-wrap"}
       >
-        {/* Skeletons mientras carga Y también mientras el vacío aún no es
-            estable: en ese hueco de la cascada todavía puede llegar la
-            consulta buena, así que se muestra "cargando" en vez de dejar la
-            pantalla en blanco o afirmar que no hay productos. */}
-        {cargandoAlgo && mostrarCarga ? (
+        {/* Mostrar skeletons cuando loading es true (incluyendo cambio de página) */}
+        {loading ? (
           <>
-            <div
-              className="col-span-full w-full text-center py-4 text-gray-500"
-              aria-live="polite"
-            >
-              Cargando {categoryName.toLowerCase()}…
-            </div>
             {Array.from({ length: 12 }, (_, i) => (
               <div key={`skeleton-${i}`} className="w-full">
                 <SkeletonCard />
@@ -261,8 +206,8 @@ export const CategoryProductsGrid = forwardRef<
           </>
         ) : (
           <>
-            {/* Mostrar mensaje solo cuando el vacío se sostiene (ver vacioEstable) */}
-            {vacioEstable && (
+            {/* Mostrar mensaje solo cuando terminó de cargar, NO hay productos ni bundles Y ya se cargó al menos una vez */}
+            {products.length === 0 && bundles.length === 0 && hasLoadedOnce && (
               <div className="col-span-full w-full text-center py-12 text-gray-500">
                 No se encontraron {categoryName.toLowerCase()} con los filtros seleccionados.
               </div>

@@ -20,13 +20,6 @@ class BannersService {
   private cache: Banner[] | null = null;
   private cacheTimestamp: number | null = null;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-  /**
-   * Petición en curso compartida. useHeroBanner, useDynamicBanner y
-   * useProductBanner montan a la vez: los tres encontraban la caché vacía y
-   * los tres disparaban el mismo GET (3 peticiones idénticas por carga).
-   * Guardando la promesa, el primero pide y los demás esperan ese resultado.
-   */
-  private inFlight: Promise<Banner[]> | null = null;
 
   /**
    * Obtiene todos los banners activos del API
@@ -35,44 +28,35 @@ class BannersService {
    * @returns Array de banners activos o array vacío en caso de error
    */
   async getActiveBanners(): Promise<Banner[]> {
-    // Verificar si hay caché válido
-    if (this.cache && this.cacheTimestamp) {
-      const now = Date.now();
-      if (now - this.cacheTimestamp < this.CACHE_DURATION) {
-        return this.cache;
-      }
-    }
-
-    // Ya hay una petición en curso: reusarla en vez de lanzar otra igual.
-    if (this.inFlight) return this.inFlight;
-
-    this.inFlight = (async () => {
-      try {
-        const response = await apiClient.get<BannerApiResponse>(
-          "/api/multimedia/banners?status=active&limit=100"
-        );
-
-        if (response.success && response.data?.data) {
-          this.cache = response.data.data;
-          this.cacheTimestamp = Date.now();
+    try {
+      // Verificar si hay caché válido
+      if (this.cache && this.cacheTimestamp) {
+        const now = Date.now();
+        if (now - this.cacheTimestamp < this.CACHE_DURATION) {
           return this.cache;
         }
-
-        console.error(
-          "[BannersService] Failed to fetch banners:",
-          response.message
-        );
-        return [];
-      } catch (error) {
-        console.error("[BannersService] Error fetching banners:", error);
-        return [];
-      } finally {
-        // Liberar siempre, también en error, para permitir reintentos.
-        this.inFlight = null;
       }
-    })();
 
-    return this.inFlight;
+      // Fetch desde API
+      const response = await apiClient.get<BannerApiResponse>(
+        "/api/multimedia/banners?status=active&limit=100"
+      );
+
+      if (response.success && response.data?.data) {
+        this.cache = response.data.data;
+        this.cacheTimestamp = Date.now();
+        return this.cache;
+      }
+
+      console.error(
+        "[BannersService] Failed to fetch banners:",
+        response.message
+      );
+      return [];
+    } catch (error) {
+      console.error("[BannersService] Error fetching banners:", error);
+      return [];
+    }
   }
 
   /**
