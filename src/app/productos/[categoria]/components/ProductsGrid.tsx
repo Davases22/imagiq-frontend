@@ -219,9 +219,18 @@ export const CategoryProductsGrid = forwardRef<
         ref={ref}
         className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 lg:gap-6 items-stretch" : "flex flex-wrap"}
       >
-        {/* Mostrar skeletons cuando loading es true (incluyendo cambio de página) */}
-        {loading ? (
+        {/* Skeletons mientras carga Y también mientras el vacío aún no es
+            estable: en ese hueco de la cascada todavía puede llegar la
+            consulta buena, así que se muestra "cargando" en vez de dejar la
+            pantalla en blanco o afirmar que no hay productos. */}
+        {loading || (vacio && !vacioEstable) ? (
           <>
+            <div
+              className="col-span-full w-full text-center py-4 text-gray-500"
+              aria-live="polite"
+            >
+              Cargando {categoryName.toLowerCase()}…
+            </div>
             {Array.from({ length: 12 }, (_, i) => (
               <div key={`skeleton-${i}`} className="w-full">
                 <SkeletonCard />
