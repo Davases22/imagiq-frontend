@@ -5,7 +5,7 @@
 
 'use client';
 
-import { forwardRef, useState, useMemo } from "react";
+import { forwardRef, useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import SkeletonCard from "@/components/SkeletonCard";
 import ProductCard, {
@@ -70,6 +70,30 @@ export const CategoryProductsGrid = forwardRef<
     ref
   ) => {
     const [showGuestModal, setShowGuestModal] = useState(false);
+
+    // El mensaje "no se encontraron" solo se muestra si el vacío SE MANTIENE.
+    //
+    // La carga de una categoría es una cascada (menú → sección → filtros →
+    // productos) y entre un paso y otro hay instantes en los que la consulta
+    // ya respondió vacía, `loading` es false y `hasLoadedOnce` ya está marcado
+    // —aunque la consulta buena aún no ha salido—. En esos instantes la página
+    // afirmaba "No se encontraron dispositivos móviles" y medio segundo
+    // después aparecían 114. Medido el 11-sep-2026 al entrar por el menú:
+    // el mensaje falso era visible ~487 ms en cada navegación.
+    //
+    // Exigir que el vacío se sostenga un momento elimina el mensaje falso sin
+    // retrasar nada: cuando de verdad no hay resultados, aparece igual.
+    const vacio = products.length === 0 && bundles.length === 0 && hasLoadedOnce;
+    const [vacioEstable, setVacioEstable] = useState(false);
+
+    useEffect(() => {
+      if (!vacio || loading || isLoadingMore) {
+        setVacioEstable(false);
+        return;
+      }
+      const t = setTimeout(() => setVacioEstable(true), 700);
+      return () => clearTimeout(t);
+    }, [vacio, loading, isLoadingMore]);
     const [pendingFavorite, setPendingFavorite] = useState<string | null>(null);
 
     const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
@@ -206,8 +230,8 @@ export const CategoryProductsGrid = forwardRef<
           </>
         ) : (
           <>
-            {/* Mostrar mensaje solo cuando terminó de cargar, NO hay productos ni bundles Y ya se cargó al menos una vez */}
-            {products.length === 0 && bundles.length === 0 && hasLoadedOnce && (
+            {/* Mostrar mensaje solo cuando el vacío se sostiene (ver vacioEstable) */}
+            {vacioEstable && (
               <div className="col-span-full w-full text-center py-12 text-gray-500">
                 No se encontraron {categoryName.toLowerCase()} con los filtros seleccionados.
               </div>

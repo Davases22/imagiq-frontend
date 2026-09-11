@@ -429,7 +429,7 @@ export default function CategorySection({
                 // Props comunes
                 expandedFilters={expandedFilters}
                 onToggleFilter={handleToggleFilter}
-                resultCount={totalItems || 0}
+                resultCount={compositeLoading && !totalItems ? null : totalItems || 0}
               />
             )}
           </aside>
@@ -448,7 +448,7 @@ export default function CategorySection({
           // Props comunes
           expandedFilters={expandedFilters}
           onToggleFilter={handleToggleFilter}
-          resultCount={totalItems || 0}
+          resultCount={compositeLoading && !totalItems ? null : totalItems || 0}
           loading={dynamicFiltersLoading}
         />
 
