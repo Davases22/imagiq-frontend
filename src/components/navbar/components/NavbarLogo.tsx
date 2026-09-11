@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { FC } from "react";
 import { posthogUtils } from "@/lib/posthogClient";
 import { useLogos } from "@/hooks/useLogos";
@@ -29,15 +28,12 @@ export const NavbarLogo: FC<Props> = ({ showWhiteLogo, onNavigate }) => {
       aria-label="Inicio"
       className="flex items-center gap-2 shrink-0"
     >
-      {/* Logo circular de ImagIQ - Dinámico desde la DB.
-          Va por next/image: el PNG de respaldo pesa 1.2 MB a 1024x1024 y con
-          <img> plano se descargaba entero para mostrarse a 44x44. */}
-      <Image
+      {/* Logo circular de ImagIQ - Dinámico desde la DB */}
+      <img
         src={logoUrl}
         alt="ImagIQ Logo"
         height={44}
         width={44}
-        priority
         className="h-11 w-11 min-w-11 object-contain rounded-full"
         style={{ width: "44px", height: "44px" }}
       />

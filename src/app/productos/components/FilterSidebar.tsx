@@ -50,8 +50,7 @@ interface FilterSidebarProps {
   isStockFilterEnabled?: boolean;
   onStockFilterChange?: (enabled: boolean) => void;
   // Props comunes
-  /** Número de resultados. `null` = todavía cargando: se muestra "…" en vez de 0. */
-  resultCount: number | null;
+  resultCount: number;
   expandedFilters?: Set<string>;
   onToggleFilter?: (filterKey: string) => void;
   className?: string;
@@ -200,7 +199,7 @@ export default function FilterSidebar({
                 aria-live="polite"
                 aria-atomic="true"
               >
-                {resultCount === null ? "…" : `${resultCount} resultados`}
+                {resultCount} resultados
               </span>
             </div>
           </div>
@@ -347,7 +346,7 @@ export function MobileFilterModal({
               onClick={onClose}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200"
             >
-              Aplicar Filtros ({filterProps.resultCount ?? "…"} productos)
+              Aplicar Filtros ({filterProps.resultCount} productos)
             </button>
           </div>
         </div>

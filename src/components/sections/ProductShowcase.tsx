@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useProducts } from "@/features/products/useProducts";
 import { useFavorites } from "@/features/products/useProducts";
 import ProductCard, { ProductCardProps } from "@/app/productos/components/ProductCard";
+import SkeletonCard from "@/components/SkeletonCard";
 import GuestDataModal from "@/app/productos/components/GuestDataModal";
 
 interface ProductShowcaseProps {
@@ -129,12 +130,32 @@ export default function ProductShowcase({ initialProducts }: ProductShowcaseProp
     }
   }, [pendingFavorite, addToFavorites]);
 
-  // Sin esqueleto propio: la página ya envuelve esta sección en <Suspense>
-  // con su fallback. El esqueleto interno medía ~331px y, cuando la API
-  // devolvía vacío, la sección pasaba a null y colapsaba de golpe: esos dos
-  // saltos eran el 98% del CLS de la home (1.14 de 1.177).
   if (loading) {
-    return null;
+    return (
+      <section className="w-full flex justify-center bg-white pt-[25px] pb-0">
+        <div className="w-full" style={{ maxWidth: "1440px" }}>
+          {/* Desktop: Grid 4 columnas */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="w-full">
+                <SkeletonCard />
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile: Scroll horizontal */}
+          <div className="md:hidden overflow-x-auto scrollbar-hide">
+            <div className="flex gap-[25px] px-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="shrink-0 w-[calc(100vw-32px)] sm:w-[280px]">
+                  <SkeletonCard />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   if (!products || products.length === 0) {
