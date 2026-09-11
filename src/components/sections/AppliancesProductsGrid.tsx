@@ -10,7 +10,6 @@ import { useMemo, useState, useCallback } from "react";
 import { useProducts } from "@/features/products/useProducts";
 import { useFavorites } from "@/features/products/useProducts";
 import ProductCard, { ProductCardProps } from "@/app/productos/components/ProductCard";
-import SkeletonCard from "@/components/SkeletonCard";
 import GuestDataModal from "@/app/productos/components/GuestDataModal";
 
 interface AppliancesProductsGridProps {
@@ -104,32 +103,13 @@ export default function AppliancesProductsGrid({ initialProducts }: AppliancesPr
   }, [pendingFavorite, addToFavorites]);
 
   // Mostrar skeletons mientras carga
+  // Sin esqueleto propio: en el flujo normal esta sección llega con
+  // initialProducts del servidor y pinta contenido directo, así que el
+  // esqueleto solo aparecía en recargas del hook en cliente. Medía ~331px y,
+  // cuando la API devolvía vacío, la sección pasaba a null y colapsaba de
+  // golpe: esos saltos eran el 98% del CLS de la home (1.14 de 1.177).
   if (loading) {
-    return (
-      <section className="w-full flex justify-center bg-white pt-[25px] pb-0">
-        <div className="w-full" style={{ maxWidth: "1440px" }}>
-          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[25px]">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={`skeleton-${i}`} className="w-full">
-                <SkeletonCard />
-              </div>
-            ))}
-          </div>
-          <div className="md:hidden overflow-x-auto scrollbar-hide">
-            <div className="flex gap-[25px] px-4">
-              {Array.from({ length: 4 }, (_, i) => (
-                <div
-                  key={`skeleton-mobile-${i}`}
-                  className="shrink-0 w-[280px]"
-                >
-                  <SkeletonCard />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-    );
+    return null;
   }
 
   // Si no hay productos, no mostrar nada

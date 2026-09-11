@@ -57,6 +57,53 @@ import { canSendAds } from '../utils';
  * });
  * ```
  */
+/**
+ * Eventos que NO se difieren: si el usuario se va de la página justo después,
+ * perderlos costaría la atribución de una venta real.
+ */
+const EVENTOS_CRITICOS = new Set(['CompletePayment', 'PlaceAnOrder', 'AddToCart']);
+
+/** Margen que se deja pasar antes de mandar analítica no crítica. */
+const ESPERA_MS = 2500;
+
+/**
+ * Aparta el envío de analítica del momento en que la página está cargando.
+ *
+ * El POST a la Events API tarda ~306 ms y salía compitiendo por conexiones
+ * con las peticiones que traen el catálogo (medido el 11-sep-2026: era la
+ * petición más lenta al abrir una categoría, más que la del propio catálogo).
+ *
+ * Un primer intento esperaba al evento `load`, y no sirvió: al navegar por
+ * clic en el menú no hay recarga, el documento ya está `complete` desde la
+ * primera visita y la espera se resolvía al instante. Por eso aquí se espera
+ * un tiempo REAL desde la llamada, no un evento del ciclo de vida.
+ *
+ * Seguro: si la pestaña se oculta o el usuario abandona antes de que venza la
+ * espera, se manda de inmediato — así no se pierde el evento.
+ */
+function esperarMomentoTranquilo(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let listo = false;
+    const terminar = () => {
+      if (listo) return;
+      listo = true;
+      clearTimeout(temporizador);
+      document.removeEventListener('visibilitychange', alOcultar);
+      window.removeEventListener('pagehide', terminar);
+      resolve();
+    };
+    const alOcultar = () => {
+      if (document.visibilityState === 'hidden') terminar();
+    };
+
+    const temporizador = setTimeout(terminar, ESPERA_MS);
+    document.addEventListener('visibilitychange', alOcultar);
+    window.addEventListener('pagehide', terminar, { once: true });
+  });
+}
+
 export async function sendTikTokCapi(
   eventName: string,
   eventId: string,
@@ -85,6 +132,13 @@ export async function sendTikTokCapi(
       user,
       properties: event_properties,
     };
+
+    // La analítica no pinta nada: espera a que la carga del contenido haya
+    // pasado antes de ocupar una conexión. Los eventos críticos (compra) se
+    // mandan de inmediato.
+    if (!EVENTOS_CRITICOS.has(eventName)) {
+      await esperarMomentoTranquilo();
+    }
 
     // Enviar al backend usando api-client
     const response = await apiPost<CapiResponse>(
