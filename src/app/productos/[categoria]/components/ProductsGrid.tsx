@@ -94,6 +94,28 @@ export const CategoryProductsGrid = forwardRef<
       const t = setTimeout(() => setVacioEstable(true), 700);
       return () => clearTimeout(t);
     }, [vacio, loading, isLoadingMore]);
+
+    // Retraso de gracia del indicador de carga.
+    //
+    // Al volver a una categoría ya visitada los datos salen de caché en ~65 ms
+    // y sin ninguna petición, pero el grid alcanzaba a pintar "Cargando…" y
+    // los skeletons: un parpadeo que hacía parecer que la página recarga
+    // entera cada vez que se navega entre categorías.
+    //
+    // Mostrando el indicador sólo si la espera SUPERA 200 ms, una carga
+    // servida por caché pasa directa al contenido —sin parpadeo— y una carga
+    // real lo sigue mostrando como siempre.
+    const cargandoAlgo = loading || (vacio && !vacioEstable);
+    const [mostrarCarga, setMostrarCarga] = useState(false);
+
+    useEffect(() => {
+      if (!cargandoAlgo) {
+        setMostrarCarga(false);
+        return;
+      }
+      const t = setTimeout(() => setMostrarCarga(true), 200);
+      return () => clearTimeout(t);
+    }, [cargandoAlgo]);
     const [pendingFavorite, setPendingFavorite] = useState<string | null>(null);
 
     const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites();
@@ -223,7 +245,7 @@ export const CategoryProductsGrid = forwardRef<
             estable: en ese hueco de la cascada todavía puede llegar la
             consulta buena, así que se muestra "cargando" en vez de dejar la
             pantalla en blanco o afirmar que no hay productos. */}
-        {loading || (vacio && !vacioEstable) ? (
+        {cargandoAlgo && mostrarCarga ? (
           <>
             <div
               className="col-span-full w-full text-center py-4 text-gray-500"
