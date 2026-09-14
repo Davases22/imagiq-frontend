@@ -36,7 +36,23 @@ export default function VerifySupportPurchase(
   useEffect(() => {
     if (!orderId || fireAndForgetSent.current) return;
     fireAndForgetSent.current = true;
-    fetch(`${API_BASE_URL}/api/orders/support/verify/${orderId}`, { keepalive: true }).catch(() => {});
+    // Debe llevar la API key como cualquier otra llamada al gateway: sin ella
+    // el endpoint responde 401 y este respaldo nunca se ejecutaba. Llevaba así
+    // 22 días (103 intentos fallidos), y el .catch vacío lo ocultaba: justo la
+    // red de seguridad del pago —la que cubre al cliente que cierra la pestaña
+    // antes de que termine la animación— era la que no funcionaba.
+    fetch(`${API_BASE_URL}/api/orders/support/verify/${orderId}`, {
+      keepalive: true,
+      headers: {
+        ...(process.env.NEXT_PUBLIC_API_KEY && {
+          "X-API-Key": process.env.NEXT_PUBLIC_API_KEY,
+        }),
+      },
+    }).catch((err) => {
+      // Sigue sin bloquear al usuario (la verificación principal corre aparte),
+      // pero al menos deja rastro si vuelve a romperse.
+      console.warn("[VERIFY-SUPPORT] respaldo fire-and-forget falló:", err);
+    });
   }, [orderId]);
 
   const verifySupportOrder = useCallback(async () => {
