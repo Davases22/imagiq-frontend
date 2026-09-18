@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getActivePageBySlug } from '@/services/multimedia-pages.service';
 import MultimediaPageClient from './components/MultimediaPageClient';
+import { getLivestreamProducts } from '@/lib/livestream-products';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://imagiq.com';
 
@@ -77,5 +78,10 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  return <MultimediaPageClient pageData={pageData} />;
+  const livestreamProducts =
+    pageData.page.page_type === 'livestream'
+      ? await getLivestreamProducts(pageData.page.livestream_config)
+      : [];
+
+  return <MultimediaPageClient pageData={pageData} livestreamProducts={livestreamProducts} />;
 }
