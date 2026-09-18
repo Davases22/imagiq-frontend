@@ -105,6 +105,13 @@ export interface FormSuccessConfig {
   redirect_url?: string;
 }
 
+/** Producto del catálogo destacado en un Live. `id` es el codigoMarketBase. */
+export interface FeaturedProduct {
+  id: string;
+  name: string;
+  image?: string;
+}
+
 export interface LivestreamConfig {
   primary_video_id: string;
   backup_video_id?: string;
@@ -124,6 +131,8 @@ export interface LivestreamConfig {
   failover_message?: string;
   chat_position: 'right' | 'below';
   enable_pip: boolean;
+  /** Productos del catálogo que se muestran junto al video, en orden */
+  featured_products?: FeaturedProduct[];
 }
 
 export interface MultimediaPage {

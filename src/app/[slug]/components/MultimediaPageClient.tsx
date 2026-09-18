@@ -11,12 +11,18 @@ import FAQAccordion from './FAQAccordion';
 import FormPageRenderer from './FormPageRenderer';
 import LiveStreamPageRenderer from './LiveStreamPageRenderer';
 import type { MultimediaPageData } from '@/services/multimedia-pages.service';
+import type { ProductCardProps } from '@/app/productos/components/ProductCard';
 
 interface MultimediaPageClientProps {
   pageData: MultimediaPageData;
+  /** Productos del catálogo destacados en un Live (resueltos en el servidor) */
+  livestreamProducts?: ProductCardProps[];
 }
 
-export default function MultimediaPageClient({ pageData }: MultimediaPageClientProps) {
+export default function MultimediaPageClient({
+  pageData,
+  livestreamProducts = [],
+}: MultimediaPageClientProps) {
   // Estado local para manejar actualizaciones en tiempo real (preview)
   const [data, setData] = useState<MultimediaPageData>(pageData);
 
@@ -47,6 +53,7 @@ export default function MultimediaPageClient({ pageData }: MultimediaPageClientP
         pageData={page}
         banners={banners}
         faqs={faqs}
+        livestreamProducts={livestreamProducts}
         productCards={product_cards}
       />
     );
