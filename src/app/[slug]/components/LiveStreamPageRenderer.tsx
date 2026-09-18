@@ -42,7 +42,7 @@ export default function LiveStreamPageRenderer({
 
       {/* Livestream embed */}
       {config && (
-        <LiveStreamSection config={config} slug={pageData.slug} />
+        <LiveStreamSection config={config} slug={pageData.slug} products={livestreamProducts} />
       )}
 
       {/* Productos del catálogo destacados en el Live */}
