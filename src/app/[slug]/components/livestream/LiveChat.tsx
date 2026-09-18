@@ -8,7 +8,9 @@ interface LiveChatProps {
 }
 
 export default function LiveChat({ videoId, isLive }: LiveChatProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // En móvil el chat arranca recogido para que los productos queden a la
+  // vista debajo del video; en escritorio siempre se muestra (md:block).
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (!isLive) return null;
 
@@ -23,7 +25,7 @@ export default function LiveChat({ videoId, isLive }: LiveChatProps) {
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="md:hidden flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-100 text-gray-700 text-sm font-medium rounded-t-lg"
       >
-        {isCollapsed ? 'Mostrar Chat' : 'Ocultar Chat'}
+        {isCollapsed ? 'Ver chat en vivo' : 'Ocultar chat'}
         <svg
           className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
           fill="none"
