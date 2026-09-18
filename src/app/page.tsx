@@ -8,6 +8,7 @@
 import { Suspense } from "react";
 import { getHomeProducts, getStores, getProductsByCategory } from "@/lib/api-server";
 import { getHomeLivestreamPage } from "@/services/multimedia-pages.service";
+import { getLivestreamProducts } from "@/lib/livestream-products";
 import { mapApiProductsToFrontend } from "@/lib/mappers/product-mapper";
 import type { ProductCardProps } from "@/app/productos/components/ProductCard";
 
@@ -61,6 +62,11 @@ export default async function HomePage() {
     getHomeLivestreamPage().catch(() => null),
   ]);
 
+  // Productos destacados del Live (depende de la página, por eso va después)
+  const livestreamProducts = livestreamPage
+    ? await getLivestreamProducts(livestreamPage.livestream_config)
+    : [];
+
   // Helper para filtrar productos con stock > 0
   const hasStock = (p: ProductCardProps) => {
     const stockTotal = p.apiProduct?.stockTotal;
@@ -96,7 +102,9 @@ export default async function HomePage() {
           <HeroSection />
 
           {/* Transmisión en vivo (solo si hay una página livestream activa en el dashboard) */}
-          {livestreamPage && <HomeLiveStream page={livestreamPage} />}
+          {livestreamPage && (
+            <HomeLiveStream page={livestreamPage} products={livestreamProducts} />
+          )}
 
           <DynamicBanner placement="home-2" className="mt-6 md:mt-8 lg:mt-12">
             <GalaxyShowcaseBanner />

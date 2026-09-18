@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import MultimediaBannerCarousel from './MultimediaBannerCarousel';
 import ProductSection from './ProductSection';
 import FAQAccordion from './FAQAccordion';
-import { LiveStreamSkeleton } from './livestream';
+import { LiveStreamSkeleton, LiveStreamProducts } from './livestream';
+import type { ProductCardProps } from '@/app/productos/components/ProductCard';
 import type {
   MultimediaPage,
   MultimediaPageBanner,
@@ -22,6 +23,7 @@ interface LiveStreamPageRendererProps {
   banners: MultimediaPageBanner[];
   faqs: MultimediaPageFAQ[];
   productCards: ProductCardData[];
+  livestreamProducts?: ProductCardProps[];
 }
 
 export default function LiveStreamPageRenderer({
@@ -29,15 +31,25 @@ export default function LiveStreamPageRenderer({
   banners,
   faqs,
   productCards,
+  livestreamProducts = [],
 }: LiveStreamPageRendererProps) {
+  const config = pageData.livestream_config;
+  const isLive = !!config && Date.now() >= new Date(config.scheduled_start).getTime();
   return (
     <div className="min-h-screen bg-white -mt-12">
       {/* Optional banners above the stream */}
       {banners.length > 0 && <MultimediaBannerCarousel banners={banners} />}
 
       {/* Livestream embed */}
-      {pageData.livestream_config && (
-        <LiveStreamSection config={pageData.livestream_config} slug={pageData.slug} />
+      {config && (
+        <LiveStreamSection config={config} slug={pageData.slug} />
+      )}
+
+      {/* Productos del catálogo destacados en el Live */}
+      {livestreamProducts.length > 0 && (
+        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8" style={{ maxWidth: '1440px' }}>
+          <LiveStreamProducts products={livestreamProducts} isLive={isLive} />
+        </div>
       )}
 
       {/* Product title and description */}

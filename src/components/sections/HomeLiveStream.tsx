@@ -10,8 +10,9 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { LiveStreamSkeleton } from '@/app/[slug]/components/livestream';
+import { LiveStreamSkeleton, LiveStreamProducts } from '@/app/[slug]/components/livestream';
 import type { MultimediaPage } from '@/services/multimedia-pages.service';
+import type { ProductCardProps } from '@/app/productos/components/ProductCard';
 import { posthogUtils } from '@/lib/posthogClient';
 
 const LiveStreamSection = dynamic(
@@ -21,9 +22,10 @@ const LiveStreamSection = dynamic(
 
 interface HomeLiveStreamProps {
   page: MultimediaPage;
+  products?: ProductCardProps[];
 }
 
-export default function HomeLiveStream({ page }: HomeLiveStreamProps) {
+export default function HomeLiveStream({ page, products = [] }: HomeLiveStreamProps) {
   const config = page.livestream_config;
 
   useEffect(() => {
@@ -64,6 +66,11 @@ export default function HomeLiveStream({ page }: HomeLiveStreamProps) {
         </div>
 
         <LiveStreamSection config={config} slug={page.slug} inlinePathname="/" />
+
+        <LiveStreamProducts
+          products={products}
+          isLive={Date.now() >= new Date(config.scheduled_start).getTime()}
+        />
       </div>
     </section>
   );

@@ -156,6 +156,29 @@ export async function getProductById(
   );
 }
 
+/**
+ * Obtiene varios productos por codigoMarketBase, conservando el orden pedido.
+ * Los que no existan o no tengan precio se omiten.
+ */
+export async function getProductsByCodigoMarketBase(
+  codigosMarket: string[]
+): Promise<SearchBundlesResult["products"]> {
+  const unique = Array.from(new Set(codigosMarket.filter(Boolean)));
+  if (unique.length === 0) return [];
+
+  const results = await Promise.all(
+    unique.map((codigo) =>
+      getProductById(codigo)
+        .then((r) => r?.products?.[0] ?? null)
+        .catch(() => null)
+    )
+  );
+
+  return results.filter(
+    (p): p is SearchBundlesResult["products"][number] => p !== null
+  );
+}
+
 export async function getProductBySku(
   sku: string
 ): Promise<SearchBundlesResult> {
