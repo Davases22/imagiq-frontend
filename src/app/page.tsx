@@ -7,6 +7,7 @@
 
 import { Suspense } from "react";
 import { getHomeProducts, getStores, getProductsByCategory } from "@/lib/api-server";
+import { getHomeLivestreamPage } from "@/services/multimedia-pages.service";
 import { mapApiProductsToFrontend } from "@/lib/mappers/product-mapper";
 import type { ProductCardProps } from "@/app/productos/components/ProductCard";
 
@@ -23,6 +24,7 @@ import TVProductsGrid from "@/components/sections/TVProductsGrid";
 import BespokeAIBanner from "@/components/sections/BespokeAIBanner";
 import AppliancesProductsGrid from "@/components/sections/AppliancesProductsGrid";
 import Reviews from "@/components/sections/Reviews";
+import HomeLiveStream from "@/components/sections/HomeLiveStream";
 
 // Componentes que reciben datos del servidor
 import ProductShowcase from "@/components/sections/ProductShowcase";
@@ -51,11 +53,12 @@ export default async function HomePage() {
 
   // Fetch paralelo de datos en el servidor
   // Incluimos IM (dispositivos móviles) porque contiene el S26 Ultra y accesorios del showcase
-  const [imProductsData, tvProductsData, appliancesData, stores] = await Promise.all([
+  const [imProductsData, tvProductsData, appliancesData, stores, livestreamPage] = await Promise.all([
     getProductsByCategory("IM", undefined, undefined, 1, 500, "precio", "desc").catch(() => emptyResult),
     getProductsByCategory("AV", undefined, undefined, 1, 50, "precio", "desc").catch(() => emptyResult),
     getProductsByCategory("DA", undefined, undefined, 1, 100, "precio", "desc").catch(() => emptyResult),
     getStores().catch(() => []),
+    getHomeLivestreamPage().catch(() => null),
   ]);
 
   // Helper para filtrar productos con stock > 0
@@ -91,6 +94,9 @@ export default async function HomePage() {
       <HomePageClient>
         <div id="main-page" className="min-h-screen md:mr-0 md:overflow-x-clip">
           <HeroSection />
+
+          {/* Transmisión en vivo (solo si hay una página livestream activa en el dashboard) */}
+          {livestreamPage && <HomeLiveStream page={livestreamPage} />}
 
           <DynamicBanner placement="home-2" className="mt-6 md:mt-8 lg:mt-12">
             <GalaxyShowcaseBanner />
