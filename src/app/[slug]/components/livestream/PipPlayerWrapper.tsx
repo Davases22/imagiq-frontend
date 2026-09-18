@@ -46,8 +46,23 @@ export default function PipPlayerWrapper({
     return <>{children}</>;
   }
 
-  // PiP mode: fixed position with drag
+  // PiP mode: placeholder del mismo tamaño en el flujo (evita saltos de
+  // layout) + reproductor flotante con drag
   return (
+    <>
+      <div
+        className="w-full aspect-video rounded-lg bg-gray-900 flex flex-col items-center justify-center gap-3 text-white"
+        aria-hidden="true"
+      >
+        <span className="text-sm text-white/70">Reproduciendo en el mini-player</span>
+        <button
+          type="button"
+          onClick={onRestore}
+          className="text-sm font-medium bg-white/10 hover:bg-white/20 rounded-full px-4 py-1.5 transition-colors"
+        >
+          Volver al video
+        </button>
+      </div>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -125,5 +140,6 @@ export default function PipPlayerWrapper({
         </div>
       </motion.div>
     </AnimatePresence>
+    </>
   );
 }
