@@ -166,12 +166,34 @@ export async function getProductsByCodigoMarketBase(
   const unique = Array.from(new Set(codigosMarket.filter(Boolean)));
   if (unique.length === 0) return [];
 
+  // El endpoint filtra por `codigoMarket`; con `codigoMarketBase` ignora el
+  // filtro y devuelve el listado general. Por seguridad se verifica además
+  // que el producto devuelto sea el pedido.
   const results = await Promise.all(
-    unique.map((codigo) =>
-      getProductById(codigo)
-        .then((r) => r?.products?.[0] ?? null)
-        .catch(() => null)
-    )
+    unique.map(async (codigo) => {
+      try {
+        const params = new URLSearchParams({
+          codigoMarket: codigo,
+          precioMin: "1",
+          limit: "10",
+        });
+        const r = await serverFetch<SearchBundlesResult>(
+          `/api/products/v2/filtered?${params}`
+        );
+        const match = (r?.products ?? []).find((p) => {
+          const base =
+            "codigoMarketBase" in p
+              ? p.codigoMarketBase
+              : "baseCodigoMarket" in p
+                ? p.baseCodigoMarket
+                : undefined;
+          return base === codigo;
+        });
+        return match ?? null;
+      } catch {
+        return null;
+      }
+    })
   );
 
   return results.filter(

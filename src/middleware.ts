@@ -127,7 +127,14 @@ export async function middleware(request: NextRequest) {
 
   // Extraer primer segmento
   const segments = pathname.split("/").filter(Boolean);
-  const firstSegment = segments[0];
+  // Decodificar para que slugs con tildes o ñ (p. ej. "mañana") coincidan
+  // con los que devuelve el backend.
+  let firstSegment = segments[0];
+  try {
+    firstSegment = firstSegment ? decodeURIComponent(firstSegment) : firstSegment;
+  } catch {
+    // Secuencia inválida: se compara tal cual
+  }
 
   if (!firstSegment) {
     return NextResponse.next();

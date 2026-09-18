@@ -332,7 +332,7 @@ export async function getHomeLivestreamPage(): Promise<MultimediaPage | null> {
 export async function getActivePageBySlug(slug: string): Promise<MultimediaPageData | null> {
   try {
     const response = await apiGet<MultimediaPageData>(
-      `/api/multimedia/pages/slug/${slug}`
+      `/api/multimedia/pages/slug/${encodeURIComponent(slug)}`
     );
     
     // Parsear posiciones y text_styles si vienen como strings JSON
