@@ -331,8 +331,17 @@ export async function getHomeLivestreamPage(): Promise<MultimediaPage | null> {
  */
 export async function getActivePageBySlug(slug: string): Promise<MultimediaPageData | null> {
   try {
+    // El slug puede llegar ya decodificado ("mañana") o codificado
+    // ("ma%C3%B1ana") según el origen; se normaliza antes de codificar
+    // una sola vez para no producir "%25C3%25B1".
+    let normalizedSlug = slug;
+    try {
+      normalizedSlug = decodeURIComponent(slug);
+    } catch {
+      // Secuencia inválida: se usa tal cual
+    }
     const response = await apiGet<MultimediaPageData>(
-      `/api/multimedia/pages/slug/${encodeURIComponent(slug)}`
+      `/api/multimedia/pages/slug/${encodeURIComponent(normalizedSlug)}`
     );
     
     // Parsear posiciones y text_styles si vienen como strings JSON
