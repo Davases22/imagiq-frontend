@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+/** Fracción visible del video por debajo de la cual se pasa a mini-player. */
+const PIP_ENTER_RATIO = 0.1;
+/** Fracción visible del video a partir de la cual se vuelve al modo inline. */
+const PIP_EXIT_RATIO = 0.5;
+
 interface UsePictureInPictureOptions {
   enabled: boolean;
 }
@@ -21,7 +26,11 @@ export function usePictureInPicture({
   const [isIntersecting, setIsIntersecting] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // IntersectionObserver: detect when sentinel leaves viewport
+  // IntersectionObserver sobre el contenedor del video (que conserva su
+  // tamaño también en modo PiP). Con histéresis para que no parpadee:
+  // - pasa a PiP solo cuando queda visible menos del 10% del video
+  //   (es decir, tras hacer bastante scroll), y
+  // - vuelve al modo inline cuando reaparece al menos la mitad.
   useEffect(() => {
     if (!enabled) return;
 
@@ -30,14 +39,17 @@ export function usePictureInPicture({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsIntersecting(entry.isIntersecting);
+        const ratio = entry.isIntersecting ? entry.intersectionRatio : 0;
 
-        // Reset dismiss when video comes back into view
-        if (entry.isIntersecting) {
+        if (ratio <= PIP_ENTER_RATIO) {
+          setIsIntersecting(false);
+        } else if (ratio >= PIP_EXIT_RATIO) {
+          setIsIntersecting(true);
+          // Reset dismiss when video comes back into view
           setIsDismissed(false);
         }
       },
-      { threshold: 0.3 },
+      { threshold: [0, PIP_ENTER_RATIO, PIP_EXIT_RATIO, 1] },
     );
 
     observer.observe(element);

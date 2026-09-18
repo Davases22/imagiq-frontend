@@ -113,9 +113,6 @@ export default function LiveStreamSection({ config, slug, inlinePathname }: Live
 
   return (
     <section className="w-full">
-      {/* Sentinel: marks inline video position for IntersectionObserver */}
-      <div ref={pip.sentinelRef} />
-
       <div
         className={
           showChat && chatRight
@@ -123,30 +120,33 @@ export default function LiveStreamSection({ config, slug, inlinePathname }: Live
             : 'flex flex-col gap-4'
         }
       >
-        {/* Video container with PiP wrapper */}
-        <PipPlayerWrapper
-          isPip={pip.isPip}
-          onDismiss={pip.dismiss}
-          onRestore={pip.restore}
-        >
-          <div className="relative">
-            <LiveStreamPlayer
-              videoId={activeVideoId}
-              autoplay={config.autoplay}
-              onError={handlePlayerError}
-              onStateChange={handlePlayerStateChange}
-            />
+        {/* Contenedor observado para el PiP: conserva su tamaño aunque el
+            video esté flotando, así la página no salta al cambiar de modo */}
+        <div ref={pip.sentinelRef}>
+          <PipPlayerWrapper
+            isPip={pip.isPip}
+            onDismiss={pip.dismiss}
+            onRestore={pip.restore}
+          >
+            <div className="relative">
+              <LiveStreamPlayer
+                videoId={activeVideoId}
+                autoplay={config.autoplay}
+                onError={handlePlayerError}
+                onStateChange={handlePlayerStateChange}
+              />
 
-            {/* Live badge */}
-            {config.enable_live_badge && <LiveBadge isLive={phase === 'live'} />}
+              {/* Live badge */}
+              {config.enable_live_badge && <LiveBadge isLive={phase === 'live'} />}
 
-            {/* Failover overlay */}
-            <FailoverOverlay
-              message={config.failover_message || 'Cambiando transmision...'}
-              isVisible={isFailingOver}
-            />
-          </div>
-        </PipPlayerWrapper>
+              {/* Failover overlay */}
+              <FailoverOverlay
+                message={config.failover_message || 'Cambiando transmision...'}
+                isVisible={isFailingOver}
+              />
+            </div>
+          </PipPlayerWrapper>
+        </div>
 
         {/* Chat: hidden when PiP is active */}
         {showChat && !pip.isPip && (
