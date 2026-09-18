@@ -65,7 +65,12 @@ export default function HomeLiveStream({ page, products = [] }: HomeLiveStreamPr
           </Link>
         </div>
 
-        <LiveStreamSection config={config} slug={page.slug} inlinePathname="/" />
+        <LiveStreamSection
+          config={config}
+          slug={page.slug}
+          inlinePathname="/"
+          products={products}
+        />
 
         <LiveStreamProducts
           products={products}

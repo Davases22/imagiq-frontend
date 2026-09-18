@@ -7,3 +7,4 @@ export { default as LiveStreamSkeleton } from './LiveStreamSkeleton';
 export { default as PipPlayerWrapper } from './PipPlayerWrapper';
 export { default as LiveStreamSection } from './LiveStreamSection';
 export { default as LiveStreamProducts } from './LiveStreamProducts';
+export { default as LiveProductSpotlight } from './LiveProductSpotlight';

@@ -12,12 +12,16 @@ import LiveBadge from './LiveBadge';
 import LiveChat from './LiveChat';
 import FailoverOverlay from './FailoverOverlay';
 import PipPlayerWrapper from './PipPlayerWrapper';
+import LiveProductSpotlight from './LiveProductSpotlight';
+import type { ProductCardProps } from '@/app/productos/components/ProductCard';
 
 interface LiveStreamSectionProps {
   config: LivestreamConfig;
   slug: string;
   /** Ruta donde esta sección se renderiza inline fuera de /[slug] (ej. "/" en el home) */
   inlinePathname?: string;
+  /** Productos del Live: se muestran rotando en una tarjeta sobre el video */
+  products?: ProductCardProps[];
 }
 
 function PreStreamPlaceholder() {
@@ -52,7 +56,12 @@ function PreStreamPlaceholder() {
   );
 }
 
-export default function LiveStreamSection({ config, slug, inlinePathname }: LiveStreamSectionProps) {
+export default function LiveStreamSection({
+  config,
+  slug,
+  inlinePathname,
+  products = [],
+}: LiveStreamSectionProps) {
   const streamState = useLivestreamState(config);
   const failover = useLivestreamFailover(config, streamState);
   const pip = usePictureInPicture({ enabled: config.enable_pip && streamState.phase === 'live' });
@@ -144,6 +153,11 @@ export default function LiveStreamSection({ config, slug, inlinePathname }: Live
                 message={config.failover_message || 'Cambiando transmision...'}
                 isVisible={isFailingOver}
               />
+
+              {/* Producto destacado rotando (no en mini-player) */}
+              {!pip.isPip && products.length > 0 && (
+                <LiveProductSpotlight products={products} />
+              )}
             </div>
           </PipPlayerWrapper>
         </div>
