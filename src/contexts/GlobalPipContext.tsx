@@ -7,6 +7,8 @@ import { getActiveLivestreamPages } from '@/services/multimedia-pages.service';
 interface ActiveStream {
   videoId: string;
   slug: string;
+  /** Ruta donde el stream ya se muestra inline (ej. "/" para el home): allí no se muestra el PiP global */
+  inlinePathname?: string;
 }
 
 interface GlobalPipContextType {
@@ -88,7 +90,9 @@ export function GlobalPipProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const isOnStreamPage = pathname === '/' + activeStream.slug;
+    const isOnStreamPage =
+      pathname === '/' + activeStream.slug ||
+      (!!activeStream.inlinePathname && pathname === activeStream.inlinePathname);
     const isOnHiddenRoute = PIP_HIDDEN_ROUTES.some((route) => pathname.startsWith(route));
 
     setIsGlobalPipVisible(!isOnStreamPage && !isOnHiddenRoute);
@@ -96,8 +100,14 @@ export function GlobalPipProvider({ children }: { children: ReactNode }) {
 
   const registerStream = useCallback((stream: ActiveStream) => {
     setActiveStream((prev) => {
-      // Only update if videoId or slug changed
-      if (prev?.videoId === stream.videoId && prev?.slug === stream.slug) return prev;
+      // Only update if videoId, slug or inline route changed
+      if (
+        prev?.videoId === stream.videoId &&
+        prev?.slug === stream.slug &&
+        prev?.inlinePathname === stream.inlinePathname
+      ) {
+        return prev;
+      }
       return stream;
     });
     setIsDismissed(false);

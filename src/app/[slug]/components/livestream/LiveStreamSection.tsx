@@ -16,6 +16,8 @@ import PipPlayerWrapper from './PipPlayerWrapper';
 interface LiveStreamSectionProps {
   config: LivestreamConfig;
   slug: string;
+  /** Ruta donde esta sección se renderiza inline fuera de /[slug] (ej. "/" en el home) */
+  inlinePathname?: string;
 }
 
 function PreStreamPlaceholder() {
@@ -50,7 +52,7 @@ function PreStreamPlaceholder() {
   );
 }
 
-export default function LiveStreamSection({ config, slug }: LiveStreamSectionProps) {
+export default function LiveStreamSection({ config, slug, inlinePathname }: LiveStreamSectionProps) {
   const streamState = useLivestreamState(config);
   const failover = useLivestreamFailover(config, streamState);
   const pip = usePictureInPicture({ enabled: config.enable_pip && streamState.phase === 'live' });
@@ -61,9 +63,9 @@ export default function LiveStreamSection({ config, slug }: LiveStreamSectionPro
   // Register stream in global context for cross-page PiP
   useEffect(() => {
     if (phase === 'live' && config.enable_pip) {
-      registerStream({ videoId: activeVideoId, slug });
+      registerStream({ videoId: activeVideoId, slug, inlinePathname });
     }
-  }, [phase, config.enable_pip, activeVideoId, slug, registerStream]);
+  }, [phase, config.enable_pip, activeVideoId, slug, inlinePathname, registerStream]);
   const { isFailingOver, handlePlayerError, handlePlayerStateChange } = failover;
 
   const showChat = config.enable_chat && phase === 'live';

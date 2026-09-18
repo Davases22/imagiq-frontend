@@ -225,9 +225,10 @@ export interface MultimediaPageData {
 }
 
 /**
- * Obtiene las páginas multimedia activas de tipo livestream que tengan PiP habilitado
+ * Obtiene todas las páginas multimedia activas y públicas de tipo livestream
+ * que tengan un video principal configurado.
  */
-export async function getActiveLivestreamPages(): Promise<MultimediaPage[]> {
+async function fetchActiveLivestreamPages(): Promise<MultimediaPage[]> {
   try {
     const response = await apiGet<{
       data: Array<{ page: MultimediaPage; banners: MultimediaPageBanner[]; faqs: MultimediaPageFAQ[] }>;
@@ -239,15 +240,51 @@ export async function getActiveLivestreamPages(): Promise<MultimediaPage[]> {
     return response.data
       .map((item) => item.page)
       .filter(
-        (p) =>
-          p.page_type === 'livestream' &&
-          p.livestream_config?.enable_pip &&
-          p.livestream_config?.primary_video_id,
+        (p) => p.page_type === 'livestream' && !!p.livestream_config?.primary_video_id,
       );
   } catch (error) {
     console.error('Error fetching active livestream pages:', error);
     return [];
   }
+}
+
+/**
+ * Obtiene las páginas multimedia activas de tipo livestream que tengan PiP habilitado
+ */
+export async function getActiveLivestreamPages(): Promise<MultimediaPage[]> {
+  const pages = await fetchActiveLivestreamPages();
+  return pages.filter((p) => p.livestream_config?.enable_pip);
+}
+
+/**
+ * Página livestream que debe mostrarse embebida en el home.
+ *
+ * Se elige la página activa cuya transmisión no haya terminado (o que tenga
+ * replay habilitado), priorizando la de inicio más próximo. Para retirar el
+ * bloque del home basta con desactivar la página desde el dashboard.
+ */
+export async function getHomeLivestreamPage(): Promise<MultimediaPage | null> {
+  const pages = await fetchActiveLivestreamPages();
+  const now = Date.now();
+
+  const candidates = pages.filter((p) => {
+    const config = p.livestream_config!;
+    const end = config.scheduled_end ? new Date(config.scheduled_end).getTime() : null;
+    if (end !== null && !Number.isNaN(end) && now >= end) {
+      return config.enable_replay;
+    }
+    return true;
+  });
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => {
+    const startA = new Date(a.livestream_config!.scheduled_start).getTime() || 0;
+    const startB = new Date(b.livestream_config!.scheduled_start).getTime() || 0;
+    return startA - startB;
+  });
+
+  return candidates[0];
 }
 
 /**
