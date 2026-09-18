@@ -90,9 +90,17 @@ export function GlobalPipProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // El pathname llega codificado (ma%C3%B1ana) y el slug no (mañana)
+    let decodedPathname = pathname;
+    try {
+      decodedPathname = decodeURIComponent(pathname);
+    } catch {
+      // Secuencia inválida: se compara tal cual
+    }
+
     const isOnStreamPage =
-      pathname === '/' + activeStream.slug ||
-      (!!activeStream.inlinePathname && pathname === activeStream.inlinePathname);
+      decodedPathname === '/' + activeStream.slug ||
+      (!!activeStream.inlinePathname && decodedPathname === activeStream.inlinePathname);
     const isOnHiddenRoute = PIP_HIDDEN_ROUTES.some((route) => pathname.startsWith(route));
 
     setIsGlobalPipVisible(!isOnStreamPage && !isOnHiddenRoute);
