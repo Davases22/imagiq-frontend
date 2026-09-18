@@ -224,9 +224,27 @@ export interface MultimediaPageData {
   product_cards: ProductCardData[];
 }
 
+/** Prefijos de slug reservados para pruebas: se muestran en staging/preview, nunca en el sitio oficial. */
+const TEST_SLUG_PREFIXES = ['prueba-', 'test-'];
+
+const PRODUCTION_HOSTS = new Set(['imagiq.com', 'www.imagiq.com']);
+
+/** true cuando el código corre para el sitio oficial (www.imagiq.com), en servidor o en navegador. */
+function isProductionSite(): boolean {
+  if (typeof window !== 'undefined') {
+    return PRODUCTION_HOSTS.has(window.location.hostname);
+  }
+  return process.env.VERCEL_ENV === 'production';
+}
+
+export function isTestLivestreamSlug(slug: string): boolean {
+  return TEST_SLUG_PREFIXES.some((prefix) => slug.startsWith(prefix));
+}
+
 /**
  * Obtiene todas las páginas multimedia activas y públicas de tipo livestream
- * que tengan un video principal configurado.
+ * que tengan un video principal configurado. En el sitio oficial se excluyen
+ * las páginas de prueba (slug `prueba-*` o `test-*`), que solo se ven en staging.
  */
 async function fetchActiveLivestreamPages(): Promise<MultimediaPage[]> {
   try {
@@ -237,10 +255,15 @@ async function fetchActiveLivestreamPages(): Promise<MultimediaPage[]> {
 
     if (!response?.data || !Array.isArray(response.data)) return [];
 
+    const hideTestPages = isProductionSite();
+
     return response.data
       .map((item) => item.page)
       .filter(
-        (p) => p.page_type === 'livestream' && !!p.livestream_config?.primary_video_id,
+        (p) =>
+          p.page_type === 'livestream' &&
+          !!p.livestream_config?.primary_video_id &&
+          !(hideTestPages && isTestLivestreamSlug(p.slug)),
       );
   } catch (error) {
     console.error('Error fetching active livestream pages:', error);
