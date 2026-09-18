@@ -133,6 +133,8 @@ export interface LivestreamConfig {
   enable_pip: boolean;
   /** Productos del catálogo que se muestran junto al video, en orden */
   featured_products?: FeaturedProduct[];
+  /** Modo prueba: el Live solo se muestra en staging, nunca en el sitio oficial */
+  staging_only?: boolean;
 }
 
 export interface MultimediaPage {
@@ -250,10 +252,15 @@ export function isTestLivestreamSlug(slug: string): boolean {
   return TEST_SLUG_PREFIXES.some((prefix) => slug.startsWith(prefix));
 }
 
+/** Página livestream en modo prueba: por switch en el dashboard o por prefijo del slug. */
+export function isTestLivestreamPage(page: MultimediaPage): boolean {
+  return !!page.livestream_config?.staging_only || isTestLivestreamSlug(page.slug);
+}
+
 /**
  * Obtiene todas las páginas multimedia activas y públicas de tipo livestream
  * que tengan un video principal configurado. En el sitio oficial se excluyen
- * las páginas de prueba (slug `prueba-*` o `test-*`), que solo se ven en staging.
+ * las páginas de prueba (switch "Solo en staging" o slug `prueba-*` / `test-*`).
  */
 async function fetchActiveLivestreamPages(): Promise<MultimediaPage[]> {
   try {
@@ -272,7 +279,7 @@ async function fetchActiveLivestreamPages(): Promise<MultimediaPage[]> {
         (p) =>
           p.page_type === 'livestream' &&
           !!p.livestream_config?.primary_video_id &&
-          !(hideTestPages && isTestLivestreamSlug(p.slug)),
+          !(hideTestPages && isTestLivestreamPage(p)),
       );
   } catch (error) {
     console.error('Error fetching active livestream pages:', error);
