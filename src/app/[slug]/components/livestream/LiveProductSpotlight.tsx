@@ -23,6 +23,8 @@ const formatCOP = (value?: string): string | null => {
  * Tarjeta compacta sobre el video (esquina inferior izquierda) que va
  * rotando entre los productos del Live, estilo "producto destacado" de
  * live shopping. Se pausa al pasar el mouse por encima.
+ * Solo se muestra en desktop (md+): en móvil tapa demasiado el video y
+ * los productos ya se ven en la grilla justo debajo.
  */
 export default function LiveProductSpotlight({
   products,
@@ -59,7 +61,7 @@ export default function LiveProductSpotlight({
 
   return (
     <div
-      className="absolute left-3 bottom-14 md:left-4 md:bottom-16 z-10 w-[220px] md:w-[300px]"
+      className="hidden md:block absolute left-4 bottom-16 z-10 w-[300px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-live="polite"
@@ -75,9 +77,9 @@ export default function LiveProductSpotlight({
           <Link
             href={href}
             onClick={handleClick}
-            className="flex items-center gap-2.5 md:gap-3 rounded-xl bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5 p-2 md:p-2.5 hover:bg-white transition-colors"
+            className="flex items-center gap-3 rounded-xl bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5 p-2.5 hover:bg-white transition-colors"
           >
-            <div className="relative h-14 w-14 md:h-[72px] md:w-[72px] shrink-0 rounded-lg bg-gray-100 overflow-hidden">
+            <div className="relative h-[72px] w-[72px] shrink-0 rounded-lg bg-gray-100 overflow-hidden">
               {imageSrc ? (
                 <Image
                   src={imageSrc}
@@ -89,20 +91,20 @@ export default function LiveProductSpotlight({
               ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] md:text-xs font-semibold text-gray-900 leading-tight line-clamp-2">
+              <p className="text-xs font-semibold text-gray-900 leading-tight line-clamp-2">
                 {product.name}
               </p>
               <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
                 {price && (
-                  <span className="text-sm md:text-base font-bold text-gray-900">{price}</span>
+                  <span className="text-base font-bold text-gray-900">{price}</span>
                 )}
                 {showOriginal && (
-                  <span className="text-[10px] md:text-xs text-gray-400 line-through">
+                  <span className="text-xs text-gray-400 line-through">
                     {originalPrice}
                   </span>
                 )}
               </div>
-              <span className="mt-0.5 inline-block text-[10px] md:text-xs font-medium text-blue-600">
+              <span className="mt-0.5 inline-block text-xs font-medium text-blue-600">
                 Ver producto
               </span>
             </div>
