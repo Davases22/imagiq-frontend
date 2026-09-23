@@ -107,19 +107,50 @@ const CONFIG_HOME_VACIA: ProductosHomeConfig = {
  */
 export async function getProductosHomeConfig(): Promise<ProductosHomeConfig> {
   try {
-    const res = await serverFetch<{
-      success?: boolean;
-      data?: Partial<ProductosHomeConfig>;
-    }>("/api/products/productos-home/activos");
+    // serverFetch YA desenvuelve las respuestas { success, data } y devuelve el
+    // interior, así que aquí llegan las franjas directamente. Tipar esto como
+    // { data } y leer res.data daba siempre undefined: las tres franjas salían
+    // vacías y la home caía al relleno sin que nada fallara a la vista.
+    const res = await serverFetch<Partial<ProductosHomeConfig>>(
+      "/api/products/productos-home/activos"
+    );
 
     return {
-      celulares: res?.data?.celulares ?? [],
-      tv: res?.data?.tv ?? [],
-      electro: res?.data?.electro ?? [],
+      celulares: res?.celulares ?? [],
+      tv: res?.tv ?? [],
+      electro: res?.electro ?? [],
     };
   } catch {
     return CONFIG_HOME_VACIA;
   }
+}
+
+/**
+ * Trae los productos de una lista de codigo_market, en ESE orden.
+ *
+ * Se piden de a uno porque el endpoint filtra por un solo codigoMarket; son
+ * pocos (los cupos de una franja), así que van en paralelo. Los que fallen o no
+ * existan se omiten en vez de romper la respuesta.
+ */
+export async function getProductsByCodigos(
+  codigos: string[]
+): Promise<ProductBundle[]> {
+  if (codigos.length === 0) return [];
+
+  const resultados = await Promise.all(
+    codigos.map(async (codigo) => {
+      try {
+        const r = await serverFetch<SearchBundlesResult>(
+          `/api/products/filtered?codigoMarket=${encodeURIComponent(codigo)}&limit=1&precioMin=1`
+        );
+        return r?.products?.[0] ?? null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return resultados.filter((p): p is ProductBundle => p !== null);
 }
 
 /**
