@@ -126,6 +126,34 @@ export async function getProductosHomeConfig(): Promise<ProductosHomeConfig> {
 }
 
 /**
+ * Trae los productos de una lista de codigo_market, en ESE orden.
+ *
+ * Se piden de a uno porque el endpoint filtra por un solo codigoMarket; son
+ * pocos (los cupos de una franja), así que van en paralelo. Los que fallen o no
+ * existan se omiten en vez de romper la respuesta.
+ */
+export async function getProductsByCodigos(
+  codigos: string[]
+): Promise<ProductBundle[]> {
+  if (codigos.length === 0) return [];
+
+  const resultados = await Promise.all(
+    codigos.map(async (codigo) => {
+      try {
+        const r = await serverFetch<SearchBundlesResult>(
+          `/api/products/filtered?codigoMarket=${encodeURIComponent(codigo)}&limit=1&precioMin=1`
+        );
+        return r?.products?.[0] ?? null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return resultados.filter((p): p is ProductBundle => p !== null);
+}
+
+/**
  * Obtiene productos para la página principal
  */
 export async function getHomeProducts(
