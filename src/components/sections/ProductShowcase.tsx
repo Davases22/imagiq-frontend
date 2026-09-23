@@ -8,9 +8,11 @@ import GuestDataModal from "@/app/productos/components/GuestDataModal";
 
 interface ProductShowcaseProps {
   initialProducts?: ProductCardProps[];
+  /** Productos ya elegidos en el dashboard, resueltos en el servidor. */
+  curados?: ProductCardProps[];
 }
 
-export default function ProductShowcase({ initialProducts }: ProductShowcaseProps = {}) {
+export default function ProductShowcase({ initialProducts, curados }: ProductShowcaseProps = {}) {
   // Solo hacer fetch si NO hay datos iniciales del servidor
   const shouldFetch = !initialProducts || initialProducts.length === 0;
 
@@ -35,10 +37,21 @@ export default function ProductShowcase({ initialProducts }: ProductShowcaseProp
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [pendingFavorite, setPendingFavorite] = useState<string | null>(null);
 
-  // SKUs específicos para el showcase (de más caro a más económico)
   const products = useMemo(() => {
+    // Curaduría del dashboard: manda si hay algo configurado. Llega ya
+    // ordenada y con los cupos resueltos desde el servidor.
+    if (curados && curados.length > 0) return curados;
+
     if (!allProducts || allProducts.length === 0) return [];
 
+    // Respaldo histórico: SKUs fijos en el código. Se conserva para que la
+    // franja no quede vacía si la tabla está sin configurar o el servicio de
+    // curaduría falla.
+    //
+    // Son SKUs de COLOR, no de producto: el S26 Ultra se busca por el violeta
+    // aunque la tarjeta muestre el negro, así que si ese color cambia de
+    // código el producto desaparece de la home en silencio. Por eso conviene
+    // administrarlos desde el dashboard.
     const showcaseSKUs = [
       'SM-S948BZVKLTC',   // Galaxy S26 Ultra 5G
       'SM-S947BZVJLTC',   // Galaxy S26+ 5G
@@ -64,7 +77,7 @@ export default function ProductShowcase({ initialProducts }: ProductShowcaseProp
     }
 
     return result;
-  }, [allProducts]);
+  }, [allProducts, curados]);
 
   // Manejar toggle de favoritos
   const handleToggleFavorite = useCallback(async (productId: string) => {

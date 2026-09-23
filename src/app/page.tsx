@@ -6,7 +6,7 @@
  */
 
 import { Suspense } from "react";
-import { getHomeProducts, getStores, getProductsByCategory } from "@/lib/api-server";
+import { getHomeProducts, getStores, getProductsByCategory, getProductosHomeConfig } from "@/lib/api-server";
 import { getHomeLivestreamPage } from "@/services/multimedia-pages.service";
 import { getLivestreamProducts } from "@/lib/livestream-products";
 import { mapApiProductsToFrontend } from "@/lib/mappers/product-mapper";
@@ -42,6 +42,58 @@ import HomePageClient from "./HomePageClient";
 // ISR: regenerar cada 60 segundos
 export const revalidate = 60;
 
+/** Tarjetas que pinta cada franja de la home. */
+const CUPOS_POR_FRANJA = 4;
+
+/**
+ * Aplica la curaduría del dashboard a una franja.
+ *
+ * Los productos fijados van primero, en el orden configurado y SIN filtrar por
+ * inventario: si alguien eligió mostrar un producto, se muestra aunque esté
+ * agotado — la ficha ya ofrece avisar cuando vuelva.
+ *
+ * Si quedan cupos (porque hay menos fijados de los que caben, o porque un
+ * código ya no está en el catálogo), se completan con el resto de la categoría
+ * como se hacía antes, para que la franja nunca quede coja.
+ */
+function aplicarCuraduria(
+  disponibles: ProductCardProps[],
+  codigos: string[],
+  conStock: (p: ProductCardProps) => boolean
+): ProductCardProps[] {
+  const porCodigo = new Map<string, ProductCardProps>();
+  for (const p of disponibles) {
+    const codigo = p.apiProduct?.codigoMarketBase;
+    if (codigo && !porCodigo.has(codigo)) porCodigo.set(codigo, p);
+  }
+
+  const elegidos: ProductCardProps[] = [];
+  const usados = new Set<string>();
+
+  for (const codigo of codigos) {
+    const p = porCodigo.get(codigo);
+    if (p && !usados.has(codigo)) {
+      elegidos.push(p);
+      usados.add(codigo);
+    }
+    if (elegidos.length >= CUPOS_POR_FRANJA) break;
+  }
+
+  // Relleno: solo con productos que tengan inventario, que es el criterio con
+  // el que se llenaba la franja antes de existir la curaduría.
+  if (elegidos.length < CUPOS_POR_FRANJA) {
+    for (const p of disponibles) {
+      const codigo = p.apiProduct?.codigoMarketBase;
+      if (!codigo || usados.has(codigo) || !conStock(p)) continue;
+      elegidos.push(p);
+      usados.add(codigo);
+      if (elegidos.length >= CUPOS_POR_FRANJA) break;
+    }
+  }
+
+  return elegidos;
+}
+
 export default async function HomePage() {
   const emptyResult = {
     products: [],
@@ -54,12 +106,13 @@ export default async function HomePage() {
 
   // Fetch paralelo de datos en el servidor
   // Incluimos IM (dispositivos móviles) porque contiene el S26 Ultra y accesorios del showcase
-  const [imProductsData, tvProductsData, appliancesData, stores, livestreamPage] = await Promise.all([
+  const [imProductsData, tvProductsData, appliancesData, stores, livestreamPage, curaduria] = await Promise.all([
     getProductsByCategory("IM", undefined, undefined, 1, 500, "precio", "desc").catch(() => emptyResult),
     getProductsByCategory("AV", undefined, undefined, 1, 50, "precio", "desc").catch(() => emptyResult),
     getProductsByCategory("DA", undefined, undefined, 1, 100, "precio", "desc").catch(() => emptyResult),
     getStores().catch(() => []),
     getHomeLivestreamPage().catch(() => null),
+    getProductosHomeConfig(),
   ]);
 
   // Productos destacados del Live (depende de la página, por eso va después)
@@ -76,18 +129,38 @@ export default async function HomePage() {
     return stockTotal ? stockTotal > 0 : false;
   };
 
-  // Mapear productos IM (donde están el S26 Ultra y accesorios)
-  const mappedProducts = imProductsData.products.length > 0
-    ? mapApiProductsToFrontend(imProductsData.products).filter(hasStock)
+  // Mapear productos IM (donde están el S26 Ultra y accesorios).
+  // Ojo: NO se filtra por stock aquí. El filtro se aplica al rellenar, dentro
+  // de aplicarCuraduria, para que un producto fijado agotado sí se pueda pintar.
+  const imProducts = imProductsData.products.length > 0
+    ? mapApiProductsToFrontend(imProductsData.products)
     : [];
 
-  const mappedTVProducts = tvProductsData.products.length > 0
-    ? mapApiProductsToFrontend(tvProductsData.products).filter(hasStock).slice(0, 4)
+  const tvProducts = tvProductsData.products.length > 0
+    ? mapApiProductsToFrontend(tvProductsData.products)
     : [];
 
-  const mappedAppliancesProducts = appliancesData.products.length > 0
-    ? mapApiProductsToFrontend(appliancesData.products).filter(hasStock).slice(0, 4)
+  const appliancesProducts = appliancesData.products.length > 0
+    ? mapApiProductsToFrontend(appliancesData.products)
     : [];
+
+  // El showcase de celulares recibe el catálogo IM completo con stock, porque
+  // resuelve por su cuenta los SKUs de respaldo cuando no hay curaduría.
+  const mappedProducts = imProducts.filter(hasStock);
+
+  const celularesCurados = aplicarCuraduria(
+    imProducts,
+    curaduria.celulares,
+    hasStock
+  );
+
+  const mappedTVProducts = aplicarCuraduria(tvProducts, curaduria.tv, hasStock);
+
+  const mappedAppliancesProducts = aplicarCuraduria(
+    appliancesProducts,
+    curaduria.electro,
+    hasStock
+  );
 
   return (
     <>
@@ -112,7 +185,7 @@ export default async function HomePage() {
 
           {/* ProductShowcase con Suspense */}
           <Suspense fallback={<ProductShowcaseSkeleton />}>
-            <ProductShowcase initialProducts={mappedProducts} />
+            <ProductShowcase initialProducts={mappedProducts} curados={celularesCurados} />
           </Suspense>
 
           <DynamicBanner placement="home-3" className="mt-6 md:mt-8 lg:mt-12">
