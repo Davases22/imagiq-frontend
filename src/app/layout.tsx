@@ -86,6 +86,17 @@ export async function generateMetadata(): Promise<Metadata> {
         "max-snippet": -1,
       },
     },
+    // Se declaran explícitamente para que iOS use el ícono correcto al
+    // guardar el sitio en la pantalla de inicio. Los navegadores los piden por
+    // convención aunque no se declaren, y hasta ahora no existían: cada
+    // petición caía en la ruta de páginas dinámicas y devolvía un error.
+    icons: {
+      icon: [
+        { url: "/favicon.ico" },
+        { url: "/favicon.png", type: "image/png", sizes: "32x32" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    },
     openGraph: {
       type: "website",
       // Facebook usa su propio enum de locales: español de Latinoamérica es
