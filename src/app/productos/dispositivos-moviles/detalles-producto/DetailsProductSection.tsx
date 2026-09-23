@@ -492,6 +492,7 @@ const DetailsProductSection: React.FC<{
                     productSelection.selectedVariant?.index || 0
                     ] || []
                   }
+                  allVariantPreviews={product.apiProduct?.imagePreviewUrl || []}
                   onImageClick={handleImageClick}
                 />
                 {productSelection.selectedVariant?.urlRender3D &&
@@ -598,6 +599,7 @@ const DetailsProductSection: React.FC<{
                 productSelection.selectedVariant?.index || 0
                 ] || []
               }
+              allVariantPreviews={product.apiProduct?.imagePreviewUrl || []}
               onImageClick={handleImageClick}
             />
             <header className="mb-4 text-center mt-6">
