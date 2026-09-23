@@ -86,6 +86,42 @@ async function serverFetch<T>(
 // PRODUCTOS
 // ============================================
 
+/** Franjas de producto de la home, tal como las nombra el dashboard. */
+export type SeccionHome = "celulares" | "tv" | "electro";
+
+export type ProductosHomeConfig = Record<SeccionHome, string[]>;
+
+const CONFIG_HOME_VACIA: ProductosHomeConfig = {
+  celulares: [],
+  tv: [],
+  electro: [],
+};
+
+/**
+ * Curaduría de la home configurada desde el dashboard: por cada franja, los
+ * codigo_market activos en el orden elegido.
+ *
+ * Ante cualquier fallo devuelve las tres franjas vacías, y la home cae a su
+ * comportamiento de siempre. Es deliberado: la portada no puede quedarse sin
+ * productos porque este servicio falle.
+ */
+export async function getProductosHomeConfig(): Promise<ProductosHomeConfig> {
+  try {
+    const res = await serverFetch<{
+      success?: boolean;
+      data?: Partial<ProductosHomeConfig>;
+    }>("/api/products/productos-home/activos");
+
+    return {
+      celulares: res?.data?.celulares ?? [],
+      tv: res?.data?.tv ?? [],
+      electro: res?.data?.electro ?? [],
+    };
+  } catch {
+    return CONFIG_HOME_VACIA;
+  }
+}
+
 /**
  * Obtiene productos para la página principal
  */
