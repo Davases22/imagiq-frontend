@@ -107,15 +107,18 @@ const CONFIG_HOME_VACIA: ProductosHomeConfig = {
  */
 export async function getProductosHomeConfig(): Promise<ProductosHomeConfig> {
   try {
-    const res = await serverFetch<{
-      success?: boolean;
-      data?: Partial<ProductosHomeConfig>;
-    }>("/api/products/productos-home/activos");
+    // serverFetch YA desenvuelve las respuestas { success, data } y devuelve el
+    // interior, así que aquí llegan las franjas directamente. Tipar esto como
+    // { data } y leer res.data daba siempre undefined: las tres franjas salían
+    // vacías y la home caía al relleno sin que nada fallara a la vista.
+    const res = await serverFetch<Partial<ProductosHomeConfig>>(
+      "/api/products/productos-home/activos"
+    );
 
     return {
-      celulares: res?.data?.celulares ?? [],
-      tv: res?.data?.tv ?? [],
-      electro: res?.data?.electro ?? [],
+      celulares: res?.celulares ?? [],
+      tv: res?.tv ?? [],
+      electro: res?.electro ?? [],
     };
   } catch {
     return CONFIG_HOME_VACIA;
