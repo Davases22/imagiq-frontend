@@ -25,6 +25,9 @@ const HIDDEN_NAVBAR_ROUTES = [
   "/success-checkout/",
   "/error-checkout",
   "/verify-purchase/",
+  // Vista previa embebida en el dashboard: ahí se quiere ver la franja sola,
+  // no la tienda entera dentro del recuadro.
+  "/preview/",
 ];
 
 function shouldHideNavbar(pathname: string) {
@@ -65,7 +68,8 @@ export default function ClientLayout({
     pathname === "/ofertas" ||
     pathname === "/charging-result" ||
     pathname === "/success-checkout" ||
-    pathname === "/carrito/error-checkout";
+    pathname === "/carrito/error-checkout" ||
+    pathname?.startsWith("/preview/");
 
   // Identificación automática de usuarios en Clarity
   useClarityIdentity();
