@@ -111,8 +111,17 @@ export async function getProductosHomeConfig(): Promise<ProductosHomeConfig> {
     // interior, así que aquí llegan las franjas directamente. Tipar esto como
     // { data } y leer res.data daba siempre undefined: las tres franjas salían
     // vacías y la home caía al relleno sin que nada fallara a la vista.
+    // Sin caché de datos a propósito. El caché por defecto es de 60 s, igual
+    // que el ISR de la home, y los dos se suman: la página podía regenerarse
+    // con una configuración de hasta un minuto antes, así que un cambio del
+    // dashboard tardaba hasta DOS minutos en verse. Pidiéndola fresca, la
+    // espera queda acotada al minuto del ISR.
+    //
+    // El costo es una petición por regeneración de la home, no por visita: la
+    // página sigue siendo estática entre revalidaciones.
     const res = await serverFetch<Partial<ProductosHomeConfig>>(
-      "/api/products/productos-home/activos"
+      "/api/products/productos-home/activos",
+      { next: { revalidate: 0 } }
     );
 
     return {
