@@ -23,6 +23,11 @@ const KNOWN_ROUTES = new Set([
   "support",
   "ventas-corporativas",
 
+  // Vista previa interna que embebe el dashboard. Sin esto el middleware la
+  // toma por un slug de página dinámica, no la encuentra entre los activos y
+  // devuelve 404 aunque la carpeta exista en /app.
+  "preview",
+
   // Rutas de seguimiento y compras
   "verify-purchase",
   "purchase",
