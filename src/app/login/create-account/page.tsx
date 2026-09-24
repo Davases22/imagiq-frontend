@@ -12,7 +12,7 @@ import { PersonalInfoStep } from "./components/PersonalInfoStep";
 import { OTPStep } from "./components/OTPStep";
 import { AddressStep } from "./components/AddressStep";
 import { PaymentStep } from "./components/PaymentStep";
-import { apiPost } from "@/lib/api-client";
+import { apiPost, ApiError } from "@/lib/api-client";
 
 const STEPS = [
   { id: 1, name: "Información personal", required: true },
@@ -29,6 +29,13 @@ export default function CreateAccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [fromLogin, setFromLogin] = useState(false);
+
+  // Teléfono que ya pertenece a otra cuenta. Antes el backend borraba esa
+  // cuenta en silencio; ahora devuelve 409 y aquí se ofrecen las salidas.
+  const [conflictoTelefono, setConflictoTelefono] = useState<{
+    emailHint: string | null;
+    ownerHasPassword: boolean;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -256,6 +263,10 @@ export default function CreateAccountPage() {
     if (currentStep === 1) {
       if (!validateStep1()) return;
 
+      // Reintento: se borra el conflicto anterior para no dejar el panel
+      // colgado si la persona ya cambió el teléfono.
+      setConflictoTelefono(null);
+
       // Verificar duplicados antes de continuar (solo si los endpoints existen)
       setIsLoading(true);
       try {
@@ -335,8 +346,21 @@ export default function CreateAccountPage() {
         setCurrentStep(2);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Error al crear usuario";
-        setError(msg);
-        await notifyError(msg, "Registro fallido");
+
+        // El teléfono ya es de otra cuenta. No es un error del formulario: la
+        // persona probablemente YA tiene cuenta y no lo recuerda, así que en
+        // vez de un texto rojo se le ofrecen las tres salidas posibles.
+        if (err instanceof ApiError && err.code === "PHONE_ALREADY_LINKED") {
+          setConflictoTelefono({
+            emailHint: err.emailHint ?? null,
+            ownerHasPassword: err.ownerHasPassword ?? false,
+          });
+          setHasPhoneError(true);
+          setError("");
+        } else {
+          setError(msg);
+          await notifyError(msg, "Registro fallido");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -602,6 +626,52 @@ export default function CreateAccountPage() {
           <div className="flex-1 space-y-6">
             <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
               {renderStepContent()}
+
+              {conflictoTelefono && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+                  <p className="font-medium text-amber-900">
+                    Ese teléfono ya tiene una cuenta
+                  </p>
+                  <p className="mt-1 text-amber-800">
+                    {conflictoTelefono.emailHint
+                      ? `Está asociado a ${conflictoTelefono.emailHint}. Si es tuya, entra con ella y no tendrás que registrarte de nuevo.`
+                      : "Si es tuya, entra con ella y no tendrás que registrarte de nuevo."}
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem("create_account_progress");
+                        router.push("/login");
+                      }}
+                      className="flex-1"
+                    >
+                      Iniciar sesión
+                    </Button>
+                    {conflictoTelefono.ownerHasPassword ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.push("/login/password-recovery")}
+                        className="flex-1"
+                      >
+                        Recuperar contraseña
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setConflictoTelefono(null);
+                        setHasPhoneError(true);
+                      }}
+                      className="flex-1"
+                    >
+                      Usar otro teléfono
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="text-sm text-red-600 text-center bg-red-50 py-2 px-4 rounded-lg">
