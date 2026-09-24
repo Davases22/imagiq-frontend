@@ -42,6 +42,34 @@ if (!API_KEY && process.env.NODE_ENV === "development") {
  * const response = await apiClient('/api/products', { method: 'GET' });
  * const data = await response.json();
  */
+/**
+ * Error de la API que conserva los campos extra que el backend quiera que el
+ * cliente vea. Un `new Error(message)` pelado obligaba a clasificar los fallos
+ * por subcadena del mensaje, que se rompe en cuanto alguien corrige una tilde.
+ *
+ * El gateway solo deja pasar campos de una lista blanca, así que aquí no llega
+ * nada interno.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly emailHint?: string;
+  readonly ownerHasPassword?: boolean;
+
+  constructor(
+    message: string,
+    status: number,
+    extra?: { code?: string; emailHint?: string; ownerHasPassword?: boolean },
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = extra?.code;
+    this.emailHint = extra?.emailHint;
+    this.ownerHasPassword = extra?.ownerHasPassword;
+  }
+}
+
 export async function apiClient(
   endpoint: string,
   options: RequestInit = {}
@@ -105,8 +133,18 @@ export async function apiClient(
         throw error;
       }
 
-      throw new Error(
-        data?.message ?? `HTTP Error ${response.status}: ${response.statusText}`
+      throw new ApiError(
+        data?.message ?? `HTTP Error ${response.status}: ${response.statusText}`,
+        response.status,
+        {
+          code: typeof data?.code === "string" ? data.code : undefined,
+          emailHint:
+            typeof data?.emailHint === "string" ? data.emailHint : undefined,
+          ownerHasPassword:
+            typeof data?.ownerHasPassword === "boolean"
+              ? data.ownerHasPassword
+              : undefined,
+        }
       );
     }
     const refreshToken = response.headers.get("x-refresh-token");

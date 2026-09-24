@@ -327,9 +327,33 @@ export async function getHomeLivestreamPage(): Promise<MultimediaPage | null> {
 }
 
 /**
+ * Un slug con extensión de archivo no es una página: es alguien pidiendo un
+ * fichero que no existe.
+ *
+ * El middleware no los ve —su matcher excluye a propósito todo lo que lleve
+ * punto— así que caen en la ruta [slug] y acaban consultando el catálogo de
+ * páginas. En los logs de producción eso se traduce en cientos de 500: unos
+ * son navegadores pidiendo `apple-touch-icon.png`, pero la mayoría son
+ * escáneres automatizados tanteando `backup.sql`, `secrets.yml`, `config.py`
+ * o `database.yml`. Ninguno de esos archivos existe ni se expone, pero cada
+ * sondeo gastaba dos llamadas al backend (la página y su generateMetadata) y
+ * dejaba un error que tapaba los problemas de verdad.
+ */
+const EXTENSIONES_DE_ARCHIVO =
+  /\.(png|jpe?g|gif|webp|avif|svg|ico|bmp|css|js|mjs|map|json|ya?ml|xml|txt|md|html?|php|py|rb|sql|env|ini|cfg|conf|toml|bak|zip|tar|gz|pdf|woff2?|ttf|eot)(\?|$)/i;
+
+function pareceArchivo(slug: string): boolean {
+  return EXTENSIONES_DE_ARCHIVO.test(slug);
+}
+
+/**
  * Obtiene una página multimedia activa por slug
  */
 export async function getActivePageBySlug(slug: string): Promise<MultimediaPageData | null> {
+  // Se responde null sin salir a la red: el llamador ya hace notFound(), así
+  // que el visitante ve el mismo 404 de siempre.
+  if (pareceArchivo(slug)) return null;
+
   try {
     // El slug puede llegar ya decodificado ("mañana") o codificado
     // ("ma%C3%B1ana") según el origen; se normaliza antes de codificar
