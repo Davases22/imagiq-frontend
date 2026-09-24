@@ -355,7 +355,11 @@ export default function CreateAccountPage() {
             emailHint: err.emailHint ?? null,
             ownerHasPassword: err.ownerHasPassword ?? false,
           });
-          setHasPhoneError(true);
+          // A propósito NO se marca hasPhoneError: ese flag no pinta el campo
+          // (PersonalInfoStep no lo recibe), solo deshabilita el botón
+          // Continuar, y lo único que lo vuelve a false es un registro
+          // exitoso. Marcarlo dejaría a la persona sin forma de corregir el
+          // teléfono y reintentar.
           setError("");
         } else {
           setError(msg);
@@ -661,10 +665,7 @@ export default function CreateAccountPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setConflictoTelefono(null);
-                        setHasPhoneError(true);
-                      }}
+                      onClick={() => setConflictoTelefono(null)}
                       className="flex-1"
                     >
                       Usar otro teléfono
