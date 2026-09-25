@@ -18,6 +18,7 @@ import { useCarouselController } from "@/hooks/useCarouselController";
 import { parsePosition, parseTextStyles, fluidFontSize, fluidPadding } from "@/utils/bannerCoordinates";
 import type { Banner, BannerPosition, BannerTextStyles, ContentBlock } from "@/types/banner";
 import { getCloudinaryUrl, isBannerVideo } from "@/lib/cloudinary";
+import { fuentesDeVideo } from "@/lib/video-sources";
 
 type CSS = React.CSSProperties;
 
@@ -598,7 +599,9 @@ export default function DynamicBannerClean({
                 onEnded={isActive ? controller.handleVideoEnd : undefined}
                 key={`desktop-video-${banner.id}-${index}`}
               >
-                <source src={banner.desktop_video_url} type="video/mp4" />
+                {fuentesDeVideo(banner.desktop_video_url).map((fuente) => (
+                  <source key={fuente.src} src={fuente.src} type={fuente.type} />
+                ))}
               </video>
             );
           } else if (banner.desktop_image_url) {
@@ -634,7 +637,9 @@ export default function DynamicBannerClean({
                 onEnded={isActive ? controller.handleVideoEnd : undefined}
                 key={`mobile-video-${banner.id}-${index}`}
               >
-                <source src={banner.mobile_video_url} type="video/mp4" />
+                {fuentesDeVideo(banner.mobile_video_url).map((fuente) => (
+                  <source key={fuente.src} src={fuente.src} type={fuente.type} />
+                ))}
               </video>
             );
           } else if (banner.mobile_image_url) {
