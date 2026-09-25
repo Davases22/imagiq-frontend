@@ -12,6 +12,7 @@ import { positionToCSS, parseTextStyles, fluidFontSize, fluidPadding } from "@/u
 import Link from "next/link";
 import type { HeroBannerConfig, ContentBlock } from "@/types/banner";
 import { getCloudinaryUrl } from "@/lib/cloudinary";
+import { fuentesDeVideo } from "@/lib/video-sources";
 
 /**
  * Componente de contenido del Hero (reutilizable para desktop y mobile)
@@ -543,7 +544,9 @@ export default function HeroSection() {
                         marginRight: `${scrollProgress * 4}%`,
                       }}
                     >
-                      <source src={config.videoSrc} type="video/mp4" />
+                      {fuentesDeVideo(config.videoSrc).map((fuente) => (
+                        <source key={fuente.src} src={fuente.src} type={fuente.type} />
+                      ))}
                     </video>
                     {/* Desktop poster image - shown when video ends */}
                     {config.imageSrc && (
@@ -600,7 +603,9 @@ export default function HeroSection() {
                         transition: "opacity 0.5s ease-in-out",
                       }}
                     >
-                      <source src={config.mobileVideoSrc} type="video/mp4" />
+                      {fuentesDeVideo(config.mobileVideoSrc).map((fuente) => (
+                        <source key={fuente.src} src={fuente.src} type={fuente.type} />
+                      ))}
                     </video>
                     {/* Mobile poster image */}
                     {config.mobileImageSrc && (
