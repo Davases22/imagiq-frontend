@@ -281,21 +281,22 @@ function FlixmediaPlayerComponent({
         ...extra,
       });
     };
-    // Modo embebido (view/viewpremium) o multimedia: aquí no hay redirect, así que
-    // el fallo se resuelve reintentando y, al final, con el fallback visible.
-    const modoSinRedirect = () => preventRedirectRef.current || skipMatchApiRef.current;
-    const puedeReintentar = () => modoSinRedirect() && attempt < MAX_ATTEMPTS - 1;
+    // Embebido (view/viewpremium) y multimedia reintentan antes de rendirse.
+    // Agotados los intentos: multimedia sale a view (comportamiento acordado);
+    // embebido, que ya está en view, muestra el fallback. Modo match: como antes.
+    const puedeReintentar = () =>
+      (preventRedirectRef.current || skipMatchApiRef.current) && attempt < MAX_ATTEMPTS - 1;
     const fallar = (kind: "timeout" | "error") => {
       setHasContent(false);
       setHasFlixError(true);
-      if (!modoSinRedirect()) {
-        redirectToView();
-        return;
-      }
       if (puedeReintentar()) {
         retryTimeoutId = setTimeout(() => {
           if (isMounted) setAttempt((a) => a + 1);
         }, RETRY_DELAY_MS);
+        return;
+      }
+      if (!preventRedirectRef.current) {
+        redirectToView();
         return;
       }
       setFailureKind(kind);
@@ -672,13 +673,13 @@ function FlixmediaPlayerComponent({
 
   // Sin contenido: no renderizar nada (ni mensaje)
   if (!mpn && !ean) return null;
-  const modoEmbebido = preventRedirect || skipMatchApi;
-  // Sin contenido real (NOSHOW) o modo con redirect: se colapsa como siempre.
+  // NOSHOW (producto sin contenido): se colapsa como siempre.
   if (failureKind === "noshow") return null;
-  if (!modoEmbebido && (hasContent === false || hasFlixError)) return null;
-  // Embebido sin MPN utilizable: no hay nada que pedir.
-  if (modoEmbebido && hasContent === false && !hasFlixError) return null;
-  const mostrarFallback = modoEmbebido && (failureKind === "timeout" || failureKind === "error");
+  // Mientras hay un reintento en curso el contenedor sigue montado; el fallback
+  // visible es solo para la vista embebida (multimedia redirige a view).
+  const reintentando = hasFlixError && failureKind === null && (preventRedirect || skipMatchApi);
+  const mostrarFallback = preventRedirect && (failureKind === "timeout" || failureKind === "error");
+  if (!reintentando && !mostrarFallback && (hasContent === false || hasFlixError)) return null;
   const reintentar = () => {
     setFailureKind(null);
     setHasFlixError(false);
