@@ -469,17 +469,23 @@ export default function MultimediaPage({
             Match era peso muerto serial (~100-700ms en frío): no gatea el render ni
             el redirect — "sin contenido" lo detectan el callback noshow y el timeout
             de 4s del player, que siguen redirigiendo a view/viewpremium. */}
-        <FlixmediaPlayer
-          mpn={productSku}
-          ean={productEan}
-          productName={displayProductName}
-          productId={id}
-          segmento={segmento}
-          apiProduct={product?.apiProduct}
-          productColors={product?.colors}
-          skipMatchApi={true}
-          className=""
-        />
+        {/* No montar el player hasta que useProduct termine: con el producto del API
+            los candidatos llevan el SKU padre primero (The Frame: QN55LS03HEKXZL antes
+            que F-QN55LS03HEKB). Montarlo antes disparaba loader.js con el SKU guardado
+            en localStorage, Flixmedia respondía NOSHOW y la página saltaba a view. */}
+        {!loading && (
+          <FlixmediaPlayer
+            mpn={productSku}
+            ean={productEan}
+            productName={displayProductName}
+            productId={id}
+            segmento={segmento}
+            apiProduct={product?.apiProduct}
+            productColors={product?.colors}
+            skipMatchApi={true}
+            className=""
+          />
+        )}
       </div>
     </div>
   );
