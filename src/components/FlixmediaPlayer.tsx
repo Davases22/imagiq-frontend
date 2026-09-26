@@ -15,6 +15,7 @@
 import { useEffect, memo, useCallback, useState, useRef } from "react";
 import { parseSkuString, resolveFlixmediaMpn, checkFlixmediaAvailabilityByEan, hasPremiumContent as checkPremiumContent } from "@/lib/flixmedia";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { posthogUtils } from "@/lib/posthogClient";
 
 declare global {
@@ -74,6 +75,25 @@ const NO_CONTENT_GRACE_MS = 6000;
 // Tope absoluto desde el init SOLO mientras loader.js no responde (ni onload ni
 // onerror); al cargar el loader se cancela y manda la ventana de arriba.
 const NO_CONTENT_HARD_CAP_MS = 15000;
+// En modo embebido/multimedia no nos rendimos al primer timeout: se re-inyecta
+// loader.js hasta MAX_ATTEMPTS veces antes de mostrar el fallback. Los timeouts
+// reales en producción son casi todos "loader_ready_timeout" en redes lentas
+// (≈4 % en Android), no productos sin contenido: esos llegan por NOSHOW.
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1500;
+
+// Con conexión lenta (Network Information API, solo Chromium) las ventanas de
+// espera se estiran; en el resto de navegadores el factor es 1.
+function factorRedLenta(): number {
+  if (typeof navigator === "undefined") return 1;
+  const conn = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
+  if (!conn) return 1;
+  if (conn.effectiveType === "slow-2g" || conn.effectiveType === "2g") return 2.5;
+  if (conn.effectiveType === "3g" || conn.saveData) return 1.6;
+  return 1;
+}
+
+type FalloFlix = "noshow" | "timeout" | "error";
 
 
 function FlixmediaPlayerComponent({
@@ -102,6 +122,11 @@ function FlixmediaPlayerComponent({
   // (primer elemento real en el container) y la rama positiva del timeout de 4s.
   const [contentReady, setContentReady] = useState(false);
   const [skeletonGone, setSkeletonGone] = useState(false);
+  // Intento actual (0 = primero). Cambiarlo re-ejecuta el effect completo.
+  const [attempt, setAttempt] = useState(0);
+  // Solo se fija cuando ya no habrá más reintentos: decide entre colapsar
+  // (noshow: el producto no tiene contenido) y mostrar el fallback (timeout/error).
+  const [failureKind, setFailureKind] = useState<FalloFlix | null>(null);
 
   // Crossfade de salida: al confirmar contenido, el skeleton se desvanece
   // (transition-opacity 300ms) y se desmonta después — nunca display:none en
@@ -188,6 +213,9 @@ function FlixmediaPlayerComponent({
     setHasFlixError(false);
     setContentReady(false);
     setSkeletonGone(false);
+    setFailureKind(null);
+    const lentitud = factorRedLenta();
+    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     // Durante SPA navigation, mpn pasa brevemente por null mientras selectedProductData
     // se resetea y useProduct carga datos frescos. NO inicializar en este estado transitorio:
@@ -253,6 +281,25 @@ function FlixmediaPlayerComponent({
         ...extra,
       });
     };
+    // Modo embebido (view/viewpremium) o multimedia: aquí no hay redirect, así que
+    // el fallo se resuelve reintentando y, al final, con el fallback visible.
+    const modoSinRedirect = () => preventRedirectRef.current || skipMatchApiRef.current;
+    const puedeReintentar = () => modoSinRedirect() && attempt < MAX_ATTEMPTS - 1;
+    const fallar = (kind: "timeout" | "error") => {
+      setHasContent(false);
+      setHasFlixError(true);
+      if (!modoSinRedirect()) {
+        redirectToView();
+        return;
+      }
+      if (puedeReintentar()) {
+        retryTimeoutId = setTimeout(() => {
+          if (isMounted) setAttempt((a) => a + 1);
+        }, RETRY_DELAY_MS);
+        return;
+      }
+      setFailureKind(kind);
+    };
 
     const init = async () => {
       let targetMpn: string | null = null;
@@ -290,6 +337,17 @@ function FlixmediaPlayerComponent({
       preloadLink.as = 'script';
       preloadLink.href = '//media.flixfacts.com/js/loader.js';
       document.head.appendChild(preloadLink);
+      // service.js (~700 KB) y la ficha t.json salen de media.flixcar.com; los beats de rt.flix360.com.
+      // Abrir esas conexiones ya recorta el arranque en redes lentas.
+      for (const origin of ["https://media.flixcar.com", "https://rt.flix360.com"]) {
+        if (!document.querySelector(`link[rel="preconnect"][href="${origin}"]`)) {
+          const pre = document.createElement("link");
+          pre.rel = "preconnect";
+          pre.href = origin;
+          pre.crossOrigin = "anonymous";
+          document.head.appendChild(pre);
+        }
+      }
 
       // Los candidatos ya vienen ordenados por probabilidad (flixmediaCandidatesForVariant),
       // así que la página multimedia (skipMatchApi) carga loader.js DIRECTO con el
@@ -384,10 +442,11 @@ function FlixmediaPlayerComponent({
           } else if (callbackType === 'noshow') {
             console.log(`[FLIX] Callback NOSHOW: sin contenido (+${Math.round(performance.now() - initStartTime)}ms)`);
             if (!isMounted) return;
-            reportOutcome("noshow_callback");
+            reportOutcome("noshow_callback", { attempt });
             observer?.disconnect();
             setHasContent(false);
             setHasFlixError(true);
+            setFailureKind("noshow");
             if (!preventRedirectRef.current) redirectToView();
           }
 
@@ -456,10 +515,9 @@ function FlixmediaPlayerComponent({
         }
         if (checkForFlixError()) {
           console.log('[FLIX] Error visual de Flixmedia detectado → redirigiendo');
-          reportOutcome("visual_error");
+          reportOutcome("visual_error", { attempt, will_retry: puedeReintentar() });
           observer?.disconnect();
-          setHasFlixError(true);
-          if (!preventRedirectRef.current) redirectToView();
+          fallar("error");
         }
       });
       observer.observe(container, { childList: true, subtree: true, attributes: true });
@@ -478,7 +536,7 @@ function FlixmediaPlayerComponent({
         if (!graceUsed && !checkForFlixError() && !hasRealContent(cont) && cont.querySelector('[id^="flixinpage_"]')) {
           graceUsed = true;
           console.log(`[FLIX] Wrapper presente sin contenido real (${reason}) → prórroga ${NO_CONTENT_GRACE_MS}ms`);
-          noContentTimeoutId = setTimeout(() => verifyNoContent(`${reason}+grace`), NO_CONTENT_GRACE_MS);
+          noContentTimeoutId = setTimeout(() => verifyNoContent(`${reason}+grace`), NO_CONTENT_GRACE_MS * lentitud);
           return;
         }
 
@@ -490,6 +548,8 @@ function FlixmediaPlayerComponent({
             hasImages: cont.querySelectorAll('img').length,
           });
           reportOutcome("timeout_no_content", {
+            attempt,
+            will_retry: puedeReintentar(),
             timeout_reason: reason,
             children: cont.children.length,
             inner_html_length: cont.innerHTML.length,
@@ -497,9 +557,7 @@ function FlixmediaPlayerComponent({
             images: cont.querySelectorAll('img').length,
           });
           observer?.disconnect();
-          setHasContent(false);
-          setHasFlixError(true);
-          if (!preventRedirectRef.current) redirectToView();
+          fallar("timeout");
         } else {
           // Sí hay contenido real: asegurar que el skeleton se retire aunque
           // ningún callback ni mutación lo haya marcado (red de seguridad)
@@ -507,7 +565,7 @@ function FlixmediaPlayerComponent({
           setContentReady(true);
         }
       };
-      hardCapTimeoutId = setTimeout(() => verifyNoContent("hard_cap"), NO_CONTENT_HARD_CAP_MS);
+      hardCapTimeoutId = setTimeout(() => verifyNoContent("hard_cap"), NO_CONTENT_HARD_CAP_MS * lentitud);
 
       // Cargar loader.js
       console.log(`[FLIX] Cargando loader.js MPN: ${targetMpn} (+${Math.round(performance.now() - initStartTime)}ms)`);
@@ -545,10 +603,11 @@ function FlixmediaPlayerComponent({
             window.flixJsCallbacks.setLoadCallback(() => {
               console.log(`[FLIX] Registered NOSHOW callback fired (+${Math.round(performance.now() - initStartTime)}ms)`);
               if (!isMounted) return;
-              reportOutcome("noshow_callback");
+              reportOutcome("noshow_callback", { attempt });
               observer?.disconnect();
               setHasContent(false);
               setHasFlixError(true);
+              setFailureKind("noshow");
               if (!preventRedirectRef.current) redirectToView();
             }, 'noshow');
           }
@@ -560,15 +619,14 @@ function FlixmediaPlayerComponent({
         // el tope absoluto deja de aplicar (era solo para un loader que no responde).
         if (hardCapTimeoutId) { clearTimeout(hardCapTimeoutId); hardCapTimeoutId = null; }
         if (isMounted && !outcomeReported) {
-          noContentTimeoutId = setTimeout(() => verifyNoContent("loader_ready_timeout"), NO_CONTENT_TIMEOUT_MS);
+          noContentTimeoutId = setTimeout(() => verifyNoContent("loader_ready_timeout"), NO_CONTENT_TIMEOUT_MS * lentitud);
         }
       };
       script.onerror = () => {
         console.log('[FLIX] Error cargando loader.js → redirigiendo');
         if (!isMounted) return;
-        reportOutcome("loader_error");
-        setHasContent(false);
-        if (!preventRedirectRef.current) redirectToView();
+        reportOutcome("loader_error", { attempt, will_retry: puedeReintentar() });
+        fallar("error");
       };
       script.src = "//media.flixfacts.com/js/loader.js";
       document.head.appendChild(script);
@@ -601,6 +659,7 @@ function FlixmediaPlayerComponent({
       if (cartClickGuardId) clearInterval(cartClickGuardId);
       if (noContentTimeoutId) clearTimeout(noContentTimeoutId);
       if (hardCapTimeoutId) clearTimeout(hardCapTimeoutId);
+      if (retryTimeoutId) clearTimeout(retryTimeoutId);
       abortController.abort();
       observer?.disconnect();
     };
@@ -609,11 +668,25 @@ function FlixmediaPlayerComponent({
   // lo que dispararía una segunda init que destruye el contenido ya cargado.
   // productId cubre cambios de producto. mpn cubre cambios de SKU dentro del mismo producto.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mpn, productId]);
+  }, [mpn, productId, attempt]);
 
   // Sin contenido: no renderizar nada (ni mensaje)
   if (!mpn && !ean) return null;
-  if (hasContent === false || hasFlixError) return null;
+  const modoEmbebido = preventRedirect || skipMatchApi;
+  // Sin contenido real (NOSHOW) o modo con redirect: se colapsa como siempre.
+  if (failureKind === "noshow") return null;
+  if (!modoEmbebido && (hasContent === false || hasFlixError)) return null;
+  // Embebido sin MPN utilizable: no hay nada que pedir.
+  if (modoEmbebido && hasContent === false && !hasFlixError) return null;
+  const mostrarFallback = modoEmbebido && (failureKind === "timeout" || failureKind === "error");
+  const reintentar = () => {
+    setFailureKind(null);
+    setHasFlixError(false);
+    setHasContent(null);
+    setAttempt((a) => a + 1);
+  };
+  const fichaCompletaHref =
+    !skipMatchApi && productId ? `/productos/multimedia/${String(productId).split("/")[0]}` : null;
 
   // Renderizar container - visible cuando hay contenido o aún cargando (null).
   // El skeleton va como OVERLAY absoluto sobre el container SIEMPRE montado:
@@ -625,7 +698,32 @@ function FlixmediaPlayerComponent({
         id={containerId}
         className="w-full"
       />
-      {!skeletonGone && (
+      {mostrarFallback && (
+        <div className="mx-auto max-w-5xl px-4 py-10 text-center">
+          <p className="text-base font-semibold text-gray-900">No pudimos cargar la ficha del producto</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Parece que la conexión está lenta. Puedes intentarlo de nuevo{fichaCompletaHref ? " o abrir la ficha completa" : ""}.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={reintentar}
+              className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+            >
+              Reintentar
+            </button>
+            {fichaCompletaHref && (
+              <Link
+                href={fichaCompletaHref}
+                className="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
+              >
+                Ver ficha completa
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+      {!skeletonGone && !mostrarFallback && (
         <div
           aria-hidden="true"
           className={`absolute inset-0 z-[1] overflow-hidden pointer-events-none bg-white transition-opacity duration-300 ${contentReady ? "opacity-0" : "opacity-100"}`}
