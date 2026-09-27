@@ -8,6 +8,38 @@ import type { Address } from "@/types/address";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api-client";
 
+/** Mensaje que ve el cliente cuando intenta guardar una dirección sin haber dado su correo. */
+export const MENSAJE_SIN_USUARIO =
+  "Para guardar una dirección primero ingresa tu correo en el paso anterior.";
+
+export class SinUsuarioError extends Error {
+  readonly code = "USUARIO_INVALIDO" as const;
+  constructor() {
+    super(MENSAJE_SIN_USUARIO);
+    this.name = "SinUsuarioError";
+  }
+}
+
+/**
+ * UUID del usuario (imagiq_user, dirección guardada) o su correo como respaldo.
+ * Nunca un id inventado: si no hay nada, el llamador debe pedir el correo.
+ */
+export function resolverUsuarioId(userInfo: { id?: string; email?: string }): string | null {
+  if (userInfo.id) return userInfo.id;
+  if (typeof window !== "undefined") {
+    for (const clave of ["checkout-address", "imagiq_default_address"]) {
+      try {
+        const guardado = JSON.parse(localStorage.getItem(clave) || "null");
+        if (guardado?.usuario_id) return String(guardado.usuario_id);
+      } catch {
+        /* valor corrupto: se ignora */
+      }
+    }
+  }
+  if (userInfo.email) return userInfo.email;
+  return null;
+}
+
 /**
  * Interface para crear una nueva dirección
  */
@@ -74,35 +106,13 @@ export class AddressesService {
       );
       const requestData = { ...addressData };
 
-      // SIEMPRE incluir usuarioId explícitamente
-      // Usa la misma lógica que NearbyLocationButton para consistencia
-      // Prioridad: 1) userInfo.id, 2) userInfo.email, 3) guest ID temporal
-      if (userInfo.id) {
-        requestData.usuarioId = userInfo.id;
-        console.log("✅ addressesService: Usando userInfo.id:", requestData.usuarioId);
-      } else if (userInfo.email) {
-        requestData.usuarioId = userInfo.email;
-        console.log("✅ addressesService: Usando userInfo.email:", requestData.usuarioId);
-      } else {
-        // Si no hay usuario en imagiq_user, usar guest ID temporal
-        // Este ID se usará hasta que el usuario complete Step 2
-        if (typeof window !== 'undefined') {
-          let guestId = localStorage.getItem("imagiq_guest_id");
-          if (!guestId) {
-            guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-            localStorage.setItem("imagiq_guest_id", guestId);
-            console.log("🆕 addressesService: Nuevo guest ID generado:", guestId);
-          } else {
-            console.log("✅ addressesService: Usando guest ID existente:", guestId);
-          }
-          requestData.usuarioId = guestId;
-        } else {
-          throw new Error(
-            "No se encontró información del usuario. Por favor, inicia sesión nuevamente."
-          );
-        }
-      }
-
+      // SIEMPRE incluir usuarioId explícitamente: el UUID del usuario o, si aún no
+      // lo tenemos, su correo (el backend lo resuelve). Antes, sin usuario en
+      // localStorage, se inventaba un "guest_<fecha>_<aleatorio>": ese valor no
+      // corresponde a nadie, addresses-ms lo rechaza y el cliente veía un 500.
+      const usuarioId = resolverUsuarioId(userInfo);
+      if (!usuarioId) throw new SinUsuarioError();
+      requestData.usuarioId = usuarioId;
       // Verificar si es la primera dirección del usuario
       const existingAddresses = await this.getUserAddresses();
       const isFirstAddress = existingAddresses.length === 0;
