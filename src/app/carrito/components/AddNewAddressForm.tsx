@@ -1248,8 +1248,11 @@ export default function AddNewAddressForm({
   const formContent = (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Título, indicador de pasos y botón continuar */}
+      {/* sticky: el botón "Continuar" (y "usar mi ubicación") quedan siempre a la
+          vista mientras se recorre el formulario. bg-white para que el contenido
+          no se vea pasar por detrás. */}
       <div
-        className={`flex items-center justify-between mb-6 gap-4 ${
+        className={`sticky top-0 z-30 bg-white flex items-center justify-between gap-4 pt-1 pb-3 mb-3 before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-white ${
           billingOnly ? "pr-10" : ""
         }`}
       >
