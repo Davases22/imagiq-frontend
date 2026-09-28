@@ -434,7 +434,7 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
                 </button>
               </div>
 
-              <div className="overflow-y-auto p-6">
+              <div className="flex-1 min-h-0 overflow-y-auto p-6">
                 <AddNewAddressForm
                   onAddressAdded={handleAddressAdded}
                   onCancel={() => setShowAddAddressModal(false)}
