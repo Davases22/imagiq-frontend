@@ -316,7 +316,10 @@ export const AddressMap3D: React.FC<AddressMap3DProps> = ({
       {/* Contenedor del mapa */}
       <div
         ref={mapContainer}
-        style={{ height, width }}
+        // touchAction pan-y: en móvil el deslizamiento vertical siempre mueve la
+        // página, aunque el dedo caiga sobre el mapa. El mapa se maneja con dos
+        // dedos (gestureHandling 'cooperative'), que es como ya estaba pensado.
+        style={{ height, width, touchAction: 'pan-y' }}
         className="bg-gray-100"
       />
 
