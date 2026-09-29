@@ -50,9 +50,6 @@ export default function EducationPage() {
         onContactClick={handleContactClick}
         title="¿Listo para transformar la educación?"
         description="Descubre cómo Samsung puede ayudar a tu institución educativa a preparar a los estudiantes para el futuro con tecnología de punta."
-        gradientFrom="from-purple-600"
-        gradientTo="to-blue-600"
-        buttonTextColor="text-purple-600"
       />
 
       <SpecializedConsultationModal

@@ -45,10 +45,6 @@ export default function RetailPage() {
         onContactClick={handleContactClick}
         title="¿Listo para transformar tu negocio retail?"
         description="Descubre cómo las soluciones Samsung pueden elevar tu tienda y mejorar la experiencia de tus clientes"
-        gradientFrom="from-pink-500"
-        gradientVia="via-purple-600"
-        gradientTo="to-indigo-700"
-        buttonTextColor="text-pink-600"
       />
 
       <SpecializedConsultationModal
