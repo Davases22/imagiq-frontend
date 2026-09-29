@@ -133,7 +133,7 @@ export default function TiendasPage() {
 
             {/* Sidebar desktop */}
             <aside
-              className="absolute top-32 left-12 w-[420px] max-w-full bg-white rounded-[18px] border border-black p-0 flex flex-col gap-0 z-20"
+              className="absolute top-32 left-20 w-[420px] max-w-full bg-white rounded-[18px] border border-black p-0 flex flex-col gap-0 z-20"
               style={{
                 boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
                 overflow: "hidden",
