@@ -14,6 +14,8 @@ import {
   getOrderStatusColor,
 } from "@/services/orders.service";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Image from "next/image";
+import { apiGet } from "@/lib/api-client";
 
 interface OrdersPageProps {
   onBack: () => void;
@@ -32,6 +34,13 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
   const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<
     string | null
   >(null);
+  // POST /api/orders no devuelve imagen de los items, solo sku y nombre. La
+  // imagen si viene en GET /api/orders/{id}/imagiq, asi que se pide al
+  // expandir el pedido y se guarda por sku. Si falla, la tarjeta sigue
+  // mostrandose con el icono generico.
+  const [imagenesPorOrden, setImagenesPorOrden] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
   const fetchOrders = useCallback(async () => {
     if (!userEmail) {
@@ -64,6 +73,32 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
     fetchOrders();
   }, [fetchOrders]);
 
+  const cargarImagenes = useCallback(
+    async (orderId: string) => {
+      if (imagenesPorOrden[orderId]) return;
+      try {
+        const res = await apiGet<{
+          data?: { items?: Array<Record<string, unknown>> };
+          items?: Array<Record<string, unknown>>;
+        }>(`/api/orders/${orderId}/imagiq`);
+        const items = res?.data?.items ?? res?.items ?? [];
+        const mapa: Record<string, string> = {};
+        for (const it of items) {
+          const sku = String(it.sku ?? it.SKU ?? "");
+          const url = String(
+            it.image_preview_url ?? it.picture_url ?? it.imagen ?? ""
+          );
+          if (sku && url) mapa[sku] = url;
+        }
+        setImagenesPorOrden((prev) => ({ ...prev, [orderId]: mapa }));
+      } catch {
+        // Sin imagenes se sigue mostrando el pedido con el icono generico.
+        setImagenesPorOrden((prev) => ({ ...prev, [orderId]: {} }));
+      }
+    },
+    [imagenesPorOrden]
+  );
+
   const toggleOrderExpanded = (orderId: string) => {
     setExpandedOrders((prev) => {
       const newSet = new Set(prev);
@@ -71,6 +106,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
         newSet.delete(orderId);
       } else {
         newSet.add(orderId);
+        void cargarImagenes(orderId);
       }
       return newSet;
     });
@@ -283,29 +319,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
               {isExpanded && (
                 <div className="border-t-2 border-gray-100 p-4">
                   {/* Order Info */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 pb-4 border-b border-gray-100">
+                  {/* Envio e Impuestos se retiraron del resumen a peticion:
+                      quedan el medio de pago y el numero de productos. */}
+                  <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-100">
                     <div>
                       <p className="text-xs text-gray-500 uppercase">
                         Medio de pago
                       </p>
                       <p className="font-semibold">{order.medio_de_pago}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">Envío</p>
-                      <p className="font-semibold">
-                        {formatCurrency(order.shipping_amount, order.currency)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase">
-                        Impuestos
-                      </p>
-                      <p className="font-semibold">
-                        {formatCurrency(
-                          order.total_taxes_amount,
-                          order.currency
-                        )}
-                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 uppercase">
@@ -320,12 +341,29 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                     <p className="text-sm font-semibold text-gray-700">
                       Productos del pedido
                     </p>
-                    {order.items.map((item) => (
+                    {order.items.map((item) => {
+                      const imagen = imagenesPorOrden[order.id]?.[item.sku];
+                      return (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+                        className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl"
                       >
-                        <div className="flex-1">
+                        <div className="relative w-16 h-16 flex-shrink-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                          {imagen ? (
+                            <Image
+                              src={imagen}
+                              alt={item.nombre}
+                              fill
+                              sizes="64px"
+                              className="object-contain p-1"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-6 h-6 text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900">
                             {item.nombre}
                           </p>
@@ -351,7 +389,8 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Order Total */}
