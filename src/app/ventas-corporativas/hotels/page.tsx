@@ -50,10 +50,6 @@ export default function HotelsPage() {
         onContactClick={handleContactClick}
         title="¿Listo para transformar tu hotel?"
         description="Descubre cómo Samsung puede mejorar la experiencia de tus huéspedes con tecnología innovadora."
-        gradientFrom="from-orange-500"
-        gradientVia="via-red-500"
-        gradientTo="to-pink-600"
-        buttonTextColor="text-orange-600"
       />
 
       <SpecializedConsultationModal

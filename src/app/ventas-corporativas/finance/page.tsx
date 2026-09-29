@@ -50,10 +50,6 @@ export default function FinancePage() {
         onContactClick={handleContactClick}
         title="¿Listo para transformar tu institución financiera?"
         description="Descubre cómo Samsung puede ayudar a modernizar tus servicios financieros con tecnología segura y confiable."
-        gradientFrom="from-purple-600"
-        gradientVia="via-indigo-600"
-        gradientTo="to-blue-700"
-        buttonTextColor="text-purple-600"
       />
 
       <SpecializedConsultationModal

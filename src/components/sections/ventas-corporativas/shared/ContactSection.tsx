@@ -12,40 +12,34 @@ interface ContactSectionProps {
   title: string;
   description: string;
   buttonText?: string;
-  gradientFrom?: string;
-  gradientVia?: string;
-  gradientTo?: string;
-  buttonTextColor?: string;
 }
 
+/**
+ * Cierre de cada página de industria.
+ *
+ * Antes cada industria pintaba aquí un degradado propio (morado en educación,
+ * rojo en hoteles, azul en gobierno...), lo que daba una franja enorme y de un
+ * color distinto en cada página. Ahora es una banda negra, sobria y bastante
+ * más baja, igual en todas.
+ */
 export default function ContactSection({
   onContactClick,
   title,
   description,
   buttonText = "Contáctanos",
-  gradientFrom = "from-purple-600",
-  gradientVia = "via-purple-600",
-  gradientTo = "to-blue-600",
-  buttonTextColor = "text-purple-600",
 }: ContactSectionProps) {
   return (
-    <section
-      className={`relative py-20 md:py-32 overflow-hidden`}
-    >
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${gradientFrom} ${gradientVia} ${gradientTo}`}
-      ></div>
-
-      <div className="relative container mx-auto px-4 max-w-4xl text-center">
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
+    <section className="relative bg-black py-12 md:py-16">
+      <div className="relative container mx-auto max-w-3xl px-4 text-center">
+        <h2 className="mb-3 text-2xl font-bold text-white md:text-3xl">
           {title}
         </h2>
-        <p className="text-lg md:text-xl text-white/90 mb-8 md:mb-10 leading-relaxed">
+        <p className="mb-6 text-base leading-relaxed text-white/80 md:text-lg">
           {description}
         </p>
         <button
           onClick={onContactClick}
-          className={`inline-flex items-center px-8 md:px-10 py-4 bg-white ${buttonTextColor} font-bold rounded-full hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-xl text-base md:text-lg`}
+          className="inline-flex items-center rounded-full bg-white px-8 py-3 text-base font-bold text-black transition-colors duration-200 hover:bg-gray-200 md:px-10"
         >
           {buttonText}
         </button>
