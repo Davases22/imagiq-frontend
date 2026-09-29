@@ -15,6 +15,8 @@ import { syncAddress, syncNewAddress, direccionToAddress } from "@/lib/addressSy
 
 interface AddressDropdownProps {
   showWhiteItems: boolean;
+  /** Avisa al Navbar para que ponga el header en blanco mientras esta abierto. */
+  onOpenChange?: (abierto: boolean) => void;
   renderMobileTrigger?: (params: {
     onClick: () => void;
     isOpen: boolean;
@@ -61,10 +63,15 @@ const getAddressUpToCity = (address: Address | null): string => {
 const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
   showWhiteItems,
   renderMobileTrigger,
+  onOpenChange,
 }) => {
   const { user, login, isAuthenticated } = useAuthContext();
   const { address: currentAddress, isLoading: loadingDefault, invalidate, refetch } = useDefaultAddress('ENVIO');
   const [open, setOpen] = useState(false);
+  // El panel se posicionaba con `top-[64px]` fijo, pero el header movil crece
+  // cuando la direccion ocupa dos lineas, asi que quedaba un hueco (o se
+  // montaba encima). Se ancla al borde inferior real del header.
+  const [topPanel, setTopPanel] = useState(64);
   const [showModal, setShowModal] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +82,29 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isFetchingRef = useRef(false);
   const [guestAddress, setGuestAddress] = useState<Address | null>(null);
+
+  // Avisar al Navbar para que deje de ser transparente mientras esta abierto.
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
+
+  // Medir el borde inferior real del header para colgar el panel justo debajo.
+  useEffect(() => {
+    if (!open) return;
+    const medir = () => {
+      const header = document.querySelector('[data-navbar="true"]');
+      if (header) {
+        setTopPanel(Math.round(header.getBoundingClientRect().bottom));
+      }
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    window.addEventListener("orientationchange", medir);
+    return () => {
+      window.removeEventListener("resize", medir);
+      window.removeEventListener("orientationchange", medir);
+    };
+  }, [open]);
 
   // Verificar si estamos en el cliente
   useEffect(() => {
@@ -597,7 +627,8 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
 
         {open && (
           <div
-            className="fixed xl:absolute left-0 right-0 xl:left-0 xl:right-auto top-[64px] xl:top-full mt-0 xl:mt-1 w-full xl:w-[420px] bg-white border-t xl:border border-gray-200 xl:rounded-lg shadow-2xl z-[10000] overflow-hidden"
+            className="fixed xl:absolute left-2 right-2 xl:left-0 xl:right-auto top-[var(--top-panel)] xl:top-full mt-0 xl:mt-1 w-auto xl:w-[400px] max-w-[calc(100vw-1rem)] bg-white border border-gray-200 rounded-lg xl:rounded-lg shadow-2xl z-[10000] overflow-hidden"
+            style={{ "--top-panel": `${topPanel}px` } as React.CSSProperties}
             role="menu"
           >
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">

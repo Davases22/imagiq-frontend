@@ -1,11 +1,12 @@
 import React from "react";
-import { Home, Building2, MapPin, Trash2, Check } from "lucide-react";
+import { Home, Building2, MapPin, Check } from "lucide-react";
 import { DBAddress } from "../../types";
 
 interface AddressCardProps {
   address: DBAddress;
   onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  /** Se conserva para cuando se reactive el boton de eliminar. */
+  onDelete?: (id: string) => void;
   onSetDefault: (id: string) => void;
   loading?: boolean;
 }
@@ -13,7 +14,6 @@ interface AddressCardProps {
 const AddressCard: React.FC<AddressCardProps> = ({
   address,
   onEdit,
-  onDelete,
   onSetDefault,
   loading = false,
 }) => {
@@ -42,7 +42,7 @@ const AddressCard: React.FC<AddressCardProps> = ({
 
   if (loading) {
     return (
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between p-4 min-h-[180px] animate-pulse">
+      <div className="w-full sm:max-w-sm bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between p-4 min-h-[180px] animate-pulse">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 bg-gray-200 rounded-full flex-shrink-0" />
           <div className="flex-1">
@@ -61,7 +61,7 @@ const AddressCard: React.FC<AddressCardProps> = ({
   }
 
   return (
-    <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between p-4 transition-all hover:shadow-xl min-h-[180px]">
+    <div className="w-full sm:max-w-sm bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between p-4 transition-all hover:shadow-xl min-h-[180px]">
       {/* Header: Icono + Nombre + Acciones */}
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -78,18 +78,9 @@ const AddressCard: React.FC<AddressCardProps> = ({
             </div>
           )}
         </div>
-        {/* Botón de borrar */}
-        <div className="flex gap-1 flex-shrink-0">
-          {(!isDefault || isBilling) && (
-            <button
-              onClick={() => onDelete(address.id)}
-              className="p-2 bg-gray-100 hover:bg-red-100 rounded-lg transition-colors text-gray-700 hover:text-red-600"
-              title="Eliminar"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        {/* El boton de eliminar se retiro porque la baja de direcciones no
+            esta operativa: el usuario lo pulsaba, confirmaba y la direccion
+            seguia ahi. Se reactiva junto con el arreglo del borrado. */}
       </div>
 
       {/* Info dirección */}
