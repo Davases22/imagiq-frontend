@@ -24,24 +24,6 @@ export default function IndustrySelector({
     router.push(industry.href);
   };
 
-  // Función para obtener el color de blur apropiado para cada industria
-  const getIndustryBlurBg = (industryId: string) => {
-    switch (industryId) {
-      case "educativo":
-        return "bg-blue-200/80";
-      case "retail":
-        return "bg-green-200/80";
-      case "financiero":
-        return "bg-purple-200/80";
-      case "gobierno":
-        return "bg-blue-200/80";
-      case "hotelero":
-        return "bg-orange-200/80";
-      default:
-        return "bg-gray-200/80";
-    }
-  };
-
   return (
     <section className="py-16 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -113,15 +95,15 @@ export default function IndustrySelector({
                 className={`
                   absolute inset-0 flex items-center justify-center p-4 rounded-2xl
                   transition-all duration-300 ease-in-out backdrop-blur-sm
-                  ${getIndustryBlurBg(industry.id)}
+                  bg-black/85
                   opacity-0 group-hover:opacity-100
                 `}
               >
                 <div className="text-center z-10">
-                  <h3 className={`font-bold text-lg mb-2 ${industry.color}`}>
+                  <h3 className="font-bold text-lg mb-2 text-white">
                     {industry.name}
                   </h3>
-                  <p className="text-sm text-gray-800 leading-relaxed font-medium">
+                  <p className="text-sm text-white/85 leading-relaxed font-medium">
                     {industry.description}
                   </p>
                 </div>

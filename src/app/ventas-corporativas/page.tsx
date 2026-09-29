@@ -3,7 +3,10 @@
 import React, { useState } from "react";
 import { apiClient } from "@/lib/api";
 import { toast } from "sonner";
-import { IndustrySelector } from "@/components/sections/ventas-corporativas";
+import {
+  IndustrySelector,
+  ProductShowcase,
+} from "@/components/sections/ventas-corporativas";
 import SecondaryNavbar from "@/components/sections/ventas-corporativas/SecondaryNavbar";
 import SpecializedConsultationModal from "@/components/sections/ventas-corporativas/SpecializedConsultationModal";
 import {
@@ -64,7 +67,10 @@ export default function VentasCorporativasPage() {
   };
 
   return (
-    <main className="min-h-screen">
+    // Sin `min-h-screen`: estiraba la pagina hasta el alto completo de la
+    // ventana y, con este contenido, dejaba una franja en blanco entre el
+    // ultimo bloque y el pie de pagina.
+    <main>
       {/* Topbar secundario sticky */}
       <SecondaryNavbar
         items={[]}
@@ -78,11 +84,8 @@ export default function VentasCorporativasPage() {
         selectedIndustry={selectedIndustry?.id}
       />
 
-      {/* ProductShowcase queda fuera: solo pinta el titulo "Las soluciones que
-          tu empresa necesita" y un texto que promete una seleccion de
-          productos, pero no muestra ninguno. Debajo quedaba una franja en
-          blanco enorme hasta el pie de pagina. Volver a montarlo cuando haya
-          productos que listar. */}
+      {/* Product Showcase Section */}
+      <ProductShowcase />
 
       {/* Modal de contacto */}
       <SpecializedConsultationModal
