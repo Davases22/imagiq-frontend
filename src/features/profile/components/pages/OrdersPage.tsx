@@ -14,7 +14,6 @@ import {
   getOrderStatusColor,
 } from "@/services/orders.service";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Image from "next/image";
 import { apiGet } from "@/lib/api-client";
 
 interface OrdersPageProps {
@@ -350,12 +349,18 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                       >
                         <div className="relative w-16 h-16 flex-shrink-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
                           {imagen ? (
-                            <Image
+                            // <img> y no next/image: estas URLs las devuelve el
+                            // backend y pueden venir de cualquier host, que
+                            // next/image rechazaria por no estar en la config.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
                               src={imagen}
                               alt={item.nombre}
-                              fill
-                              sizes="64px"
-                              className="object-contain p-1"
+                              loading="lazy"
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
