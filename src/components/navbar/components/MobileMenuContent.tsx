@@ -190,18 +190,57 @@ const CategoryItem: FC<{
 
   return (
     <div>
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between py-3 text-base font-semibold text-gray-900 hover:bg-gray-50 rounded-lg px-2 transition-colors"
-      >
-        <span>{item.name}</span>
-        <motion.span
-          animate={{ rotate: isExpanded ? 180 : 0 }}
-          transition={{ duration: 0.25 }}
+      {/* La fila despliega el acordeon; al desplegarse aparece "Ver mas",
+          que es el unico camino desde el menu movil a la pagina de la
+          categoria (antes el href del item no se usaba nunca). */}
+      <div className="w-full flex items-center justify-between rounded-lg px-2 hover:bg-gray-50 transition-colors">
+        <button
+          onClick={onToggle}
+          aria-expanded={isExpanded}
+          className="flex-1 min-w-0 text-left py-3 text-base font-semibold text-gray-900"
         >
-          <ChevronDown className="w-5 h-5 text-gray-400" />
-        </motion.span>
-      </button>
+          <span className="block truncate">{item.name}</span>
+        </button>
+
+        <div className="flex items-center gap-2 pl-2 flex-shrink-0">
+          <AnimatePresence initial={false}>
+            {isExpanded && item.href && (
+              <motion.span
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link
+                  href={item.href}
+                  onClick={onClose}
+                  className="inline-flex items-center min-h-[44px] px-1 text-sm font-semibold text-blue-600 underline underline-offset-2 decoration-2 whitespace-nowrap hover:text-blue-700"
+                >
+                  Ver más
+                </Link>
+              </motion.span>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={onToggle}
+            aria-label={
+              isExpanded
+                ? `Cerrar ${item.name}`
+                : `Ver secciones de ${item.name}`
+            }
+            aria-expanded={isExpanded}
+            className="flex items-center justify-center w-11 h-11 -mr-1"
+          >
+            <motion.span
+              animate={{ rotate: isExpanded ? 180 : 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            </motion.span>
+          </button>
+        </div>
+      </div>
 
       <AnimatePresence initial={false}>
         {isExpanded && (
