@@ -112,22 +112,9 @@ export default function IndustrySelector({
           ))}
         </div>
 
-        {/* Selected Industry Info */}
-        {selected && (
-          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
-            <div className="text-center">
-              <p className="text-blue-800 font-medium">
-                Has seleccionado:{" "}
-                <span className="font-bold">
-                  {INDUSTRIES.find((i) => i.id === selected)?.name}
-                </span>
-              </p>
-              <p className="text-blue-600 mt-1">
-                {INDUSTRIES.find((i) => i.id === selected)?.description}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* El aviso "Has seleccionado: X" se retiro: al pulsar una tarjeta se
+            navega de inmediato a la pagina de esa industria, asi que el mensaje
+            aparecia un instante y no aportaba nada. */}
       </div>
     </section>
   );
