@@ -72,6 +72,17 @@ export default function OfertasPage() {
     body.style.overflow = "hidden";
     html.style.height = "100vh";
     body.style.height = "100vh";
+    // En iOS, 100vh incluye el area que tapan la barra de direcciones y la
+    // barra inferior, asi que el documento queda mas alto que la pantalla y,
+    // con overflow oculto, el final del contenido no se puede alcanzar.
+    // 100dvh si es el alto realmente visible.
+    if (
+      typeof CSS !== "undefined" &&
+      CSS.supports?.("height", "100dvh")
+    ) {
+      html.style.height = "100dvh";
+      body.style.height = "100dvh";
+    }
     body.style.background = "transparent";
     window.scrollTo(0, 0);
     body.scrollTop = 0;
@@ -87,31 +98,33 @@ export default function OfertasPage() {
   // Defensive: never return NaN, undefined, or null as children
   const mainContent = (
     <main
-      className="w-full h-screen flex flex-col bg-transparent overflow-hidden"
-      style={{ height: "100vh", minHeight: "100vh", margin: 0, padding: 0 }}
+      className="w-full h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col bg-transparent overflow-hidden"
+      style={{ margin: 0, padding: 0 }}
     >
       {/* Fondo especial solo en móvil: gradiente radial gris con centro más claro, igual a la imagen */}
       <div
-        className="fixed top-0 left-0 w-full h-full md:hidden z-0"
+        className="fixed top-0 left-0 w-full h-screen supports-[height:100dvh]:h-[100dvh] md:hidden z-0"
         style={{
-          height: "100vh",
-          minHeight: "100vh",
           background:
             "radial-gradient(ellipse 80% 60% at 50% 40%, #b3b3b3 0%, #404040 100%)",
           overflow: "hidden",
         }}
       />
       <div
-        className="fixed top-0 left-0 w-full h-full flex flex-col md:flex-row z-0"
-        style={{ height: "100vh", minHeight: "100vh", overflow: "hidden" }}
+        className="fixed top-0 left-0 w-full h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col md:flex-row z-0 overflow-hidden"
       >
-        <div className="flex flex-col justify-center h-full md:hidden">
-          <div className="grid grid-cols-1 overflow-y-scroll gap-4 px-2 pt-38">
+        {/* Movil: el contenido es mas alto que la pantalla, asi que scrollea
+            dentro de este contenedor. Antes el padre tenia `justify-center`,
+            que en flexbox recorta lo que se desborda por arriba y deja el
+            final inalcanzable, y el `pt-38` del grid no existe en Tailwind,
+            por lo que las tarjetas quedaban debajo del header. */}
+        <div className="flex flex-col h-full min-h-0 md:hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-24 pb-6">
+            <div className="grid grid-cols-1 gap-4">
             {ofertas.map((item) => (
               <div
                 key={item.title}
-                className="flex-1 flex flex-col items-center justify-center bg-white/10 border border-white/40 rounded-xl shadow-md backdrop-blur-md group transition-all duration-300 cursor-pointer h-full mx-1 px-2 py-2 relative"
-                style={{ height: "calc(30vh - 10px)", overflow: "hidden" }}
+                className="flex flex-col items-center justify-center bg-white/10 border border-white/40 rounded-xl shadow-md backdrop-blur-md group transition-all duration-300 cursor-pointer min-h-[26vh] supports-[height:100dvh]:min-h-[26dvh] mx-1 px-2 py-4 relative overflow-hidden"
               >
                 {/* Toda la card clickeable (está debajo del header, sin riesgo) */}
                 <Link
@@ -140,6 +153,7 @@ export default function OfertasPage() {
                 </span>
               </div>
             ))}
+            </div>
           </div>
         </div>
 

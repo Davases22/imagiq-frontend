@@ -185,24 +185,31 @@ export default function OfertasSection({ seccion }: OfertasSectionProps) {
     { key: "desc", label: "Mayor a menor" },
   ];
   // Barra de orden HORIZONTAL (debajo del título, ancho completo)
+  // En movil los tres botones no caben junto a la etiqueta y se partian en dos
+  // filas ("Mayor a menor" bajaba solo). La etiqueta pasa a su propia linea y
+  // los botones quedan siempre en una sola fila, con desplazamiento lateral
+  // como respaldo en pantallas muy angostas.
   const sortBar = (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
-      <span className="mr-1 flex items-center gap-2 text-sm font-bold text-gray-900">
-        <SlidersHorizontal className="h-4 w-4" /> Ordenar por precio:
+    <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <span className="flex items-center gap-2 text-sm font-bold text-gray-900 sm:mr-1">
+        <SlidersHorizontal className="h-4 w-4 flex-shrink-0" /> Ordenar por
+        precio:
       </span>
-      {sortOptions.map((opt) => (
-        <button
-          key={opt.key}
-          onClick={() => handleSortChange(opt.key)}
-          className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
-            sortOrder === opt.key
-              ? "border-gray-900 bg-gray-900 text-white"
-              : "border-gray-300 text-gray-700 hover:border-gray-400"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+      <div className="flex items-center gap-2 overflow-x-auto">
+        {sortOptions.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => handleSortChange(opt.key)}
+            className={`flex-shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:text-sm ${
+              sortOrder === opt.key
+                ? "border-gray-900 bg-gray-900 text-white"
+                : "border-gray-300 text-gray-700 hover:border-gray-400"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 

@@ -187,6 +187,9 @@ const CategoryItem: FC<{
   }
 
   const isStatic = isStaticCategoryUuid(item.uuid);
+  // Servicio Tecnico no lleva "Ver mas": su submenu ya son enlaces concretos
+  // (consultar orden, pagar, puntos de soporte, contacto), no un listado.
+  const mostrarVerMas = Boolean(item.href) && item.uuid !== "soporte";
 
   return (
     <div>
@@ -204,7 +207,7 @@ const CategoryItem: FC<{
 
         <div className="flex items-center gap-2 pl-2 flex-shrink-0">
           <AnimatePresence initial={false}>
-            {isExpanded && item.href && (
+            {isExpanded && mostrarVerMas && (
               <motion.span
                 initial={{ opacity: 0, x: 6 }}
                 animate={{ opacity: 1, x: 0 }}
