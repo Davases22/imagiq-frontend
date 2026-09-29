@@ -627,7 +627,7 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
 
         {open && (
           <div
-            className="fixed xl:absolute left-2 right-2 xl:left-0 xl:right-auto top-[var(--top-panel)] xl:top-full mt-0 xl:mt-1 w-auto xl:w-[400px] max-w-[calc(100vw-1rem)] bg-white border border-gray-200 rounded-lg xl:rounded-lg shadow-2xl z-[10000] overflow-hidden"
+            className="fixed xl:absolute left-0 right-0 xl:left-0 xl:right-auto top-[var(--top-panel)] xl:top-full mt-0 xl:mt-1 w-auto xl:w-[400px] xl:max-w-[calc(100vw-1rem)] bg-white border-t xl:border border-gray-200 xl:rounded-lg shadow-2xl z-[10000] overflow-hidden"
             style={{ "--top-panel": `${topPanel}px` } as React.CSSProperties}
             role="menu"
           >
