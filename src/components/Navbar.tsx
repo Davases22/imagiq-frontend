@@ -83,6 +83,7 @@ export default function Navbar() {
   const navbar = useNavbarLogic();
   const { theme } = useHeroContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [addressDropdownOpen, setAddressDropdownOpen] = useState(false);
   const { getNavbarRoutes, loading } = useVisibleCategories();
   const { isAuthenticated, user } = useAuthContext();
   const { address: defaultMobileAddress } = useDefaultAddress("ENVIO");
@@ -270,13 +271,17 @@ export default function Navbar() {
   const menuRoutes: NavItem[] = getNavbarRoutes();
 
   // Determinar si debe mostrar fondo transparente o blanco
+  // En home y ofertas el header es transparente; al abrir el desplegable de
+  // direcciones se veia el contenido de la pagina por detras del encabezado,
+  // asi que mientras este abierto se fuerza el fondo blanco.
   const showTransparentBg =
     (navbar.isOfertas || navbar.isHome) &&
     !navbar.activeDropdown &&
     !navbar.isScrolled &&
-    !mobileMenuOpen;
+    !mobileMenuOpen &&
+    !addressDropdownOpen;
 
-  const forceWhiteBg = mobileMenuOpen || !showTransparentBg;
+  const forceWhiteBg = mobileMenuOpen || addressDropdownOpen || !showTransparentBg;
 
   const headerStyles: CSSProperties = {
     fontFamily:
@@ -348,6 +353,7 @@ export default function Navbar() {
             {shouldShowMobileAddressLabel ? (
               <div className="flex-1 min-w-0 xl:hidden">
                 <AddressDropdown
+                  onOpenChange={setAddressDropdownOpen}
                   showWhiteItems={shouldShowWhiteItemsMobile}
                   renderMobileTrigger={({ onClick }) => (
                     <button
@@ -670,7 +676,10 @@ export default function Navbar() {
               {/* Dirección predeterminada del usuario con dropdown */}
               {/* Se muestra siempre: si no está logueado, muestra "Agregar dirección" y redirige a login */}
               <div className="flex-none min-w-0 w-[200px] xl:w-[220px] 2xl:w-[260px]">
-                <AddressDropdown showWhiteItems={shouldShowWhiteItems} />
+                <AddressDropdown
+                  onOpenChange={setAddressDropdownOpen}
+                  showWhiteItems={shouldShowWhiteItems}
+                />
               </div>
 
               <Link
