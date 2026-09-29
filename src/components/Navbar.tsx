@@ -193,8 +193,10 @@ export default function Navbar() {
   const useHeroTheme =
     (navbar.isOfertas || navbar.isHome) && !navbar.isScrolled;
 
-  // Si hay un dropdown activo, forzar todo a negro
-  const shouldShowWhiteLogo = navbar.activeDropdown
+  // Si hay un dropdown activo, forzar todo a negro. El desplegable de
+  // direcciones cuenta: pone el header en blanco, asi que logo, textos e
+  // iconos tienen que dejar de ser blancos o quedan invisibles.
+  const shouldShowWhiteLogo = navbar.activeDropdown || addressDropdownOpen
     ? false
     : navbar.isOfertas && !navbar.isScrolled
       ? true
@@ -202,7 +204,7 @@ export default function Navbar() {
         ? theme === "light"
         : navbar.showWhiteLogo;
 
-  const shouldShowWhiteItems = navbar.activeDropdown
+  const shouldShowWhiteItems = navbar.activeDropdown || addressDropdownOpen
     ? false
     : navbar.isOfertas && !navbar.isScrolled
       ? true
@@ -210,7 +212,7 @@ export default function Navbar() {
         ? theme === "light"
         : navbar.showWhiteItems;
 
-  const shouldShowWhiteItemsMobile = mobileMenuOpen
+  const shouldShowWhiteItemsMobile = mobileMenuOpen || addressDropdownOpen
     ? false
     : navbar.isOfertas && !navbar.isScrolled
       ? true
@@ -236,8 +238,10 @@ export default function Navbar() {
   );
 
   const getIconColorClasses = (forMobile = false): string => {
-    // Si hay un dropdown activo, siempre negro
-    if (navbar.activeDropdown) {
+    // Si hay un dropdown activo, siempre negro. El desplegable de direcciones
+    // cuenta: deja el header en blanco, y esta cascada devolvia "text-white"
+    // en home y ofertas, asi que los iconos quedaban invisibles.
+    if (navbar.activeDropdown || addressDropdownOpen) {
       return "text-black";
     }
 
