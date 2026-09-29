@@ -19,8 +19,10 @@ const HeroImage: React.FC<HeroImageProps> = ({
   alt,
   className = "",
 }) => {
-  // URL directa de Cloudinary sin transformaciones para evitar timeouts
-  const imageUrl = `https://res.cloudinary.com/dqsdl9bwv/image/upload/${publicId}`;
+  // `f_auto,q_auto` deja que Cloudinary elija formato (AVIF/WebP segun el
+  // navegador) y calidad. No cambia las dimensiones ni el encuadre, solo el
+  // peso: los banners de industria bajan de 130 y 125 KB a 75 y 57 KB.
+  const imageUrl = `https://res.cloudinary.com/dqsdl9bwv/image/upload/f_auto,q_auto/${publicId}`;
 
   return (
     <Image
