@@ -48,6 +48,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
   const [currentView, setCurrentView] = useState<CurrentView>("main");
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
+  // El perfil cambia de pantalla con estado, no navegando, asi que el scroll de
+  // la ventana se queda donde estaba: al entrar a Direcciones, Metodos de Pago
+  // o Pedidos la vista aparecia empezada a la mitad. Se sube al inicio en cada
+  // cambio de pantalla.
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [currentView]);
+
   const handleLogout = async () => {
     await actions.logout();
   };
