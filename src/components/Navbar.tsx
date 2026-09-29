@@ -680,10 +680,10 @@ export default function Navbar() {
               {/* Dirección predeterminada del usuario con dropdown */}
               {/* Se muestra siempre: si no está logueado, muestra "Agregar dirección" y redirige a login */}
               <div className="flex-none min-w-0 w-[200px] xl:w-[220px] 2xl:w-[260px]">
-                <AddressDropdown
-                  onOpenChange={setAddressDropdownOpen}
-                  showWhiteItems={shouldShowWhiteItems}
-                />
+                {/* Sin `onOpenChange`: en escritorio el panel es pequeno y va
+                    anclado, no hace falta que todo el header cambie a blanco.
+                    Ese comportamiento queda solo para movil. */}
+                <AddressDropdown showWhiteItems={shouldShowWhiteItems} />
               </div>
 
               <Link
