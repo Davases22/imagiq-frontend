@@ -2987,6 +2987,31 @@ export default function Step7({ onBack }: Step7Props) {
             )}
           </div>
 
+          {/* Volver al paso anterior. En movil el boton "Volver" del resumen
+              lateral no se ve, porque ese panel es `hidden md:block`, asi que
+              la barra solo ofrecia continuar. */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Volver al paso anterior"
+              className="flex-shrink-0 flex items-center justify-center px-4 py-4 rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              <svg
+                className="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           {/* Derecha: Botón confirmar - destacado con sombra y glow */}
           <button
             className={`flex-shrink-0 font-bold py-4 px-6 rounded-xl text-lg transition-all duration-200 text-white border-2 flex items-center gap-2 ${
