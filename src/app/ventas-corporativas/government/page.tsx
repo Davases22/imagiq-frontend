@@ -50,10 +50,6 @@ export default function GovernmentPage() {
         onContactClick={handleContactClick}
         title="¿Listo para modernizar tu institución?"
         description="Descubre cómo Samsung puede ayudar a tu entidad gubernamental con tecnología confiable y eficiente."
-        gradientFrom="from-blue-600"
-        gradientVia="via-blue-700"
-        gradientTo="to-indigo-800"
-        buttonTextColor="text-blue-600"
       />
 
       <SpecializedConsultationModal
