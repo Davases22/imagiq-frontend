@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import ChatbotPanel from "@/app/chatbot/chatbotPanel";
+import { WHATSAPP_CHAT_URL } from "./constants";
 
 const contactOptions = [
   {
@@ -11,7 +12,7 @@ const contactOptions = [
     buttonText: "Chatea aquí",
     icon: "whatsapp",
     hasQR: true,
-    href: "https://wa.link/6y2ctp",
+    href: WHATSAPP_CHAT_URL,
   },
   {
     title: "Chatea con un agente",

@@ -32,6 +32,13 @@ type CurrentView =
   | "loyalty"
   | "orders";
 
+/**
+ * Cupones y Programa de Lealtad todavia no estan desarrollados: la seccion se
+ * montaba con el contador fijo en 0 y sin programa, y ambas pantallas quedan
+ * vacias. Se oculta hasta que existan; poner en true para reactivarla.
+ */
+const MOSTRAR_BENEFICIOS = false;
+
 interface ProfilePageProps {
   className?: string;
 }
@@ -165,13 +172,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
       />
 
       <div className="max-w-6xl mx-auto px-4 pb-8">
-        {/* Benefits Section */}
-        <BenefitsSection
-          couponsCount={0}
-          loyaltyProgram={undefined}
-          onCouponsClick={handleCouponsClick}
-          onLoyaltyClick={handleLoyaltyClick}
-        />
+        {/* Benefits Section — oculta mientras Cupones y Programa de Lealtad no
+            esten desarrollados. Hoy se montaba con couponsCount fijo en 0 y sin
+            programa, asi que el usuario entraba a dos pantallas vacias.
+            Para volver a mostrarla, poner MOSTRAR_BENEFICIOS en true. */}
+        {MOSTRAR_BENEFICIOS && (
+          <BenefitsSection
+            couponsCount={0}
+            loyaltyProgram={undefined}
+            onCouponsClick={handleCouponsClick}
+            onLoyaltyClick={handleLoyaltyClick}
+          />
+        )}
 
         {/* My Account Section */}
         <AccountSection

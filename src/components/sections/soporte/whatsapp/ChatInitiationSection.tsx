@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { WHATSAPP_CHAT_URL } from "./constants";
 
 export function ChatInitiationSection() {
   return (
@@ -24,7 +25,7 @@ export function ChatInitiationSection() {
             {/* Chat Button */}
             <div className="flex justify-center">
               <a
-                href="https://wa.link/6y2ctp"
+                href={WHATSAPP_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-white border-2 border-black text-black px-8 py-3 rounded-full font-bold text-base transition-colors duration-200 hover:bg-gray-50 inline-block"
