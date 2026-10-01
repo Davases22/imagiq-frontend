@@ -207,7 +207,7 @@ export default function ViewProductAppliance({
                   <Image
                     src={addiLogo}
                     alt="Addi Logo"
-                    width={58}
+                    width={148}
                     height={58}
                   />
                 </div>

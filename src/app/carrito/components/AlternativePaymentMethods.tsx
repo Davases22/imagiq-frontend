@@ -102,7 +102,7 @@ export default function AlternativePaymentMethods({
           <Image
             src={addiLogo}
             alt="Addi"
-            width={35}
+            width={89}
             height={35}
             className="object-contain"
           />

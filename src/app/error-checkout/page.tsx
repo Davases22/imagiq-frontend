@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ShieldAlert,
   AlertCircle,
@@ -182,15 +183,23 @@ function ErrorCheckoutContent() {
             style={{ animationDelay: "40ms" }}
           >
             {/* El logo oficial es negro; sobre este panel oscuro se invierte a
-                blanco con el mismo filtro que usa el Navbar en fondo oscuro. */}
-            <Image
-              src="https://res.cloudinary.com/dnglv0zqg/image/upload/v1760575601/Samsung_black_ec1b9h.svg"
-              alt="Samsung"
-              width={200}
-              height={60}
-              className="h-10 w-auto brightness-0 invert sm:h-12"
-              priority
-            />
+                blanco con el mismo filtro que usa el Navbar en fondo oscuro.
+                Clicable: desde una pantalla de error el logo es la salida
+                natural de vuelta al inicio. */}
+            <Link
+              href="/"
+              aria-label="Ir al inicio"
+              className="inline-block rounded transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              <Image
+                src="https://res.cloudinary.com/dnglv0zqg/image/upload/v1760575601/Samsung_black_ec1b9h.svg"
+                alt="Samsung"
+                width={200}
+                height={60}
+                className="h-10 w-auto brightness-0 invert sm:h-12"
+                priority
+              />
+            </Link>
           </div>
 
           {/* status */}
@@ -388,7 +397,16 @@ function ErrorCheckoutContent() {
                   className="flex flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900"
                   aria-label="Pagar con Addi en cuotas"
                 >
-                  <Image src={addiLogo} alt="Addi" width={32} height={32} className="shrink-0 object-contain" />
+                  {/* El archivo de Addi es apaisado (798x313, relacion 2.55):
+                      forzarlo a una caja de 32x32 lo dejaba de 12 px de alto y
+                      se veia cortado. Se le da su proporcion real. */}
+                  <Image
+                    src={addiLogo}
+                    alt="Addi"
+                    width={82}
+                    height={32}
+                    className="h-5 w-auto shrink-0 object-contain"
+                  />
                   <div className="text-left">
                     <p className="text-xs font-semibold leading-none text-gray-800">Addi</p>
                     <p className="mt-0.5 text-[10px] leading-tight text-gray-500">Paga en cuotas</p>
