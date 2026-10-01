@@ -177,12 +177,24 @@ function ErrorCheckoutContent() {
           <div aria-hidden className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-white/[0.03] blur-3xl" />
 
           {/* brand */}
-          <p
-            className="ec-reveal relative text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60 select-none"
+          <div
+            className="ec-reveal relative flex items-center gap-3 select-none"
             style={{ animationDelay: "40ms" }}
           >
-            Samsung Store
-          </p>
+            {/* El logo oficial es negro; sobre este panel oscuro se invierte a
+                blanco con el mismo filtro que usa el Navbar en fondo oscuro. */}
+            <Image
+              src="https://res.cloudinary.com/dnglv0zqg/image/upload/v1760575601/Samsung_black_ec1b9h.svg"
+              alt="Samsung"
+              width={100}
+              height={30}
+              className="h-6 w-auto brightness-0 invert"
+              priority
+            />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+              Store
+            </span>
+          </div>
 
           {/* status */}
           <div className="relative my-10 max-w-md lg:my-0">
