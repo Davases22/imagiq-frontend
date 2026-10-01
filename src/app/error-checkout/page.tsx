@@ -178,7 +178,7 @@ function ErrorCheckoutContent() {
 
           {/* brand */}
           <div
-            className="ec-reveal relative flex items-center gap-3 select-none"
+            className="ec-reveal relative select-none"
             style={{ animationDelay: "40ms" }}
           >
             {/* El logo oficial es negro; sobre este panel oscuro se invierte a
@@ -186,14 +186,11 @@ function ErrorCheckoutContent() {
             <Image
               src="https://res.cloudinary.com/dnglv0zqg/image/upload/v1760575601/Samsung_black_ec1b9h.svg"
               alt="Samsung"
-              width={100}
-              height={30}
-              className="h-6 w-auto brightness-0 invert"
+              width={200}
+              height={60}
+              className="h-10 w-auto brightness-0 invert sm:h-12"
               priority
             />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
-              Store
-            </span>
           </div>
 
           {/* status */}
