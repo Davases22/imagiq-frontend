@@ -170,6 +170,16 @@ export default function RootLayout({
       }
     >
       <head>
+        {/* Recuperación de chunks: si un JS/CSS de /_next/static no llega (red
+            inestable, conexión cortada) la app nunca hidrata y queda en
+            "Iniciando seguridad..." o en "Application error". Recargamos UNA vez
+            (máx. una cada 60 s) para reintentar; lo ya descargado sale de caché.
+            Va inline y primero en <head> para funcionar aunque el bundle no cargue. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var K="imagiq_chunk_reload";function r(){try{var t=+sessionStorage.getItem(K)||0;if(Date.now()-t<6e4)return;sessionStorage.setItem(K,String(Date.now()))}catch(e){return}location.reload()}window.addEventListener("error",function(e){var t=e.target;var u=t&&(t.src||t.href);if(u&&u.indexOf("/_next/static/")!==-1)r()},true);window.addEventListener("unhandledrejection",function(e){var m=e.reason&&(e.reason.name+" "+e.reason.message)||"";if(/ChunkLoadError|load(ing)? chunk/i.test(m))r()})})();`,
+          }}
+        />
         {/* fb:app_id — silencia la advertencia del Sharing Debugger y asocia los
             compartidos del dominio a la app de Meta del negocio (Conversions API
             Application). Debe ser property= (Facebook ignora name=). */}
