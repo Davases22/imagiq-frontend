@@ -7,7 +7,8 @@
  *   el mismo camino que está fallando), porque posthog-js vive dentro del bundle
  *   y no ve a quien no logra hidratar:
  *     chunk_load_failed  un archivo no llegó (y si se va a recargar)
- *     chunk_recovered    la app hidrató después de esa recarga
+ *     chunk_recovered    la app hidrató después de esa recarga sin que fallara
+ *                        otro archivo (si falla, React igual monta global-error)
  *     boot_timeout       la app no hidrató en 20 s
  * - "Hidratada" = React montó la raíz sobre document (__reactContainer$…).
  */
@@ -26,7 +27,7 @@ window.addEventListener("error",function(e){var t=e.target;var u=t&&(t.src||t.hr
 window.addEventListener("unhandledrejection",function(e){var m=e.reason&&(e.reason.name+" "+e.reason.message)||"";if(/ChunkLoadError|load(ing)? chunk/i.test(m))fail(m.slice(0,300))});
 function booted(){var k=Object.keys(document);for(var i=0;i<k.length;i++)if(k[i].indexOf("__reactContainer$")===0)return true;return false}
 var iv=setInterval(function(){var t=last();
-if(booted()){clearInterval(iv);if(t&&Date.now()-t<12e4){var dk="imagiq_chunk_recovered_"+t;try{if(!sessionStorage.getItem(dk)){sessionStorage.setItem(dk,"1");cap("chunk_recovered",{ms_since_reload:Date.now()-t})}}catch(e){}}return}
+if(booted()){clearInterval(iv);if(t&&Date.now()-t<12e4&&!sent.chunk_load_failed){var dk="imagiq_chunk_recovered_"+t;try{if(!sessionStorage.getItem(dk)){sessionStorage.setItem(dk,"1");cap("chunk_recovered",{ms_since_reload:Date.now()-t})}}catch(e){}}return}
 if(Date.now()-t0>2e4){clearInterval(iv);cap("boot_timeout",{reloaded_recently:!!(t&&Date.now()-t<12e4)})}},1000);
 })();`;
 }
