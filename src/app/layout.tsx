@@ -38,6 +38,7 @@ import { CategoryMetadataProvider } from "@/contexts/CategoryMetadataContext";
 import MaintenanceScreen from "@/components/MaintenanceScreen";
 import DevToolsGuard from "@/components/security/DevToolsGuard";
 import SecurityInitializer from "@/components/security/SecurityInitializer";
+import { chunkRecoveryScript } from "@/lib/chunkRecoveryScript";
 // Si necesitas Inter desde Google Fonts en entornos con internet,
 // reactivar la importación desde next/font/google o agregar el CSS manual.
 
@@ -170,6 +171,14 @@ export default function RootLayout({
       }
     >
       <head>
+        {/* Recuperación de chunks: si un JS/CSS de /_next/static no llega (red
+            inestable, conexión cortada) la app nunca hidrata y queda en
+            "Iniciando seguridad..." o en "Application error". Ver chunkRecoveryScript. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: chunkRecoveryScript(process.env.NEXT_PUBLIC_POSTHOG_KEY || ""),
+          }}
+        />
         {/* fb:app_id — silencia la advertencia del Sharing Debugger y asocia los
             compartidos del dominio a la app de Meta del negocio (Conversions API
             Application). Debe ser property= (Facebook ignora name=). */}
