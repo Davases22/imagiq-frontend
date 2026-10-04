@@ -8,14 +8,16 @@
  * el documento entero y tiene que traer sus propios `<html>` y `<body>`: en
  * ese punto el layout de la app ya no existe.
  *
- * Es lo que evita que un cliente vuelva a ver la pantalla cruda de Next
- * ("Application error: a client-side exception has occurred"), como pasó en
- * imagiq.com el 3-oct-2026.
+ * Aquí NO se intenta recuperar de un chunk que no cargó: de eso se encarga
+ * `chunkRecoveryScript`, que corre inline en el <head> y actúa aunque el bundle
+ * de Next nunca llegue — mucho antes de que React pueda montar este boundary.
+ * Lo que queda para esta pantalla son los errores que sí dejaron arrancar la
+ * app y reventaron después, incluido el almacenamiento del navegador en mal
+ * estado, que ninguna recarga arregla.
  */
 
 import { useEffect } from "react";
 import PantallaDeError from "@/components/PantallaDeError";
-import { intentarAutoRecuperacion } from "@/lib/client-error-recovery";
 
 export default function GlobalError({
   error,
@@ -25,9 +27,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Caso más común: archivo viejo tras un despliegue. Recarga sola, una vez.
-    if (intentarAutoRecuperacion(error)) return;
-
     console.error("[imagiq] Error global:", error);
   }, [error]);
 

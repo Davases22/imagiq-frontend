@@ -15,7 +15,10 @@
 import { useEffect, useState } from "react";
 import { limpiarDatosDelSitio } from "@/lib/client-error-recovery";
 
-const AZUL = "#1428A0"; // azul Samsung
+// Negro, no el azul de la marca: es el color que la tienda ya usa para sus
+// botones principales y el que David dejó en el global-error que está en
+// producción. Una pantalla de error no es el lugar para estrenar una paleta.
+const ACENTO = "#000000";
 
 export function PantallaDeError({
   reset,
@@ -65,7 +68,7 @@ export function PantallaDeError({
             fontSize: "13px",
             fontWeight: 700,
             letterSpacing: "0.18em",
-            color: AZUL,
+            color: ACENTO,
             marginBottom: "28px",
           }}
         >
@@ -105,7 +108,7 @@ export function PantallaDeError({
               padding: "14px 20px",
               borderRadius: "9999px",
               border: "none",
-              backgroundColor: AZUL,
+              backgroundColor: ACENTO,
               color: "#ffffff",
               fontSize: "15px",
               fontWeight: 700,
@@ -164,7 +167,7 @@ export function PantallaDeError({
           ¿Sigue sin cargar? Escríbenos por WhatsApp al{" "}
           <a
             href="https://wa.me/573228639389"
-            style={{ color: AZUL, fontWeight: 600 }}
+            style={{ color: ACENTO, fontWeight: 600 }}
           >
             322 863 9389
           </a>
