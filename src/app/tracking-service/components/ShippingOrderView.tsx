@@ -2,6 +2,7 @@ import { SimpleTrackingHeader } from "./SimpleTrackingHeader";
 import { TrackingTimeline } from "./TrackingTimeline";
 import { PDFViewer } from "./PDFViewer";
 import { useState, useEffect, useMemo } from "react";
+import { WHATSAPP_NUMERO } from "@/components/sections/soporte/whatsapp/constants";
 
 interface ShippingOrderViewProps {
   orderNumber: string;
@@ -457,7 +458,7 @@ export function ShippingOrderView({
             Llamar ahora
           </a>
           <a
-            href={`https://wa.me/573228639389?text=${encodeURIComponent("Hola tienda imagiq, me gustaría realizar una consulta acerca...")}`}
+            href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent("Hola tienda imagiq, me gustaría realizar una consulta acerca...")}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:brightness-110 transition text-sm font-medium shadow-sm"

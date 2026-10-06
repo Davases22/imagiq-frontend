@@ -25,6 +25,14 @@ const HIDDEN_NAVBAR_ROUTES = [
   "/success-checkout/",
   "/error-checkout",
   "/verify-purchase/",
+  // La de soporte es la misma pantalla bajo otro prefijo y faltaba: por eso
+  // salía con el navbar encima. La animación ocupa la pantalla completa
+  // (fixed inset-0) pero el navbar le quedaba por delante.
+  //
+  // Solo esta. `/support/success-checkout` SÍ lleva navbar a propósito: usa el
+  // mismo fondo y la misma tarjeta que /soporte/inicio_de_soporte, de donde
+  // viene el cliente, y quitárselo rompería esa continuidad.
+  "/support/verify-purchase/",
   // Vista previa embebida en el dashboard: ahí se quiere ver la franja sola,
   // no la tienda entera dentro del recuadro.
   "/preview/",

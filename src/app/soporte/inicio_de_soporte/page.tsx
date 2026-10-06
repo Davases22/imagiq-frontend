@@ -330,7 +330,7 @@ export default function InicioDeSoportePage() {
   const validate = () => {
     const e: { cedula?: string; orden?: string } = {};
     const cedulaDigits = cedula.replaceAll(/\D/g, "");
-    if (!cedulaDigits) e.cedula = "La cédula es requerida.";
+    if (!cedulaDigits) e.cedula = "El documento es requerido.";
     else if (cedulaDigits.length < 5) e.cedula = "Ingresa al menos 5 dígitos.";
     else if (cedulaDigits.length > 12) e.cedula = "Demasiados dígitos.";
 
@@ -686,7 +686,7 @@ export default function InicioDeSoportePage() {
               Inicio de Soporte
             </h1>
             <p className="text-sm text-muted-foreground mb-6">
-              Ingresa tu cédula y el número de orden para crear la solicitud de
+              Ingresa tu cédula o NIT y el número de orden para crear la solicitud de
               soporte. Responderemos a la mayor brevedad.
             </p>
 
@@ -753,7 +753,7 @@ export default function InicioDeSoportePage() {
               {/* Campo C�dula */}
               <div>
                 <label htmlFor="cedula" className="block text-sm font-medium">
-                  Número de cédula
+                  Número de cédula o NIT
                 </label>
                 <div className="mt-1 relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -788,7 +788,7 @@ export default function InicioDeSoportePage() {
                     type="tel"
                     inputMode="numeric"
                     placeholder="Ej: 12345"
-                    aria-label="Número de cédula"
+                    aria-label="Número de cédula o NIT"
                     aria-describedby={
                       errors.cedula ? "cedula-error" : undefined
                     }
@@ -920,7 +920,7 @@ export default function InicioDeSoportePage() {
           <div className="lg:col-span-1 flex flex-col">
             <h3 className="text-lg font-semibold mb-4">Consejos</h3>
             <ul className="list-disc pl-5 text-sm space-y-3 text-muted-foreground">
-              <li>Asegúrate de ingresar la cédula sin puntos ni guiones.</li>
+              <li>Asegúrate de ingresar el documento sin puntos ni guiones.</li>
               <li>
                 El número de orden lo encuentras en el correo de confirmación.
               </li>
