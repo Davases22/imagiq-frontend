@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import PickupMap from "./PickupMap";
 import { apiPost } from "@/lib/api-client";
+import { WHATSAPP_NUMERO } from "@/components/sections/soporte/whatsapp/constants";
 
 interface Product {
   id: string;
@@ -59,7 +60,9 @@ export function PickupShippingView({
   const phoneForCall = telefonoTienda ? telefonoTienda.replaceAll(/[\s()-]/g, "") : "+573001234567";
 
   // WhatsApp siempre usa el número fijo
-  const whatsappPhoneNumber = "573228639389";
+  // Numero centralizado: antes estaba escrito a mano y se quedo en el
+// 322 863 9389 cuando se migro al 300 651 5136.
+  const whatsappPhoneNumber = WHATSAPP_NUMERO;
 
   // Mensaje predeterminado para WhatsApp
   const whatsappMessage = encodeURIComponent("Hola tienda imagiq, me gustaría realizar una consulta acerca...");

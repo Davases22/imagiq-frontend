@@ -22,8 +22,14 @@ function Contenido() {
   const orderId = params?.get("orderId");
 
   return (
-    <main className="min-h-dvh flex items-center justify-center bg-neutral-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+    // Mismo fondo y misma tarjeta que /soporte/inicio_de_soporte: el cliente
+    // acaba de salir de ahi a pagar, y volver a una pantalla blanca y suelta
+    // rompe la continuidad. Asi se siente parte del mismo sitio.
+    <main
+      className="min-h-screen bg-cover bg-center flex items-center justify-center p-6"
+      style={{ backgroundImage: "url('/images/fondo_soporte.jpg')" }}
+    >
+      <div className="w-full max-w-lg rounded-xl bg-white/95 p-8 text-center shadow-xl backdrop-blur-sm">
         <div
           className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50"
           aria-hidden="true"
@@ -87,7 +93,14 @@ function Contenido() {
 export default function SupportSuccessPage() {
   // useSearchParams obliga a un Suspense para no romper el prerender.
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-neutral-50" />}>
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/fondo_soporte.jpg')" }}
+        />
+      }
+    >
       <Contenido />
     </Suspense>
   );
