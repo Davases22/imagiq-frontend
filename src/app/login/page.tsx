@@ -42,6 +42,39 @@ interface LoginErrorResponse {
   message: string;
 }
 
+/**
+ * Traduce lo que devuelve el backend a algo que el cliente pueda accionar.
+ *
+ * Hasta ahora se mostraba `err.message` tal cual, asi que quien fallaba al
+ * entrar veia "Internal server error" en ingles, sin ninguna pista de que
+ * hacer. Pasaba de verdad: las cuentas creadas al comprar como invitado no
+ * tienen contrasena -1.307 de 1.314-, y al intentar entrar el backend reventaba
+ * con un 500.
+ *
+ * El caso de la cuenta sin contrasena ya se arregla en auth-ms, que ahora
+ * responde con un mensaje claro. Esto es la red para todo lo demas: cualquier
+ * cosa que llegue sin traducir se convierte en una frase util en vez de jerga.
+ */
+function mensajeDeLogin(crudo: string): string {
+  const t = (crudo || "").toLowerCase();
+
+  if (!t || t.includes("fetch") || t.includes("network") || t.includes("conexión"))
+    return "No pudimos conectarnos. Revisa tu internet e inténtalo de nuevo.";
+
+  if (t.includes("contraseña incorrecta") || t.includes("unauthorized"))
+    return "La contraseña no es correcta. Revísala o restablécela desde \"¿Olvidaste tu contraseña?\".";
+
+  if (t.includes("usuario no encontrado") || t.includes("not found"))
+    return "No encontramos una cuenta con ese correo. Revísalo o crea una cuenta.";
+
+  // El backend viejo o cualquier fallo inesperado: nunca mostrar el texto crudo.
+  if (t.includes("internal server error") || t.includes("500"))
+    return "Algo falló de nuestro lado. Inténtalo de nuevo en un momento y, si sigue igual, restablece tu contraseña.";
+
+  // Si el backend mando un mensaje en espanol y entendible, se respeta.
+  return crudo;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuthContext();
@@ -171,9 +204,10 @@ export default function LoginPage() {
         router.push("/");
       }, 500);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error de conexión";
+      const crudo = err instanceof Error ? err.message : "";
+      const msg = mensajeDeLogin(crudo);
       setError(msg);
-      await notifyError(msg, "Login fallido");
+      await notifyError(msg, "No pudimos iniciar sesión");
       posthogUtils.capture("login_error", {
         email: formData.email,
         error: msg,
@@ -184,7 +218,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex justify-center p-4 pt-12">
+    // items-center es lo que faltaba: justify-center solo centra en horizontal,
+    // asi que la tarjeta quedaba pegada arriba con media pantalla en blanco.
+    // Y la altura no puede ser min-h-screen: este div vive dentro del <main>,
+    // que ya va debajo del navbar y encima del footer, asi que 100vh aqui
+    // sumaba una pantalla entera de alto. 60vh deja el formulario centrado en
+    // un bloque generoso y el footer sube a su sitio. Es minimo, no fijo: en
+    // movil el formulario es mas alto y el bloque crece con el, sin recortes.
+    <div className="min-h-[60vh] bg-white flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -273,7 +314,9 @@ export default function LoginPage() {
         {/* Divider */}
         <div className="relative">
           <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-xs text-gray-500">
+          {/* Estaba en text-xs/gray-500: 12px de gris claro sobre blanco se
+              perdia justo en el punto donde hay que decidir si registrarse. */}
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-sm font-medium text-gray-700">
             ¿No tienes cuenta?
           </span>
         </div>

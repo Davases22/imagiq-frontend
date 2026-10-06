@@ -572,7 +572,15 @@ export default function CreateAccountPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex justify-center p-4 pt-6">
+    // Sin min-h-screen: este div vive dentro del <main>, que ya va debajo del
+    // navbar, asi que forzar 100vh aqui dejaba media pantalla en blanco y
+    // empujaba el footer fuera de la vista. El <main> es flex-1, asi que ya
+    // estira solo y el footer queda abajo aunque el paso sea corto.
+    //
+    // Aqui NO se centra en vertical, al contrario que en /login: el formulario
+    // cambia de alto entre los 4 pasos y centrarlo lo haria saltar en cada uno.
+    // Alineado arriba, el campo que sigue siempre esta donde el ojo lo dejo.
+    <div className="bg-white flex justify-center px-4 py-10">
       <div className="w-full max-w-5xl">
         {/* Mobile: Indicador arriba */}
         <div className="md:hidden mb-6">
