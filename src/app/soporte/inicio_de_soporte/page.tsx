@@ -93,6 +93,13 @@ export default function InicioDeSoportePage() {
   const [modalStep, setModalStep] = useState<ModalStep>("resumen");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("tarjeta");
   const [selectedBank, setSelectedBank] = useState("");
+  // Titular de la cuenta para PSE. Se autocompleta con el nombre que trae el
+  // ERP, pero es editable: ese nombre viene en un solo campo y partirlo por el
+  // primer espacio da resultados raros ("María Camila María Camila" -> nombre
+  // "María", apellido "Camila María Camila"). El banco valida el titular
+  // contra la cuenta, asi que quien paga tiene que poder corregirlo.
+  const [titularNombres, setTitularNombres] = useState("");
+  const [titularApellidos, setTitularApellidos] = useState("");
   const [banks, setBanks] = useState<Bank[]>([]);
   const [isLoadingBanks, setIsLoadingBanks] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -475,6 +482,11 @@ export default function InicioDeSoportePage() {
         Object.assign(payloadBase, {
           banco_id: selectedBank,
           banco_nombre: found?.bankName || selectedBank || "",
+          // Si el cliente los dejo como vinieron, el backend acaba partiendo el
+          // mismo nombre y el resultado es identico al de antes. Solo cambia
+          // algo cuando los corrige.
+          titular_nombres: titularNombres.trim(),
+          titular_apellidos: titularApellidos.trim(),
         });
       }
 
@@ -576,6 +588,17 @@ export default function InicioDeSoportePage() {
 
       // Silently ensure user exists (create guest if needed) + internal logout if email differs
       const doc0 = response.data?.obtenerDocumentosResult?.documentos?.[0];
+
+      // Titular para PSE: se parte el nombre del ERP con el mismo criterio que
+      // splitFullName del backend (primera palabra = nombre, resto = apellido).
+      // Es solo el punto de partida; el cliente lo corrige si su cuenta dice
+      // otra cosa, que es justo el caso que daba "María" / "Camila María
+      // Camila".
+      const completo = (doc0?.cliente || "").trim().replace(/\s+/g, " ");
+      const partes = completo ? completo.split(" ") : [];
+      setTitularNombres(partes[0] || "");
+      setTitularApellidos(partes.slice(1).join(" "));
+
       if (doc0?.email) {
         // Associate SOAP email with PostHog session for replay identification
         associateEmailWithSession(doc0.email.toLowerCase().trim(), {
@@ -658,6 +681,13 @@ export default function InicioDeSoportePage() {
     // Also require that a orden was submitted
     if (!submittedOrder) return false;
     if (paymentMethod === "pse" && !selectedBank) return false;
+    // El titular no puede ir vacio: el banco lo valida contra la cuenta y
+    // mandarlo en blanco es un rechazo seguro.
+    if (
+      paymentMethod === "pse" &&
+      (!titularNombres.trim() || !titularApellidos.trim())
+    )
+      return false;
     if (paymentMethod === "tarjeta") {
       // Verificar que todos los campos de tarjeta estén completos
       if (
@@ -787,7 +817,7 @@ export default function InicioDeSoportePage() {
                     onChange={(ev) => setCedula(ev.target.value.replace(/\D/g, ""))}
                     type="tel"
                     inputMode="numeric"
-                    placeholder="Ej: 12345"
+                    placeholder="Ej: 1022436463"
                     aria-label="Número de cédula o NIT"
                     aria-describedby={
                       errors.cedula ? "cedula-error" : undefined
@@ -845,9 +875,15 @@ export default function InicioDeSoportePage() {
                   <input
                     id="orden"
                     value={orden}
-                    onChange={(ev) => setOrden(ev.target.value)}
-                    type="text"
-                    placeholder="Ej: 2025-0001"
+                    // Solo digitos, como ya hace el campo de cedula. Los
+                    // numeros de orden del ERP son numericos (5010014267), y
+                    // el placeholder anterior sugeria un formato con guion que
+                    // no existe y hacia que la gente escribiera algo que nunca
+                    // iba a encontrarse.
+                    onChange={(ev) => setOrden(ev.target.value.replace(/\D/g, ""))}
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="Ej: 5010014267"
                     aria-label="Número de orden"
                     aria-describedby={errors.orden ? "orden-error" : undefined}
                     className={`mt-0 block w-full rounded-lg border px-4 py-2 pl-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary ${errors.orden ? "border-rose-500" : "border-gray-200"
@@ -1469,6 +1505,43 @@ export default function InicioDeSoportePage() {
               {/* Banco + Celular en la misma fila cuando ambos aplican.
                   Queda justo arriba del botón "Pagar" para que el cliente vea
                   juntos los dos campos pendientes antes de actuar. */}
+              {paymentMethod === "pse" && (
+                <div className="mb-3 flex flex-row gap-3">
+                  <div className="flex-1 min-w-0">
+                    <label
+                      htmlFor="titular-nombres"
+                      className="block text-sm font-semibold text-gray-800 mb-1.5"
+                    >
+                      Nombres del titular
+                    </label>
+                    <input
+                      id="titular-nombres"
+                      type="text"
+                      value={titularNombres}
+                      onChange={(e) => setTitularNombres(e.target.value)}
+                      placeholder="Como figura en tu cuenta"
+                      className="w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label
+                      htmlFor="titular-apellidos"
+                      className="block text-sm font-semibold text-gray-800 mb-1.5"
+                    >
+                      Apellidos del titular
+                    </label>
+                    <input
+                      id="titular-apellidos"
+                      type="text"
+                      value={titularApellidos}
+                      onChange={(e) => setTitularApellidos(e.target.value)}
+                      placeholder="Como figura en tu cuenta"
+                      className="w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+
               {(paymentMethod === "pse" || needsMovilInput) && (
                 <div className={cn(
                   "mb-3",
