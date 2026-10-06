@@ -13,6 +13,14 @@ import React, { useEffect, useRef, useState } from "react";
 type LogoReloadAnimationProps = {
   open: boolean;
   onFinish?: () => void;
+  /**
+   * Textos de la espera. Los de por defecto hablan de una compra ("Ya casi es
+   * tuya"), que es lo correcto en el carrito pero no cuando lo que se esta
+   * pagando es la reparacion de un equipo que el cliente YA tiene. Por eso se
+   * pueden sustituir sin tocar el flujo de productos.
+   */
+  primerTexto?: string;
+  segundoTexto?: string;
 };
 
 // Logo Samsung desde Cloudinary - Usando el patrón estándar de la app
@@ -34,6 +42,8 @@ const LOGO_SRC = `${CLOUDINARY_BASE_URL}/f_auto,q_auto:best/${LOGO_PUBLIC_ID}`;
 const LogoReloadAnimation: React.FC<LogoReloadAnimationProps> = ({
   open,
   onFinish,
+  primerTexto = "Procesando la compra",
+  segundoTexto = "Ya casi es tuya",
 }) => {
   // Estado para controlar el cambio de texto
   const [showSecondText, setShowSecondText] = useState(false);
@@ -208,11 +218,11 @@ const LogoReloadAnimation: React.FC<LogoReloadAnimationProps> = ({
             lineHeight: 1.1,
           }}
         >
-          {showSecondText ? `Ya casi es tuya${dots}` : `Procesando la compra${dots}`}
+          {showSecondText ? `${segundoTexto}${dots}` : `${primerTexto}${dots}`}
         </span>
       </div>
     ),
-    [showSecondText, dots]
+    [showSecondText, dots, primerTexto, segundoTexto]
   ); // Recrea cuando cambia el texto o los puntos
 
   // Early return después de todos los hooks para cumplir con Rules of Hooks
