@@ -481,7 +481,7 @@ export default function ProductViewPage({ params }) {
       <QuickNavBar isStickyBarVisible={showStickyBar} />
 
       {/* SECCIÓN: Comprar - Layout de dos columnas: Carrusel sin márgenes, Info con márgenes */}
-      <section id="comprar-section" className="bg-white pt-12 pb-0 mb-0 min-h-screen scroll-mt-[180px]">
+      <section id="comprar-section" className="bg-white pt-12 pb-0 mb-0 scroll-mt-[180px]">
         {/* Breadcrumbs */}
         <div className="px-4 lg:px-8 mb-4 pt-24 md:pt-20 xl:pt-20">
           <Breadcrumbs

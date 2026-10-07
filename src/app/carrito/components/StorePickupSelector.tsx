@@ -37,7 +37,7 @@ export const StorePickupSelector: React.FC<StorePickupSelectorProps> = ({
         className={`flex flex-col gap-3 p-4 border rounded-lg max-md:rounded-t-none transition-all ${disabled || isLoading
           ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
           : deliveryMethod === "tienda"
-            ? "border-blue-500 cursor-pointer"
+            ? "border-blue-500 cursor-pointer relative z-10"
             : "border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer"
           }`}
       >
