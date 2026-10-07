@@ -129,7 +129,6 @@ export default function AddNewAddressForm({
   const [isCityAutoCompleted, setIsCityAutoCompleted] = useState(false);
   const [suggestedAddress, setSuggestedAddress] = useState("");
   const [currentStep, setCurrentStep] = useState<1 | 2>(1); // Control de pasos del formulario
-  const [showTooltip, setShowTooltip] = useState(false);
 
   // Facturación completa: usa la misma dirección o los campos manuales de facturación están llenos
   // (la sugerencia de Google es opcional también para facturación)
@@ -534,38 +533,6 @@ export default function AddNewAddressForm({
       onFormValidChange(isStep1Complete);
     }
   }, [isStep1Complete, onFormValidChange, currentStep]);
-
-  // Calcular campos faltantes para mostrar en tooltip
-  const missingFields = useMemo(() => {
-    const missing: string[] = [];
-
-    if (!formData.departamento.trim()) missing.push("Departamento");
-    if (!formData.ciudad.trim()) missing.push("Ciudad");
-    if (!formData.nombreCalle.trim()) missing.push("Tipo de Vía");
-    if (!formData.numeroPrincipal.trim()) missing.push("Principal");
-    if (!formData.numeroSecundario.trim()) missing.push("# Secund.");
-    if (!formData.numeroComplementario.trim()) missing.push("# Compl.");
-    if (!formData.setsReferencia.trim()) missing.push("Complemento");
-    if (!formData.barrio.trim()) missing.push("Barrio");
-    if (!billingOnly && !formData.instruccionesEntrega.trim()) {
-      missing.push("Observación / Instrucciones de entrega");
-    }
-    // Google Places es opcional — no listar como campo faltante
-
-    return missing;
-  }, [
-    selectedAddress,
-    formData.departamento,
-    formData.ciudad,
-    formData.nombreCalle,
-    formData.numeroPrincipal,
-    formData.numeroSecundario,
-    formData.numeroComplementario,
-    formData.setsReferencia,
-    formData.barrio,
-    formData.instruccionesEntrega,
-    billingOnly
-  ]);
 
   // Al pulsar "Guardar" con el formulario a medias, saltamos al primer campo
   // vacio en vez de dejar al cliente buscando cual es.
@@ -1381,8 +1348,6 @@ export default function AddNewAddressForm({
                 }
               }}
               disabled={isLoading}
-              onMouseEnter={() => !isStep1Complete && setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
               /* Se oculta cuando quien usa el formulario ya pone su propio
                  boton de continuar: en el checkout vive en el panel derecho
                  (onContinueRef) y en el registro, abajo del paso (onSubmitRef).
@@ -1399,22 +1364,6 @@ export default function AddNewAddressForm({
               {isLoading ? "Guardando..." : "Guardar"}
             </button>
 
-            {/* Tooltip mostrando campos faltantes - solo en desktop (hover) */}
-            {showTooltip && !isStep1Complete && missingFields.length > 0 && (
-              <div className="hidden lg:block absolute bottom-full right-0 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg z-50">
-                <div className="font-semibold mb-2">Campos faltantes:</div>
-                <ul className="space-y-1">
-                  {missingFields.map((field, index) => (
-                    <li key={index} className="flex items-start gap-1.5">
-                      <span className="text-red-400 mt-0.5">•</span>
-                      <span>{field}</span>
-                    </li>
-                  ))}
-                </ul>
-                {/* Flecha del tooltip */}
-                <div className="absolute top-full right-4 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-900"></div>
-              </div>
-            )}
           </div>
         ) : (
           /* Espacio vacío para mantener la alineación cuando no hay botón
