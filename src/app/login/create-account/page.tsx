@@ -518,6 +518,7 @@ export default function CreateAccountPage() {
             telefono={formData.telefono}
             codigoPais={formData.codigo_pais}
             otpCode={otpCode}
+            onVerifyOTP={handleNextStep}
             otpSent={otpSent}
             sendMethod={sendMethod}
             onOTPChange={setOtpCode}
@@ -633,7 +634,7 @@ export default function CreateAccountPage() {
               <div className="flex gap-3 pt-4">
                 {/* Antes solo en el paso 4: desde el 2 y el 3 no habia forma de
                     volver a corregir un dato del paso anterior. */}
-                {currentStep === 2 && (
+                {currentStep > 1 && (
                   <Button
                     type="button"
                     variant="outline"
@@ -686,18 +687,19 @@ export default function CreateAccountPage() {
                       : "Continuar"}
                   </Button>
                 )}
-                {!STEPS[currentStep - 1].required && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleSkipStep}
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    Omitir por ahora
-                  </Button>
-                )}
               </div>
+
+              {!STEPS[currentStep - 1].required && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleSkipStep}
+                  disabled={isLoading}
+                  className="w-full text-gray-600"
+                >
+                  Omitir por ahora
+                </Button>
+              )}
             </div>
 
             {/* Login prompt - Mobile only */}
@@ -715,25 +717,29 @@ export default function CreateAccountPage() {
                 </p>
               </div>
 
-              <div className="relative">
-                <Separator />
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-xs text-gray-500">
-                  ¿Ya tienes cuenta?
-                </span>
-              </div>
+              {currentStep === 1 && (
+                <>
+                  <div className="relative">
+                    <Separator />
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-xs text-gray-500">
+                      ¿Ya tienes cuenta?
+                    </span>
+                  </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  // Limpiar progreso al ir a login
-                  localStorage.removeItem("create_account_progress");
-                  router.push("/login");
-                }}
-                className="w-full"
-              >
-                Iniciar sesión
-              </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      // Limpiar progreso al ir a login
+                      localStorage.removeItem("create_account_progress");
+                      router.push("/login");
+                    }}
+                    className="w-full"
+                  >
+                    Iniciar sesión
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

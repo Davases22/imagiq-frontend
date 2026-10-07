@@ -5,7 +5,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import { PUBLIC_ROUTES } from "@/constants/routes";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -23,7 +22,6 @@ import PaymentMethodsPage from "./pages/PaymentMethodsPage";
 import CouponsPage from "./pages/CouponsPage";
 import LoyaltyPage from "./pages/LoyaltyPage";
 import OrdersPage from "./pages/OrdersPage";
-import EditProfileModal, { EditProfileData } from "./modals/EditProfileModal";
 import ProfileSidebar from "./sections/ProfileSidebar";
 import ProfileDataPage from "./pages/ProfileDataPage";
 
@@ -78,7 +76,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
   useEffect(() => {
     if (esVistaValida(vistaPedida)) setCurrentView(vistaPedida);
   }, [vistaPedida]);
-  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   // El perfil cambia de pantalla con estado, no navegando, asi que el scroll de
   // la ventana se queda donde estaba: al entrar a Direcciones, Metodos de Pago
@@ -93,7 +90,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
   };
 
   // Handlers de navegación
-  const handleEditProfile = () => setIsEditProfileModalOpen(true);
+  const handleEditProfile = () => setCurrentView("profile");
   const handleOrdersClick = () => setCurrentView("orders");
   const handlePaymentMethodsClick = () => setCurrentView("payment-methods");
   const handleAddressesClick = () => setCurrentView("addresses");
@@ -107,29 +104,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
     console.log("Ver procesamiento de datos");
 
   const handleBackToMain = () => setCurrentView("main");
-
-  const handleSaveProfile = async (data: EditProfileData) => {
-    const res = await actions.updateProfile({
-      nombre: data.nombre,
-      apellido: data.apellido,
-      email: data.email,
-      telefono: data.telefono,
-      tipo_documento: data.tipo_documento,
-      numero_documento: data.numero_documento,
-    });
-
-    if (res.ok) {
-      toast.success("Perfil actualizado correctamente");
-      setIsEditProfileModalOpen(false);
-    } else {
-      // Usar el mensaje REAL devuelto por updateProfile (no state.error, que es
-      // asíncrono y llega tarde). Fallback con la pista de validación del backend.
-      toast.error(
-        res.error ||
-          "No se pudo actualizar el perfil. Verifica que el teléfono tenga 10 dígitos y el documento entre 6 y 10."
-      );
-    }
-  };
 
   if (!state.user) {
     if (isLoading) {
@@ -274,15 +248,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
       </div>
         </div>
       </div>
-
-      {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={isEditProfileModalOpen}
-        onClose={() => setIsEditProfileModalOpen(false)}
-        user={state.user}
-        onSave={handleSaveProfile}
-        isLoading={isLoading}
-      />
 
       {/* Loading Overlay */}
       {isLoading && (

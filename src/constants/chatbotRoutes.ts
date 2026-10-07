@@ -15,6 +15,8 @@ export const CHATBOT_HIDDEN_ROUTES = [
   "/charging-result",   // Match exacto
   "/verify-purchase/",         // Match prefijo: /verify-purchase/[id]
   "/support/verify-purchase/", // Match prefijo: /support/verify-purchase/[id]
+  "/login",                    // Match exacto
+  "/login/",                   // Match prefijo: /login/create-account, /login/password-recovery
 ] as const;
 
 /** Rutas donde el chatbot debe MOSTRARSE (prioridad sobre hidden) */
