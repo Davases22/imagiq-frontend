@@ -169,7 +169,16 @@ const DetailsProductSection: React.FC<{
 
   // State
   const [loading, setLoading] = React.useState(false);
-  const isFavorite = checkIsFavorite(product.id);
+  // A favoritos va el SKU de la variante que la persona esta viendo (color y
+  // capacidad), no el id generico del producto: guardando el generico, al
+  // volver a favoritos no se sabia si queria el negro de 512 o el gris de 256.
+  // Si todavia no hay variante resuelta, se cae al id de siempre.
+  const skuFavorito = productSelection.selectedSku || product.id;
+
+  // Se mira el SKU de la variante y, ademas, el codigo base: los favoritos
+  // guardados antes de separar por color quedaron con el codigo base y si no
+  // el corazon salia apagado aunque el producto si estuviera en la lista.
+  const isFavorite = checkIsFavorite(skuFavorito, [product.id]);
   const [showGuestModal, setShowGuestModal] = React.useState(false);
   const [estrenoYEntrego, setEstrenoYEntrego] = React.useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
@@ -190,14 +199,14 @@ const DetailsProductSection: React.FC<{
     if (isFavorite) {
       const rawUser = localStorage.getItem("imagiq_user");
       const parsed = rawUser ? JSON.parse(rawUser) : null;
-      if (parsed?.id) {
-        removeFromFavorites(product.id, parsed);
-      }
+      // Sin `parsed` tambien se quita: antes el clic no hacia nada y el corazon
+      // se quedaba encendido sin forma de apagarlo.
+      removeFromFavorites(skuFavorito, parsed ?? undefined);
     } else {
       const rawUser = localStorage.getItem("imagiq_user");
       const parsed = rawUser ? JSON.parse(rawUser) : null;
       if (parsed?.id) {
-        addToFavorites(product.id, parsed);
+        addToFavorites(skuFavorito, parsed);
       } else {
         setShowGuestModal(true);
       }
@@ -211,7 +220,7 @@ const DetailsProductSection: React.FC<{
     telefono: string;
   }) => {
     setShowGuestModal(false);
-    await addToFavorites(product.id, guestUserData);
+    await addToFavorites(skuFavorito, guestUserData);
   };
 
   // Funciones de manejo de selección compatibles con el diseño actual

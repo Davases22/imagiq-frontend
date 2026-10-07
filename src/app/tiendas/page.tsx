@@ -123,7 +123,7 @@ export default function TiendasPage() {
           /* LAYOUT DESKTOP - Diseño original */
           <div
             className="flex justify-center items-start"
-            style={{ minHeight: 1000 }}
+            style={{ minHeight: 1140 }}
           >
             <MapSection
               stores={visibleStores}
@@ -133,7 +133,7 @@ export default function TiendasPage() {
 
             {/* Sidebar desktop */}
             <aside
-              className="absolute top-32 left-20 w-[420px] max-w-full bg-white rounded-[18px] border border-black p-0 flex flex-col gap-0 z-20"
+              className="absolute top-32 left-20 w-[420px] max-w-full bg-white rounded-3xl border border-black p-0 flex flex-col gap-0 z-20 overflow-hidden"
               style={{
                 boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
                 overflow: "hidden",
@@ -178,7 +178,10 @@ export default function TiendasPage() {
 
               <div
                 className="flex flex-col gap-5 overflow-y-auto px-4 pb-4 pt-2"
-                style={{ maxHeight: 650, minHeight: 320 }}
+                // 780px para que entren 5 tarjetas sin tener que desplazar.
+                // El panel arranca en top-32 (128px) y la cabecera ocupa ~150,
+                // asi que 128+150+780 = 1058, dentro de los 1080 del mapa.
+                style={{ maxHeight: 780, minHeight: 320 }}
               >
                 {loading || isFilterLoading ? (
                   <>

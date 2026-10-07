@@ -1,6 +1,7 @@
 "use client";
 
 import { io, Socket } from "socket.io-client";
+import { debugLog, debugWarn } from "@/lib/debugLog";
 
 // Un socket POR canal (no un singleton único). Antes había un solo `socket`
 // compartido y el canal se fijaba con la PRIMERA conexión: como los grids del
@@ -29,14 +30,14 @@ function getSocketUrl(): string {
 export function connectSocket(channel: string): Socket {
   const existing = sockets[channel];
   if (existing) {
-    console.log(
+    debugLog(
       `[Socket] Reusing existing socket for channel '${channel}' (id: ${existing.id})`,
     );
     return existing;
   }
 
   const url = `${getSocketUrl()}/realtime`;
-  console.log(`[Socket] Creating NEW socket -> ${url} (channel: ${channel})`);
+  debugLog(`[Socket] Creating NEW socket -> ${url} (channel: ${channel})`);
   const socket = io(url, {
     transports: ["websocket", "polling"],
     query: { channel },
@@ -48,7 +49,7 @@ export function connectSocket(channel: string): Socket {
   });
 
   socket.on("connect", () => {
-    console.log(`[Socket] Connected! id: ${socket.id}, channel: ${channel}`);
+    debugLog(`[Socket] Connected! id: ${socket.id}, channel: ${channel}`);
   });
 
   socket.on("connect_error", (error) => {
@@ -64,12 +65,12 @@ export function connectSocket(channel: string): Socket {
   });
 
   socket.on("disconnect", (reason) => {
-    console.log(`[Socket] Disconnected (channel: ${channel}): ${reason}`);
+    debugLog(`[Socket] Disconnected (channel: ${channel}): ${reason}`);
   });
 
   // Debug: log ALL incoming products_updated events (relevante para el canal 'products')
   socket.on("products_updated", (data: unknown) => {
-    console.log(`[Socket] RAW products_updated event received (channel: ${channel}):`, data);
+    debugLog(`[Socket] RAW products_updated event received (channel: ${channel}):`, data);
   });
 
   sockets[channel] = socket;

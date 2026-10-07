@@ -98,7 +98,14 @@ interface UseFavoritesReturn {
       email: string;
       telefono: string;
     }) => Promise<void>;
-  isFavorite: (id: string) => boolean;
+  /**
+   * `id` es el codigo base del producto y `skusVariantes` los SKU de sus
+   * colores. Se aceptan los dos porque en favoritos conviven ambas llaves: el
+   * detalle guarda el SKU del color elegido y los listados antiguos guardaron
+   * el codigo base. Sin esto el corazon se veia encendido en una pantalla y
+   * apagado en otra para el mismo producto.
+   */
+  isFavorite: (id: string, skusVariantes?: (string | undefined)[]) => boolean;
 
   // acciones con API
   filterFavorites: (filters: FavoriteFilters) => Promise<void>;
@@ -1626,29 +1633,48 @@ export const useFavorites = (userId?: string,
           };
         }
 
-        // 4. Enviar petición al backend
-        const response = await productEndpoints.addFavorite(payload);
-       
-        if (response.success) {
+        // 4. Marcar YA el favorito, sin esperar al backend.
+        //
+        // Antes el corazon no se pintaba hasta que el servidor respondia, y esa
+        // espera se siente como si la pagina se hubiera colgado. Se pinta al
+        // instante y, si la peticion falla, se deshace abajo.
+        const marcarLocal = () => {
           setFavorites((prev) => {
-            // Evitar duplicados
-            if (prev.includes(productId)) {
-              return prev;
-            }
+            if (prev.includes(productId)) return prev;
             const newFavorites = [...prev, productId];
-            localStorage.setItem(
-              "imagiq_favorites",
-              JSON.stringify(newFavorites)
-            );
-            // Disparar evento para sincronizar navbar y otros componentes
-            if (typeof window !== 'undefined') {
+            localStorage.setItem("imagiq_favorites", JSON.stringify(newFavorites));
+            if (typeof window !== "undefined") {
               requestAnimationFrame(() => {
-                window.dispatchEvent(new Event('favorites-updated'));
+                window.dispatchEvent(new Event("favorites-updated"));
               });
             }
             return newFavorites;
           });
-          
+        };
+        const desmarcarLocal = () => {
+          setFavorites((prev) => {
+            const newFavorites = prev.filter((id) => id !== productId);
+            localStorage.setItem("imagiq_favorites", JSON.stringify(newFavorites));
+            if (typeof window !== "undefined") {
+              requestAnimationFrame(() => {
+                window.dispatchEvent(new Event("favorites-updated"));
+              });
+            }
+            return newFavorites;
+          });
+        };
+
+        marcarLocal();
+
+        let response;
+        try {
+          response = await productEndpoints.addFavorite(payload);
+        } catch (e) {
+          desmarcarLocal(); // el servidor no lo acepto: se deshace la marca
+          throw e;
+        }
+
+        if (response.success) {
           // Si recibimos un id del backend, guardarlo en localStorage
           const userInfoFromResponse = response?.data?.userInfo;
           if (userInfoFromResponse?.id || userInfoFromResponse?.nombre) {
@@ -1656,6 +1682,7 @@ export const useFavorites = (userId?: string,
             return userInfoFromResponse;
           }
         } else {
+          desmarcarLocal(); // se deshace la marca optimista
           console.error("Error al agregar favorito:", response.message);
           throw new Error(response.message || "Error al agregar favorito");
         }
@@ -1675,94 +1702,67 @@ export const useFavorites = (userId?: string,
         email: string;
         telefono: string;
       }) => {
-     
+      // Quitar es optimista igual que agregar: antes el corazon no se apagaba
+      // hasta que respondia el servidor y parecia que el clic no habia hecho
+      // nada. Si el servidor dice que no, se repone abajo.
+      let anteriores: string[] = [];
+
+      const guardar = (lista: string[]) => {
+        if (lista.length === 0) {
+          localStorage.removeItem("imagiq_favorites");
+        } else {
+          localStorage.setItem("imagiq_favorites", JSON.stringify(lista));
+        }
+        if (typeof window !== "undefined") {
+          requestAnimationFrame(() => {
+            window.dispatchEvent(new Event("favorites-updated"));
+          });
+        }
+      };
+
+      setFavorites((prev) => {
+        anteriores = prev;
+        const nuevas = prev.filter((id) => id !== productSKU);
+        guardar(nuevas);
+        return nuevas;
+      });
+
       try {
-        // Intentar obtener el ID del usuario del localStorage si no se proporciona
         let userId = guestUserData?.id;
         if (!userId) {
           const rawUser = localStorage.getItem("imagiq_user");
           const parsed = rawUser ? JSON.parse(rawUser) : null;
           userId = parsed?.id;
         }
-        
-        // Si tenemos userId, intentar remover del servidor
-        if (userId) {
-          const response = await productEndpoints.removeFavorite(
-            userId,
-            productSKU
-          );
-          
-          if (response.success) {
-            setFavorites((prev) => {
-              const newFavorites = prev.filter((id) => id !== productSKU);
-              // Si no quedan favoritos, limpiar el localStorage
-              if (newFavorites.length === 0) {
-                localStorage.removeItem("imagiq_favorites");
-              } else {
-                localStorage.setItem(
-                  "imagiq_favorites",
-                  JSON.stringify(newFavorites)
-                );
-              }
-              // Disparar evento para sincronizar navbar y otros componentes
-              if (typeof window !== 'undefined') {
-                requestAnimationFrame(() => {
-                  window.dispatchEvent(new Event('favorites-updated'));
-                });
-              }
-              return newFavorites;
-            });
-          }
-        } else {
-          // Si no hay userId, remover solo del localStorage
-          setFavorites((prev) => {
-            const newFavorites = prev.filter((id) => id !== productSKU);
-            if (newFavorites.length === 0) {
-              localStorage.removeItem("imagiq_favorites");
-            } else {
-              localStorage.setItem(
-                "imagiq_favorites",
-                JSON.stringify(newFavorites)
-              );
-            }
-            // Disparar evento para sincronizar navbar y otros componentes
-            if (typeof window !== 'undefined') {
-              requestAnimationFrame(() => {
-                window.dispatchEvent(new Event('favorites-updated'));
-              });
-            }
-            return newFavorites;
+
+        // Sin usuario no hay nada que borrar en el servidor: el favorito solo
+        // vivia en este navegador y ya quedo fuera.
+        if (!userId) return;
+
+        const response = await productEndpoints.removeFavorite(
+          userId,
+          productSKU
+        );
+
+        if (!response.success) {
+          setFavorites(() => {
+            guardar(anteriores);
+            return anteriores;
           });
         }
       } catch (err) {
+        // Un fallo de red no deberia resucitar el favorito: el cliente ya vio
+        // que lo quito y el localStorage es la fuente de verdad en el cliente.
         console.error("Error al quitar favorito en servidor", err);
-        // Aún así, remover del localStorage para mantener consistencia UI
-        setFavorites((prev) => {
-          const newFavorites = prev.filter((id) => id !== productSKU);
-          if (newFavorites.length === 0) {
-            localStorage.removeItem("imagiq_favorites");
-          } else {
-            localStorage.setItem(
-              "imagiq_favorites",
-              JSON.stringify(newFavorites)
-            );
-          }
-          // Disparar evento para sincronizar navbar y otros componentes
-          if (typeof window !== 'undefined') {
-            requestAnimationFrame(() => {
-              window.dispatchEvent(new Event('favorites-updated'));
-            });
-          }
-          return newFavorites;
-        });
       }
     },
     []
   );
 
   const isFavorite = useCallback(
-    (productId: string) => {
-      return favorites.includes(productId);
+    (productId: string, skusVariantes?: (string | undefined)[]) => {
+      if (favorites.includes(productId)) return true;
+      return !!skusVariantes?.some((sku) => !!sku && favorites.includes(sku));
     },
     [favorites]
   );

@@ -50,7 +50,7 @@ export const SearchBar: FC<Props> = ({ value, onChange, onSubmit }) => {
   return (
     <div
       ref={wrapperRef}
-      className="relative w-full lg:w-[200px] xl:w-[220px] 2xl:w-[260px]"
+      className="relative w-full lg:w-[220px] xl:w-[245px] 2xl:w-[290px]"
     >
       <form
         onSubmit={onSubmit}

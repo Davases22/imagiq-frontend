@@ -346,7 +346,7 @@ export const CategoryProductsGrid = forwardRef<
                           {...product}
                           activeFilterHints={activeFilterHints}
                           ceroInteresData={ceroInteresData}
-                          isFavorite={isFavorite(product.id)}
+                          isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
                           onToggleFavorite={(productId: string) => {
                             if (isFavorite(productId)) {
                               handleRemoveToFavorites(productId);

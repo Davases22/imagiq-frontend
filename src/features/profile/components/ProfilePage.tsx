@@ -3,7 +3,8 @@
  * @description Página de perfil simplificada
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PUBLIC_ROUTES } from "@/constants/routes";
 import Link from "next/link";
@@ -43,9 +44,36 @@ interface ProfilePageProps {
   className?: string;
 }
 
+const VISTAS_VALIDAS: CurrentView[] = [
+  "main",
+  "addresses",
+  "payment-methods",
+  "coupons",
+  "loyalty",
+  "orders",
+];
+
+function esVistaValida(v: string | null | undefined): v is CurrentView {
+  return !!v && VISTAS_VALIDAS.includes(v as CurrentView);
+}
+
 export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
   const { state, actions, isLoading } = useProfile();
-  const [currentView, setCurrentView] = useState<CurrentView>("main");
+  // Se puede entrar directo a una seccion con ?ver=orders (lo usa el menu del
+  // navbar para llevar a "Mis pedidos" sin pasar por el indice del perfil).
+  const searchParams = useSearchParams();
+  const vistaPedida = searchParams?.get("ver");
+  const [currentView, setCurrentView] = useState<CurrentView>(
+    esVistaValida(vistaPedida) ? vistaPedida : "main",
+  );
+
+  // El useState de arriba solo corre en el primer render. Si el usuario YA
+  // esta en /perfil y pulsa "Mis pedidos" en el menu del navbar, Next no
+  // remonta la pagina (solo cambia el query), asi que sin este efecto la URL
+  // cambiaba y la pantalla se quedaba igual.
+  useEffect(() => {
+    if (esVistaValida(vistaPedida)) setCurrentView(vistaPedida);
+  }, [vistaPedida]);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   // El perfil cambia de pantalla con estado, no navegando, asi que el scroll de

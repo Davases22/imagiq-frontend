@@ -498,7 +498,9 @@ export default function ProductCard({
   const handleToggleFavorite = () => {
     if (!onToggleFavorite) return;
 
-    onToggleFavorite(id);
+    // El SKU del color que se esta viendo, no el codigo del modelo: si no, al
+    // volver a favoritos no se sabia si queria el negro o el gris.
+    onToggleFavorite(currentSku || id);
     posthogUtils.capture("toggle_favorite", {
       product_id: id,
       product_name: name,

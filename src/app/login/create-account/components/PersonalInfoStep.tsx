@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiPost } from "@/lib/api-client";
 import { identifyEmailEarly } from "@/lib/posthogClient";
 
@@ -24,9 +24,11 @@ interface PersonalInfoStepProps {
   onChange: (data: Partial<PersonalInfoData>) => void;
   disabled?: boolean;
   onValidationChange?: (hasErrors: boolean) => void;
+  /** La cuenta de este registro ya existe (se vuelve atras desde el paso 2). */
+  cuentaYaCreada?: boolean;
 }
 
-export function PersonalInfoStep({ formData, onChange, disabled, onValidationChange }: PersonalInfoStepProps) {
+export function PersonalInfoStep({ formData, onChange, disabled, onValidationChange, cuentaYaCreada }: PersonalInfoStepProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
@@ -35,17 +37,19 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
   const [phoneError, setPhoneError] = useState<string>("");
   const [documentError, setDocumentError] = useState<string>("");
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
-  const [isCheckingDocument, setIsCheckingDocument] = useState(false);
+
+  // La validacion en vivo se apaga cuando la cuenta ya existe: ahi el correo
+  // SIEMPRE va a dar "ya registrado" y pintaria un error que no lo es.
+  const ENABLE_REALTIME_VALIDATION = !cuentaYaCreada;
 
   // Notificar al padre cuando cambien los errores de validación
   useEffect(() => {
     // Solo notificar errores si la validación en tiempo real está habilitada
-    const hasErrors = ENABLE_REALTIME_VALIDATION && !!(emailError || phoneError || documentError || isCheckingEmail || isCheckingPhone || isCheckingDocument);
+    const hasErrors = ENABLE_REALTIME_VALIDATION && !!(emailError || phoneError || isCheckingEmail);
     if (onValidationChange) {
       onValidationChange(hasErrors);
     }
-  }, [emailError, phoneError, documentError, isCheckingEmail, isCheckingPhone, isCheckingDocument, onValidationChange]);
+  }, [emailError, phoneError, isCheckingEmail, onValidationChange]);
 
   // Función para verificar si el email ya está registrado
   const checkEmailAvailability = useCallback(async (email: string) => {
@@ -76,74 +80,11 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
     }
   }, []);
 
-  // Función para verificar si el teléfono ya está registrado
-  const checkPhoneAvailability = useCallback(async (telefono: string, codigoPais: string) => {
-    if (!telefono || telefono.length < 10) {
-      setPhoneError("");
-      return;
-    }
-
-    setIsCheckingPhone(true);
-    setPhoneError("");
-
-    try {
-      const response = await apiPost<{ exists: boolean; message?: string }>("/api/auth/check-phone", {
-        telefono: telefono,
-        codigo_pais: codigoPais,
-      });
-
-      if (response.exists) {
-        setPhoneError("Este número de teléfono ya está registrado");
-      } else {
-        setPhoneError("");
-      }
-    } catch (error) {
-      console.log("⚠️ Endpoint de validación de teléfono no disponible (esperado en desarrollo):", error);
-      // Si el endpoint no existe (404), no bloquear - permitir continuar
-      setPhoneError("");
-    } finally {
-      setIsCheckingPhone(false);
-    }
-  }, []);
-
-  // Función para verificar si el documento ya está registrado
-  const checkDocumentAvailability = useCallback(async (tipoDocumento: string, numeroDocumento: string) => {
-    if (!numeroDocumento || numeroDocumento.length < 6) {
-      setDocumentError("");
-      return;
-    }
-
-    setIsCheckingDocument(true);
-    setDocumentError("");
-
-    try {
-      const response = await apiPost<{ exists: boolean; message?: string }>("/api/auth/check-document", {
-        tipo_documento: tipoDocumento,
-        numero_documento: numeroDocumento,
-      });
-
-      if (response.exists) {
-        setDocumentError("Este número de documento ya está registrado");
-      } else {
-        setDocumentError("");
-      }
-    } catch (error) {
-      console.log("⚠️ Endpoint de validación de documento no disponible (esperado en desarrollo):", error);
-      // Si el endpoint no existe (404), no bloquear - permitir continuar
-      setDocumentError("");
-    } finally {
-      setIsCheckingDocument(false);
-    }
-  }, []);
-
-  // ========================================
-  // 🔧 CONFIGURACIÓN DE VALIDACIÓN EN TIEMPO REAL
-  // ========================================
-  // Los endpoints ya están funcionando (se usan en el paso 2)
-  // - POST /api/auth/check-email
-  // - POST /api/auth/check-phone
-  // - POST /api/auth/check-document
-  const ENABLE_REALTIME_VALIDATION = true;
+  // Aqui habia checkPhoneAvailability y checkDocumentAvailability. Las dos
+  // consultaban al backend en cada pausa de tecleo y tiraban la respuesta a la
+  // basura: el telefono puede repetirse entre cuentas (familias, empresas) y el
+  // documento tampoco es unico, asi que ya no bloquean nada. Lo unico que
+  // conseguian era apagar el boton "Continuar" mientras viajaba la peticion.
 
   // useEffect con debounce para validar email
   useEffect(() => {
@@ -153,36 +94,10 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
       if (formData.email) {
         checkEmailAvailability(formData.email);
       }
-    }, 800); // Esperar 800ms después de que el usuario deje de escribir
+    }, 350); // 350ms: con 800 la respuesta tardaba ~1,2s en aparecer (800 de espera + ~380 de red) y parecia colgado. 350 sigue sin disparar una peticion por tecla.
 
     return () => clearTimeout(timeoutId);
   }, [formData.email, checkEmailAvailability]);
-
-  // useEffect con debounce para validar teléfono
-  useEffect(() => {
-    if (!ENABLE_REALTIME_VALIDATION) return;
-    
-    const timeoutId = setTimeout(() => {
-      if (formData.telefono) {
-        checkPhoneAvailability(formData.telefono, formData.codigo_pais);
-      }
-    }, 800); // Esperar 800ms después de que el usuario deje de escribir
-
-    return () => clearTimeout(timeoutId);
-  }, [formData.telefono, formData.codigo_pais, checkPhoneAvailability]);
-
-  // useEffect con debounce para validar documento
-  useEffect(() => {
-    if (!ENABLE_REALTIME_VALIDATION) return;
-    
-    const timeoutId = setTimeout(() => {
-      if (formData.numero_documento) {
-        checkDocumentAvailability(formData.tipo_documento, formData.numero_documento);
-      }
-    }, 800); // Esperar 800ms después de que el usuario deje de escribir
-
-    return () => clearTimeout(timeoutId);
-  }, [formData.numero_documento, formData.tipo_documento, checkDocumentAvailability]);
 
   // Validar requisitos de seguridad de la contraseña
   const passwordRequirements = {
@@ -195,74 +110,24 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
 
   const allRequirementsMet = Object.values(passwordRequirements).every(Boolean);
 
-  // Estado local para mantener los valores de los dropdowns de fecha
-  // Esto permite que el usuario vea su selección incluso si la fecha está incompleta
-  const [localDateParts, setLocalDateParts] = useState<{ day: string; month: string; year: string }>(() => {
-    // Inicializar desde formData si existe
-    if (formData.fecha_nacimiento) {
-      const parts = formData.fecha_nacimiento.split('-');
-      return { year: parts[0] || '', month: parts[1] || '', day: parts[2] || '' };
-    }
-    return { day: '', month: '', year: '' };
-  });
 
-  // Sincronizar con formData cuando cambie externamente (ej: restaurar desde localStorage)
-  useEffect(() => {
-    if (formData.fecha_nacimiento) {
-      const parts = formData.fecha_nacimiento.split('-');
-      setLocalDateParts({ year: parts[0] || '', month: parts[1] || '', day: parts[2] || '' });
-    }
-  }, [formData.fecha_nacimiento]);
 
-  // Usar valores locales para los dropdowns
-  const { day, month, year } = localDateParts;
 
   // Country codes
   const countryCodes = [
-    { code: '+57', country: 'CO', label: 'Colombia (+57)' },
-    { code: '+1', country: 'US', label: 'Estados Unidos (+1)' },
-    { code: '+52', country: 'MX', label: 'México (+52)' },
-    { code: '+54', country: 'AR', label: 'Argentina (+54)' },
-    { code: '+56', country: 'CL', label: 'Chile (+56)' },
-    { code: '+51', country: 'PE', label: 'Perú (+51)' },
-    { code: '+58', country: 'VE', label: 'Venezuela (+58)' },
-    { code: '+593', country: 'EC', label: 'Ecuador (+593)' },
-    { code: '+55', country: 'BR', label: 'Brasil (+55)' },
-    { code: '+34', country: 'ES', label: 'España (+34)' },
+    { code: '+57', country: 'CO', flag: '🇨🇴', label: 'Colombia (+57)' },
+    { code: '+1', country: 'US', flag: '🇺🇸', label: 'Estados Unidos (+1)' },
+    { code: '+52', country: 'MX', flag: '🇲🇽', label: 'México (+52)' },
+    { code: '+54', country: 'AR', flag: '🇦🇷', label: 'Argentina (+54)' },
+    { code: '+56', country: 'CL', flag: '🇨🇱', label: 'Chile (+56)' },
+    { code: '+51', country: 'PE', flag: '🇵🇪', label: 'Perú (+51)' },
+    { code: '+58', country: 'VE', flag: '🇻🇪', label: 'Venezuela (+58)' },
+    { code: '+593', country: 'EC', flag: '🇪🇨', label: 'Ecuador (+593)' },
+    { code: '+55', country: 'BR', flag: '🇧🇷', label: 'Brasil (+55)' },
+    { code: '+34', country: 'ES', flag: '🇪🇸', label: 'España (+34)' },
   ];
 
-  // Generate date options
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
-  const months = [
-    { value: '01', label: 'Enero' },
-    { value: '02', label: 'Febrero' },
-    { value: '03', label: 'Marzo' },
-    { value: '04', label: 'Abril' },
-    { value: '05', label: 'Mayo' },
-    { value: '06', label: 'Junio' },
-    { value: '07', label: 'Julio' },
-    { value: '08', label: 'Agosto' },
-    { value: '09', label: 'Septiembre' },
-    { value: '10', label: 'Octubre' },
-    { value: '11', label: 'Noviembre' },
-    { value: '12', label: 'Diciembre' },
-  ];
-  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
 
-  const handleDateChange = (newDay: string, newMonth: string, newYear: string) => {
-    // Siempre actualizar el estado local para que los dropdowns muestren la selección del usuario
-    setLocalDateParts({ day: newDay, month: newMonth, year: newYear });
-
-    // Solo generar fecha ISO válida cuando los 3 campos estén completos
-    // Si falta algún campo, guardar string vacío para evitar errores de validación ISO 8601
-    if (newYear && newMonth && newDay) {
-      onChange({ fecha_nacimiento: `${newYear}-${newMonth}-${newDay}` });
-    } else {
-      // Guardar vacío si la fecha está incompleta - evita enviar formatos inválidos como "-01-15"
-      onChange({ fecha_nacimiento: "" });
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -272,7 +137,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
           <Input
             id="nombre"
             type="text"
-            placeholder="Juan"
+            placeholder="Tu nombre"
             value={formData.nombre}
             onChange={(e) => onChange({ nombre: e.target.value })}
             disabled={disabled}
@@ -285,7 +150,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
           <Input
             id="apellido"
             type="text"
-            placeholder="Pérez"
+            placeholder="Tu apellido"
             value={formData.apellido}
             onChange={(e) => onChange({ apellido: e.target.value })}
             disabled={disabled}
@@ -323,12 +188,6 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             {emailError}
           </p>
         )}
-        {ENABLE_REALTIME_VALIDATION && !emailError && formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && !isCheckingEmail && (
-          <p className="text-xs text-green-600 flex items-center gap-1">
-            <span className="font-bold">✓</span>
-            Correo disponible
-          </p>
-        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -349,7 +208,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             >
               {countryCodes.map((cc) => (
                 <option key={cc.code} value={cc.code}>
-                  {cc.country} {cc.code}
+                  {cc.flag} {cc.code}
                 </option>
               ))}
             </select>
@@ -365,11 +224,6 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
                 autoComplete="tel"
                 className={phoneError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
               />
-              {ENABLE_REALTIME_VALIDATION && isCheckingPhone && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-black"></div>
-                </div>
-              )}
             </div>
           </div>
           {ENABLE_REALTIME_VALIDATION && phoneError && (
@@ -378,98 +232,27 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
               {phoneError}
             </p>
           )}
-          {ENABLE_REALTIME_VALIDATION && !phoneError && formData.telefono && formData.telefono.length >= 10 && !isCheckingPhone && (
-            <p className="text-xs text-green-600 flex items-center gap-1">
-              <span className="font-bold">✓</span>
-              Teléfono disponible
-            </p>
-          )}
         </div>
 
         <div className="space-y-2">
-          <Label>Fecha de nacimiento *</Label>
-          <div className="flex gap-2">
-            <select
-              value={day}
-              onChange={(e) => handleDateChange(e.target.value, month, year)}
-              disabled={disabled}
-              style={{ backgroundColor: '#ffffff' }}
-              className={`h-9 w-[70px] rounded-md border px-3 py-1 text-sm focus:outline-none focus:ring-1 ${
-                (month || year) && !day
-                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:border-black focus:ring-black'
-              }`}
-            >
-              <option value="">Día</option>
-              {days.map((d) => (
-                <option key={d} value={d}>
-                  {parseInt(d)}
-                </option>
-              ))}
-            </select>
-            <select
-              value={month}
-              onChange={(e) => handleDateChange(day, e.target.value, year)}
-              disabled={disabled}
-              style={{ backgroundColor: '#ffffff' }}
-              className={`h-9 flex-1 rounded-md border px-3 py-1 text-sm focus:outline-none focus:ring-1 ${
-                (day || year) && !month
-                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:border-black focus:ring-black'
-              }`}
-            >
-              <option value="">Mes</option>
-              {months.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={year}
-              onChange={(e) => handleDateChange(day, month, e.target.value)}
-              disabled={disabled}
-              style={{ backgroundColor: '#ffffff' }}
-              className={`h-9 w-[90px] rounded-md border px-3 py-1 text-sm focus:outline-none focus:ring-1 ${
-                (day || month) && !year
-                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:border-black focus:ring-black'
-              }`}
-            >
-              <option value="">Año</option>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* Mensaje de error cuando faltan campos de fecha */}
-          {(day || month || year) && (!day || !month || !year) && (
-            <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
-              <span className="font-bold">✗</span>
-              {!day && !month && !year
-                ? "Selecciona día, mes y año"
-                : !day && !month
-                  ? "Falta seleccionar el día y el mes"
-                  : !day && !year
-                    ? "Falta seleccionar el día y el año"
-                    : !month && !year
-                      ? "Falta seleccionar el mes y el año"
-                      : !day
-                        ? "Falta seleccionar el día"
-                        : !month
-                          ? "Falta seleccionar el mes"
-                          : "Falta seleccionar el año"}
-            </p>
-          )}
-          {/* Mensaje de éxito cuando la fecha está completa */}
-          {day && month && year && (
-            <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-              <span className="font-bold">✓</span>
-              Fecha completa
-            </p>
-          )}
+          <Label>
+            Fecha de nacimiento{" "}
+            <span className="font-normal text-gray-500">(opcional)</span>
+          </Label>
+          {/* Un solo campo de fecha en vez de tres desplegables: en movil abre
+              el calendario nativo -un gesto en vez de tres listas largas- y en
+              escritorio se escribe de corrido. El valor ya viaja como
+              YYYY-MM-DD, que es el formato que el backend espera. */}
+          <input
+            type="date"
+            value={formData.fecha_nacimiento || ""}
+            onChange={(e) => onChange({ fecha_nacimiento: e.target.value })}
+            disabled={disabled}
+            max={new Date().toISOString().split("T")[0]}
+            min={`${new Date().getFullYear() - 100}-01-01`}
+            style={{ backgroundColor: "#ffffff" }}
+            className="h-9 w-full rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+          />
         </div>
       </div>
 
@@ -486,8 +269,8 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
           >
             <option value="CC">CC</option>
             <option value="CE">CE</option>
-            <option value="TI">TI</option>
-            <option value="PA">Pasaporte</option>
+            <option value="PP">Pasaporte</option>
+            <option value="NIT">NIT</option>
           </select>
         </div>
         <div className="space-y-2">
@@ -504,12 +287,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
               autoComplete="off"
               className={documentError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}
             />
-            {ENABLE_REALTIME_VALIDATION && isCheckingDocument && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-              </div>
-            )}
-            {ENABLE_REALTIME_VALIDATION && !isCheckingDocument && !documentError && formData.numero_documento && formData.numero_documento.length >= 6 && (
+            {ENABLE_REALTIME_VALIDATION && !documentError && formData.numero_documento && formData.numero_documento.length >= 6 && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">
                 <svg className="h-5 w-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                   <path d="M5 13l4 4L19 7"></path>
@@ -523,14 +301,6 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
                 <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               {documentError}
-            </p>
-          )}
-          {ENABLE_REALTIME_VALIDATION && !documentError && !isCheckingDocument && formData.numero_documento && formData.numero_documento.length >= 6 && (
-            <p className="text-sm text-green-500 flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M5 13l4 4L19 7"></path>
-              </svg>
-              Documento disponible
             </p>
           )}
         </div>

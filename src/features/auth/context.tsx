@@ -23,6 +23,7 @@ import { addressesService } from "@/services/addresses.service";
 import { setPosthogUserId, posthogUtils } from "@/lib/posthogClient";
 import { mergeSearchHistoryOnLogin } from "@/lib/searchHistory";
 import { applyKnownUserAM } from "@/lib/analytics/emitters/emit.meta";
+import { debugLog, debugWarn } from "@/lib/debugLog";
 
 interface AuthContextType {
   user: User | null;
@@ -46,11 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     const loadSession = async () => {
-      console.log('🔄 [AuthContext] loadSession iniciado...');
+      debugLog('🔄 [AuthContext] loadSession iniciado...');
       const savedUser = localStorage.getItem("imagiq_user");
       const savedToken = localStorage.getItem("imagiq_token");
 
-      console.log('🔍 [AuthContext] loadSession datos:', {
+      debugLog('🔍 [AuthContext] loadSession datos:', {
         hasUser: !!savedUser,
         hasToken: !!savedToken,
         tokenLength: savedToken?.length || 0
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         typeof savedToken === "string" &&
         savedToken.split(".").length === 3;
 
-      console.log('🔐 [AuthContext] Token validation:', { isTokenValid });
+      debugLog('🔐 [AuthContext] Token validation:', { isTokenValid });
 
       if (savedUser && isTokenValid) {
         try {
@@ -90,11 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const existingAddress = localStorage.getItem('checkout-address');
           if (!existingAddress || existingAddress === 'null' || existingAddress === 'undefined') {
             try {
-              console.log('🔄 [AuthContext] Cargando dirección predeterminada al restaurar sesión...');
+              debugLog('🔄 [AuthContext] Cargando dirección predeterminada al restaurar sesión...');
               const defaultAddress = await addressesService.getDefaultAddress("ENVIO");
               
               if (defaultAddress) {
-                console.log('✅ [AuthContext] Dirección predeterminada encontrada:', defaultAddress.nombreDireccion);
+                debugLog('✅ [AuthContext] Dirección predeterminada encontrada:', defaultAddress.nombreDireccion);
                 
                 // Convertir Address a formato de checkout-address (Direccion con snake_case)
                 const checkoutAddress = {
@@ -119,12 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 localStorage.setItem('checkout-address', JSON.stringify(checkoutAddress));
                 localStorage.setItem('imagiq_default_address', JSON.stringify(checkoutAddress));
                 
-                console.log('✅ [AuthContext] Dirección guardada en localStorage');
+                debugLog('✅ [AuthContext] Dirección guardada en localStorage');
                 
                 // Disparar evento para que los componentes se enteren
                 window.dispatchEvent(new Event('address-changed'));
               } else {
-                console.log('⚠️ [AuthContext] Usuario no tiene dirección predeterminada');
+                debugLog('⚠️ [AuthContext] Usuario no tiene dirección predeterminada');
               }
             } catch (error) {
               console.error('❌ [AuthContext] Error cargando dirección predeterminada:', error);
@@ -132,18 +133,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error("Error parsing saved user data:", error);
-          console.log('🗑️ [AuthContext] Limpiando token por error de parsing');
+          debugLog('🗑️ [AuthContext] Limpiando token por error de parsing');
           localStorage.removeItem("imagiq_token");
           setUser(null);
         }
       } else {
         // Si el token no es válido, limpiar sesión
-        console.log('🗑️ [AuthContext] Limpiando sesión - token inválido o usuario faltante');
+        debugLog('🗑️ [AuthContext] Limpiando sesión - token inválido o usuario faltante');
         localStorage.removeItem("imagiq_token");
         setUser(null);
       }
       setIsLoading(false);
-      console.log('✅ [AuthContext] loadSession completado');
+      debugLog('✅ [AuthContext] loadSession completado');
     };
 
     loadSession();
@@ -154,9 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // CRÍTICO: Limpiar datos del usuario anterior ANTES de guardar el nuevo
     try {
       const { clearPreviousUserData } = await import('@/app/carrito/utils/getUserId');
-      console.log('🧹 [AuthContext] Limpiando datos de usuario anterior...');
+      debugLog('🧹 [AuthContext] Limpiando datos de usuario anterior...');
       clearPreviousUserData();
-      console.log('✅ [AuthContext] Datos anteriores limpiados');
+      debugLog('✅ [AuthContext] Datos anteriores limpiados');
     } catch (error) {
       console.error('❌ [AuthContext] Error limpiando datos anteriores:', error);
     }
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { saveUserId } = await import('@/app/carrito/utils/getUserId');
       saveUserId(userData.id, userData.email, false); // false = no limpiar de nuevo
-      console.log('✅ [AuthContext] UserId guardado de forma consistente:', userData.id);
+      debugLog('✅ [AuthContext] UserId guardado de forma consistente:', userData.id);
     } catch (error) {
       console.error('❌ [AuthContext] Error guardando userId:', error);
     }
@@ -190,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(new CustomEvent('user-changed', {
         detail: { userId: userData.id, role: userRole, email: userData.email }
       }));
-      console.log('📡 [AuthContext] Evento user-changed disparado:', { userId: userData.id, role: userRole });
+      debugLog('📡 [AuthContext] Evento user-changed disparado:', { userId: userData.id, role: userRole });
     }
 
     // Identify user in PostHog (enrich with profile properties)
@@ -211,11 +212,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ✅ NUEVO: Cargar dirección predeterminada del usuario
     try {
-      console.log('🔄 [AuthContext] Cargando dirección predeterminada del usuario...');
+      debugLog('🔄 [AuthContext] Cargando dirección predeterminada del usuario...');
       const defaultAddress = await addressesService.getDefaultAddress("ENVIO");
       
       if (defaultAddress) {
-        console.log('✅ [AuthContext] Dirección predeterminada encontrada:', defaultAddress.nombreDireccion);
+        debugLog('✅ [AuthContext] Dirección predeterminada encontrada:', defaultAddress.nombreDireccion);
         
         // Convertir Address a formato de checkout-address (Direccion con snake_case)
         const checkoutAddress = {
@@ -240,12 +241,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('checkout-address', JSON.stringify(checkoutAddress));
         localStorage.setItem('imagiq_default_address', JSON.stringify(checkoutAddress));
         
-        console.log('✅ [AuthContext] Dirección guardada en localStorage');
+        debugLog('✅ [AuthContext] Dirección guardada en localStorage');
         
         // Disparar evento para que los componentes se enteren
         window.dispatchEvent(new Event('address-changed'));
       } else {
-        console.log('⚠️ [AuthContext] Usuario no tiene dirección predeterminada');
+        debugLog('⚠️ [AuthContext] Usuario no tiene dirección predeterminada');
       }
     } catch (error) {
       console.error('❌ [AuthContext] Error cargando dirección predeterminada:', error);
@@ -278,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Logout function
   const logout = () => {
-    console.log('🚪 [AuthContext] Cerrando sesión...');
+    debugLog('🚪 [AuthContext] Cerrando sesión...');
     
     // Reset PostHog user session
     posthogUtils.reset();
@@ -313,7 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const favorites = localStorage.getItem(FAVORITES_KEY);
 
     // Limpiar COMPLETAMENTE localStorage
-    console.log('🗑️ [AuthContext] Limpieza completa de localStorage...');
+    debugLog('🗑️ [AuthContext] Limpieza completa de localStorage...');
     localStorage.clear();
 
     // Restaurar solo datos que deben persistir
@@ -322,16 +323,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (locationPermission) localStorage.setItem(LOCATION_PERMISSION_KEY, locationPermission);
     if (cartItems) {
       localStorage.setItem(CART_KEY, cartItems);
-      console.log('✅ [AuthContext] Carrito preservado');
+      debugLog('✅ [AuthContext] Carrito preservado');
     }
     if (favorites) {
       localStorage.setItem(FAVORITES_KEY, favorites);
-      console.log('✅ [AuthContext] Favoritos preservados');
+      debugLog('✅ [AuthContext] Favoritos preservados');
     }
 
     apiClient.removeAuthToken();
 
-    console.log('✅ [AuthContext] Logout completo - usuario deslogueado, direcciones limpiadas, carrito preservado');
+    debugLog('✅ [AuthContext] Logout completo - usuario deslogueado, direcciones limpiadas, carrito preservado');
 
     // Disparar eventos para que componentes se actualicen
     window.dispatchEvent(new Event("storage"));
@@ -339,7 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.dispatchEvent(new CustomEvent('user-logout', {
       detail: { timestamp: Date.now() }
     }));
-    console.log('📡 [AuthContext] Eventos de logout disparados');
+    debugLog('📡 [AuthContext] Eventos de logout disparados');
   };
 
   // Role checking utilities

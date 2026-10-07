@@ -118,7 +118,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({ userId }) => {
       <h2 className="text-xl font-bold text-gray-900 mb-4">Configuración</h2>
       <div className="space-y-2" ref={dropdownRef}>
         {/* Notificaciones Dropdown */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-3xl border-2 border-gray-200 overflow-hidden">
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-all"

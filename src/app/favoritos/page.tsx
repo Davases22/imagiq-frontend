@@ -154,7 +154,7 @@ export default function FavoritePage() {
               price={product.price}
               originalPrice={product.originalPrice}
               discount={product.discount}
-              isFavorite={isFavorite(product.id)}
+              isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
               onToggleFavorite={(productId: string) => {
                 if (isFavorite(productId)) {
                   removeFromFavorites(productId);

@@ -1122,7 +1122,7 @@ export default function Step1({
               className={`flex-shrink-0 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-200 text-white border-2 ${!tradeInValidation.isValid
                 ? "bg-gray-400 border-gray-300 cursor-not-allowed"
                 : userClickedWhileLoading
-                ? "bg-gray-500 border-gray-400 cursor-not-allowed"
+                ? "bg-green-600 border-green-500 cursor-wait shadow-lg shadow-green-500/40"
                 : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
                 }`}
               onClick={handleContinue}

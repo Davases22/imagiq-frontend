@@ -445,8 +445,13 @@ export default function PaymentForm({
                     })()}
                   </label>
 
-                  {/* Formulario inline solo para rol 3 (invitados) */}
-                  {isNewCardSelected && userRole === 3 && (
+                  {/* Formulario inline para quien NO puede guardar tarjetas:
+                      invitados (rol 3) y tambien los casos en que el rol no se
+                      puede leer (null). Antes exigia userRole === 3 exacto, y
+                      con rol desconocido no salia este formulario NI el bloque
+                      de tarjetas guardadas (que pide canSaveCards): el cliente
+                      elegia "Tarjeta" y se quedaba sin donde escribirla. */}
+                  {isNewCardSelected && !canSaveCards && (
                     <div className="ml-8 mb-3 mt-1">
                       <div className="p-4">
                         <AddCardForm

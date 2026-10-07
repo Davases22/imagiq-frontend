@@ -679,7 +679,10 @@ export default function Navbar() {
             <div className="w-full flex items-center justify-end gap-4">
               {/* Dirección predeterminada del usuario con dropdown */}
               {/* Se muestra siempre: si no está logueado, muestra "Agregar dirección" y redirige a login */}
-              <div className="flex-none min-w-0 w-[200px] xl:w-[220px] 2xl:w-[260px]">
+              {/* Mismos anchos que SearchBar: la direccion y el buscador van uno
+                   encima del otro y se alinean por el borde izquierdo. Si se
+                   cambia uno, hay que cambiar el otro. */}
+              <div className="flex-none min-w-0 w-[220px] xl:w-[245px] 2xl:w-[290px]">
                 {/* Sin `onOpenChange`: en escritorio el panel es pequeno y va
                     anclado, no hace falta que todo el header cambie a blanco.
                     Ese comportamiento queda solo para movil. */}

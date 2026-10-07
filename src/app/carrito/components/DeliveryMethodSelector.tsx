@@ -107,7 +107,9 @@ export const DeliveryMethodSelector: React.FC<DeliveryMethodSelectorProps> = ({
       <div className="space-y-3">
         <label
           htmlFor="domicilio"
-          className={`flex flex-col gap-3 p-4 border rounded-lg transition-all ${
+          /* max-md:rounded-b-none: en movil esta tarjeta y la de "Recoger en
+             tienda" se pegan para leerse como un unico bloque de opciones. */
+          className={`flex flex-col gap-3 p-4 border rounded-lg max-md:rounded-b-none transition-all ${
             disableHomeDelivery
               ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
               : deliveryMethod === "domicilio"
