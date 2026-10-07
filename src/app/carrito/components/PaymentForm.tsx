@@ -64,6 +64,17 @@ export default function PaymentForm({
 }: PaymentFormProps) {
   const authContext = useAuthContext();
   const { savedCards, isLoadingCards, loadSavedCards } = useCardsCache();
+
+  // Cada opcion de pago despliega un bloque de alto distinto, asi que al
+  // cambiar de una a otra en movil lo que queda delante de los ojos es el
+  // final de la anterior. Se vuelve arriba para empezar a leer la que acaba
+  // de elegir. En escritorio caben todas a la vez y no hace falta.
+  const elegirMetodo = (metodo: PaymentMethod) => {
+    onPaymentMethodChange(metodo);
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    // En el frame siguiente: primero el bloque cambia de alto, despues se sube.
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  };
   const [banks, setBanks] = useState<{ bankCode: string; bankName: string }[]>(
     []
   );
@@ -331,7 +342,7 @@ export default function PaymentForm({
 
   return (
     <div>
-      <div className="flex items-center gap-5 mb-4">
+      <div className="flex items-center gap-5 mb-2 sm:mb-4">
         <h2 className="text-[22px] font-bold">Elije como pagar</h2>
         <Image
           src="https://ics-networking.com/wp-content/uploads/2024/09/pci-dss-1.webp"
@@ -359,7 +370,7 @@ export default function PaymentForm({
           }}
         >
           <div
-            className="px-6 py-2 flex flex-col gap-2"
+            className="px-3 py-2 sm:px-6 flex flex-col gap-2"
             style={{ background: "#fff" }}
           >
             {/* Opción: Tarjeta de crédito o débito (Nueva tarjeta) */}
@@ -391,7 +402,7 @@ export default function PaymentForm({
                         name="payment"
                         checked={shouldShowChecked}
                         onChange={() => {
-                          onPaymentMethodChange("tarjeta");
+                          elegirMetodo("tarjeta");
                           // Para rol 2/4: auto-seleccionar la primera tarjeta guardada si hay tarjetas
                           if (canSaveCards && activeCards.length > 0 && !selectedCardId) {
                             onCardSelect(String(activeCards[0].id));
@@ -452,8 +463,8 @@ export default function PaymentForm({
                       de tarjetas guardadas (que pide canSaveCards): el cliente
                       elegia "Tarjeta" y se quedaba sin donde escribirla. */}
                   {isNewCardSelected && !canSaveCards && (
-                    <div className="ml-8 mb-3 mt-1">
-                      <div className="p-4">
+                    <div className="ml-0 sm:ml-8 mb-3 mt-1">
+                      <div className="p-0 sm:p-4">
                         <AddCardForm
                           userId={getUserId() || ""}
                           embedded={true}
@@ -475,7 +486,7 @@ export default function PaymentForm({
                   name="payment"
                   checked={paymentMethod === "pse"}
                   onChange={() => {
-                    onPaymentMethodChange("pse");
+                    elegirMetodo("pse");
                     // Limpiar selección de tarjeta guardada al cambiar a PSE
                     onCardSelect(null);
                   }}
@@ -496,7 +507,7 @@ export default function PaymentForm({
 
             {/* Bank selector for PSE */}
             {paymentMethod === "pse" && (
-              <div className="ml-8 mb-3 mt-1">
+              <div className="ml-0 sm:ml-8 mb-3 mt-1">
                 <label
                   htmlFor="bank-select"
                   className="block text-sm font-medium text-gray-700 mb-2"
@@ -533,7 +544,7 @@ export default function PaymentForm({
                     name="payment"
                     checked={paymentMethod === "addi"}
                     onChange={() => {
-                      onPaymentMethodChange("addi");
+                      elegirMetodo("addi");
                       // Limpiar selección de tarjeta guardada al cambiar a Addi
                       onCardSelect(null);
                     }}
@@ -628,13 +639,13 @@ export default function PaymentForm({
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    onPaymentMethodChange("tarjeta");
+                    elegirMetodo("tarjeta");
                     onCardSelect(String(card.id));
                     onUseNewCardChange(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
-                      onPaymentMethodChange("tarjeta");
+                      elegirMetodo("tarjeta");
                       onCardSelect(String(card.id));
                       onUseNewCardChange(false);
                     }

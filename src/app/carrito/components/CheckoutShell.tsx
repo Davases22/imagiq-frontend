@@ -8,12 +8,36 @@
  */
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import CheckoutStepIndicator, { milestoneFromPath } from "./CheckoutStepIndicator";
 
 export default function CheckoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
+  const router = useRouter();
   const inProgress = milestoneFromPath(pathname) !== null;
+
+  // Con el carrito vacio no hay nada que comprar: estar en Entrega, Pago o
+  // Confirmar no lleva a ninguna parte y deja pantallas a medias (totales en
+  // cero, pasos que no pueden avanzar). Se devuelve al carrito.
+  //
+  // Se lee localStorage y no useCart a proposito: el hook no avisa cuando
+  // termino de cargar, asi que durante la hidratacion el carrito parece vacio
+  // y echaria a quien si tiene productos. localStorage es sincrono.
+  //
+  // Solo al ENTRAR a un paso (depende de pathname): asi, si el carrito se
+  // vacia como parte de cerrar una compra, no se interrumpe lo que este
+  // haciendo la pantalla.
+  useEffect(() => {
+    if (!inProgress) return;
+    let vacio = true;
+    try {
+      const guardado = JSON.parse(localStorage.getItem("cart-items") ?? "[]");
+      vacio = !Array.isArray(guardado) || guardado.length === 0;
+    } catch {
+      vacio = true;
+    }
+    if (vacio) router.replace("/carrito/step1");
+  }, [pathname, inProgress, router]);
 
   // Al cambiar de paso, arriba del todo. Sin esto —y se nota sobre todo en
   // movil, donde los pasos son largos— se llegaba al paso siguiente a media

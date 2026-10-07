@@ -17,6 +17,9 @@ export async function notifyRegisterSuccess(email: string) {
       title: "¡Registro exitoso!",
       text: `Se ha creado la cuenta para ${email}.`,
       icon: "success",
+      // Sin esto sale el morado por defecto de SweetAlert2, que no es de aqui:
+      // los botones de accion del sitio son negros.
+      confirmButtonColor: "#000000",
       confirmButtonText: "Continuar",
       allowOutsideClick: false,
       allowEscapeKey: false,
