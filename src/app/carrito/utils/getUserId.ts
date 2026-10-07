@@ -183,6 +183,9 @@ export function clearPreviousUserData(preserveAddress: boolean = false): void {
     localStorage.removeItem('imagiq_default_address');
     // console.log('🗑️ [clearPreviousUserData] imagiq_default_address limpiado');
 
+    // Registro a medias del usuario anterior: ya no es de quien acaba de entrar.
+    localStorage.removeItem('create_account_progress');
+
     // Limpiar caché de candidateStores (asociado a userId anterior)
     const cacheKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -242,6 +245,7 @@ export function clearAllUserData(): void {
     });
 
     // Limpiar otros datos específicos del usuario
+    localStorage.removeItem('create_account_progress');
     localStorage.removeItem('checkout-delivery-method');
     localStorage.removeItem('checkout-document');
     // console.log('🗑️ [clearAllUserData] Datos de checkout limpiados');
