@@ -33,7 +33,10 @@ export interface DBAddress {
  * Formato del JSON en el campo 'tarjetas' de v_usuario_perfil
  */
 export interface DBCard {
+  /** Numero corto derivado del UUID; sirve para la UI, NO para el backend. */
   id: string;
+  /** UUID real de la tarjeta (data_payment_tc.a). El que espera el endpoint. */
+  cardId?: string;
   ultimos_dijitos: string;
   tipo_tarjeta?: string;
   nombre_titular?: string;
@@ -78,6 +81,8 @@ export interface ProfileUser {
   telefono?: string;
   tipo_documento?: string;
   numero_documento?: string;
+  codigo_pais?: string;
+  fecha_nacimiento?: Date | string;
   direcciones: DBAddress[];
   tarjetas: DBCard[];
   // Campos opcionales para compatibilidad con UI
@@ -120,6 +125,9 @@ export interface ProfileResponse {
   email: string;
   telefono?: string;
   numero_documento?: string;
+  tipo_documento?: string;
+  codigo_pais?: string;
+  fecha_nacimiento?: Date | string;
   direcciones: DBAddress[] | string; // Puede venir como string JSON
   tarjetas: DBCard[] | string; // Puede venir como string JSON
 }

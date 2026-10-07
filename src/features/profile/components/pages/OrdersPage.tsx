@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   ShoppingBag,
+  Truck,
   X,
 } from "lucide-react";
 import {
@@ -15,11 +16,26 @@ import {
 } from "@/services/orders.service";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { apiGet } from "@/lib/api-client";
+import ProfileListSkeleton from "../sections/ProfileListSkeleton";
 
 interface OrdersPageProps {
   onBack: () => void;
   userEmail: string;
   className?: string;
+}
+
+/** La consulta ya devuelve mp.nombre; el mapa cubre ordenes viejas con el codigo. */
+function nombreMedioPago(medio: string): string {
+  const mapa: Record<string, string> = {
+    "1": "PSE",
+    "2": "Tarjeta de crédito o débito",
+    "3": "Datáfono",
+    "4": "Addi",
+    PSE: "PSE",
+    ADDI: "Addi",
+    TARJETA: "Tarjeta de crédito o débito",
+  };
+  return mapa[String(medio).toUpperCase()] ?? medio ?? "—";
 }
 
 const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className }) => {
@@ -72,9 +88,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
     fetchOrders();
   }, [fetchOrders]);
 
+  // Ref y no estado: si `cargarImagenes` dependiera del estado de imagenes se
+  // recrearia en cada respuesta y el efecto de precarga se repetiria sin fin.
+  const imagenesPedidas = React.useRef<Set<string>>(new Set());
+
   const cargarImagenes = useCallback(
     async (orderId: string) => {
-      if (imagenesPorOrden[orderId]) return;
+      if (imagenesPedidas.current.has(orderId)) return;
+      imagenesPedidas.current.add(orderId);
       try {
         const res = await apiGet<{
           data?: { items?: Array<Record<string, unknown>> };
@@ -95,8 +116,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
         setImagenesPorOrden((prev) => ({ ...prev, [orderId]: {} }));
       }
     },
-    [imagenesPorOrden]
+    []
   );
+
+  // Precarga de los primeros pedidos. Se limita a 4 para no disparar una
+  // peticion por cada pedido del historial de alguien que compre mucho.
+  useEffect(() => {
+    orders.slice(0, 4).forEach((o) => void cargarImagenes(o.id));
+  }, [orders, cargarImagenes]);
 
   const toggleOrderExpanded = (orderId: string) => {
     setExpandedOrders((prev) => {
@@ -215,12 +242,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
 
   function renderContent() {
     if (loading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-16">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Cargando pedidos...</p>
-        </div>
-      );
+      return <ProfileListSkeleton />;
     }
 
     if (error) {
@@ -281,7 +303,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <Package className="w-6 h-6 text-gray-600" />
+                    <ShoppingBag className="w-6 h-6 text-gray-600" />
                   </div>
                   <div className="text-left">
                     <p className="font-semibold text-gray-900">
@@ -320,12 +342,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                   {/* Order Info */}
                   {/* Envio e Impuestos se retiraron del resumen a peticion:
                       quedan el medio de pago y el numero de productos. */}
-                  <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-100">
+                  <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-100 sm:grid-cols-4">
                     <div>
                       <p className="text-xs text-gray-500 uppercase">
                         Medio de pago
                       </p>
-                      <p className="font-semibold">{order.medio_de_pago}</p>
+                      <p className="font-semibold">
+                        {nombreMedioPago(order.medio_de_pago)}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 uppercase">
@@ -333,7 +357,131 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                       </p>
                       <p className="font-semibold">{order.items.length}</p>
                     </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase">Envío</p>
+                      <p className="font-semibold">
+                        {order.shipping_amount > 0
+                          ? formatCurrency(order.shipping_amount, order.currency)
+                          : "Gratis"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase">
+                        N.º de orden
+                      </p>
+                      <p className="font-semibold">{order.serial_id}</p>
+                    </div>
                   </div>
+
+                  {/* Datos de contacto y entrega, que antes no se veian por
+                      ningun lado: el cliente no podia comprobar a que correo o
+                      a que direccion se mando su compra. */}
+                  <div className="mb-4 grid gap-4 border-b border-gray-100 pb-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase text-gray-500">
+                        Datos de contacto
+                      </p>
+                      <p className="text-sm text-gray-900">
+                        {order.correo_comprador ?? "—"}
+                      </p>
+                      {order.telefono_comprador && (
+                        <p className="text-sm text-gray-600">
+                          {order.telefono_comprador}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase text-gray-500">
+                        Dirección de entrega
+                      </p>
+                      {order.envio_linea_uno ? (
+                        <>
+                          <p className="text-sm text-gray-900">
+                            {order.envio_linea_uno}
+                            {order.envio_complemento
+                              ? `, ${order.envio_complemento}`
+                              : ""}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {[
+                              order.envio_barrio,
+                              order.envio_ciudad,
+                              order.envio_departamento,
+                            ]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-600">
+                          Recogida en tienda
+                        </p>
+                      )}
+                    </div>
+
+                    {(order.factura_nombre || order.factura_linea_uno) && (
+                      <div>
+                        <p className="text-xs uppercase text-gray-500">
+                          Facturación
+                        </p>
+                        <p className="text-sm text-gray-900">
+                          {order.factura_razon_social || order.factura_nombre}
+                        </p>
+                        {(order.factura_nit || order.factura_documento) && (
+                          <p className="text-sm text-gray-600">
+                            {order.factura_nit
+                              ? `NIT ${order.factura_nit}`
+                              : order.factura_documento}
+                          </p>
+                        )}
+                        {order.factura_linea_uno && (
+                          <p className="text-sm text-gray-600">
+                            {order.factura_linea_uno}
+                            {order.factura_complemento
+                              ? `, ${order.factura_complemento}`
+                              : ""}
+                            {order.factura_ciudad
+                              ? ` — ${order.factura_ciudad}`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {order.guia && (
+                      <div>
+                        <p className="text-xs uppercase text-gray-500">
+                          Guía de envío
+                        </p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {order.guia}
+                        </p>
+                        {order.guia_url && (
+                          <a
+                            href={order.guia_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 underline underline-offset-2"
+                          >
+                            Rastrear con la transportadora
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Solo para pedidos pagados: en uno rechazado o abandonado
+                      no hay nada que seguir y el enlace llevaria a una pantalla
+                      vacia. */}
+                  {order.estado === "APPROVED" && (
+                    <a
+                      href={`/tracking-service/${order.id}`}
+                      className="mb-4 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+                    >
+                      <Truck className="h-4 w-4" aria-hidden="true" />
+                      Ver seguimiento del pedido
+                    </a>
+                  )}
 
                   {/* Order Items */}
                   <div className="space-y-3">
@@ -347,7 +495,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                         key={item.id}
                         className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl"
                       >
-                        <div className="relative w-16 h-16 flex-shrink-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="relative w-24 h-24 flex-shrink-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
                           {imagen ? (
                             // <img> y no next/image: estas URLs las devuelve el
                             // backend y pueden venir de cualquier host, que
@@ -356,7 +504,8 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                             <img
                               src={imagen}
                               alt={item.nombre}
-                              loading="lazy"
+                              loading="eager"
+                              fetchPriority="high"
                               className="w-full h-full object-contain p-1"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
@@ -364,7 +513,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-6 h-6 text-gray-300" />
+                              <ShoppingBag className="w-6 h-6 text-gray-300" />
                             </div>
                           )}
                         </div>
@@ -399,6 +548,33 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ onBack, userEmail, className })
                   </div>
 
                   {/* Order Total */}
+                  {Number(order.cupon_descuento ?? 0) > 0 && (
+                    <div className="mt-4 space-y-1 border-t border-gray-100 pt-4 text-sm">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Antes del descuento</span>
+                        <span>
+                          {formatCurrency(
+                            Number(order.total_amount) +
+                              Number(order.cupon_descuento ?? 0),
+                            order.currency,
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-green-700">
+                        <span>
+                          Cupón{order.cupon ? ` ${order.cupon}` : ""}
+                        </span>
+                        <span>
+                          −
+                          {formatCurrency(
+                            Number(order.cupon_descuento ?? 0),
+                            order.currency,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
                     <span className="font-semibold text-gray-700">Total</span>
                     <span className="text-xl font-bold">

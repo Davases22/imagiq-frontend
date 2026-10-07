@@ -1429,7 +1429,7 @@ export default function AddNewAddressForm({
               ))}
             </select>
             {errors.departamento && (
-              <p className="text-red-500 text-xs mt-1">{errors.departamento}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.departamento}</p>
             )}
           </div>
 
@@ -1466,7 +1466,7 @@ export default function AddNewAddressForm({
               ))}
             </select>
             {errors.ciudad && (
-              <p className="text-red-500 text-xs mt-1">{errors.ciudad}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.ciudad}</p>
             )}
           </div>
         </div>
@@ -1504,7 +1504,7 @@ export default function AddNewAddressForm({
               ))}
             </select>
             {errors.nombreCalle && (
-              <p className="text-red-500 text-xs mt-1">{errors.nombreCalle}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.nombreCalle}</p>
             )}
           </div>
 
@@ -1532,7 +1532,7 @@ export default function AddNewAddressForm({
               }`}
             />
             {errors.numeroPrincipal && (
-              <p className="text-red-500 text-xs mt-1">{errors.numeroPrincipal}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.numeroPrincipal}</p>
             )}
           </div>
 
@@ -1563,7 +1563,7 @@ export default function AddNewAddressForm({
               />
             </div>
             {errors.numeroSecundario && (
-              <p className="text-red-500 text-xs mt-1">{errors.numeroSecundario}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.numeroSecundario}</p>
             )}
           </div>
 
@@ -1594,7 +1594,7 @@ export default function AddNewAddressForm({
               />
             </div>
             {errors.numeroComplementario && (
-              <p className="text-red-500 text-xs mt-1">{errors.numeroComplementario}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.numeroComplementario}</p>
             )}
           </div>
         </div>
@@ -1625,7 +1625,7 @@ export default function AddNewAddressForm({
               }`}
             />
             {errors.barrio && (
-              <p className="text-red-500 text-xs mt-1">{errors.barrio}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.barrio}</p>
             )}
           </div>
 
@@ -1655,7 +1655,7 @@ export default function AddNewAddressForm({
               }`}
             />
             {errors.setsReferencia && (
-              <p className="text-red-500 text-xs mt-1">{errors.setsReferencia}</p>
+              <p className="text-red-500 text-xs mt-0.5">{errors.setsReferencia}</p>
             )}
           </div>
         </div>
@@ -1681,7 +1681,7 @@ export default function AddNewAddressForm({
             />
           </div>
           {errors.address && (
-            <p className="text-red-500 text-xs mt-1">{errors.address}</p>
+            <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>
           )}
         </div>
 
@@ -1760,7 +1760,7 @@ export default function AddNewAddressForm({
                 {formData.instruccionesEntrega.length}/{MAX_INSTRUCCIONES}
               </p>
               {errors.instruccionesEntrega && (
-                <p className="text-red-500 text-xs mt-1">{errors.instruccionesEntrega}</p>
+                <p className="text-red-500 text-xs mt-0.5">{errors.instruccionesEntrega}</p>
               )}
             </div>
           </div>
@@ -1828,7 +1828,7 @@ export default function AddNewAddressForm({
               }`}
             />
             {errors.instruccionesEntrega && (
-              <p className="text-red-500 text-xs mt-1">
+              <p className="text-red-500 text-xs mt-0.5">
                 {errors.instruccionesEntrega}
               </p>
             )}
@@ -1990,7 +1990,7 @@ export default function AddNewAddressForm({
               }`}
             />
             {errors.nombreDireccionFacturacion && (
-              <p className="text-red-500 text-xs mt-1">
+              <p className="text-red-500 text-xs mt-0.5">
                 {errors.nombreDireccionFacturacion}
               </p>
             )}
@@ -2011,7 +2011,7 @@ export default function AddNewAddressForm({
               enableAutoSelect={enableAutoSelect}
             />
             {errors.billingAddress && (
-              <p className="text-red-500 text-xs mt-1">
+              <p className="text-red-500 text-xs mt-0.5">
                 {errors.billingAddress}
               </p>
             )}
@@ -2048,7 +2048,7 @@ export default function AddNewAddressForm({
                 ))}
               </select>
               {errors.departamentoFacturacion && (
-                <p className="text-red-500 text-xs mt-1">{errors.departamentoFacturacion}</p>
+                <p className="text-red-500 text-xs mt-0.5">{errors.departamentoFacturacion}</p>
               )}
             </div>
 
@@ -2111,7 +2111,7 @@ export default function AddNewAddressForm({
                 ))}
               </select>
               {errors.nombreCalleFacturacion && (
-                <p className="text-red-500 text-xs mt-1">{errors.nombreCalleFacturacion}</p>
+                <p className="text-red-500 text-xs mt-0.5">{errors.nombreCalleFacturacion}</p>
               )}
             </div>
 
@@ -2133,7 +2133,7 @@ export default function AddNewAddressForm({
                 }`}
               />
               {errors.numeroPrincipalFacturacion && (
-                <p className="text-red-500 text-xs mt-1">{errors.numeroPrincipalFacturacion}</p>
+                <p className="text-red-500 text-xs mt-0.5">{errors.numeroPrincipalFacturacion}</p>
               )}
             </div>
           </div>

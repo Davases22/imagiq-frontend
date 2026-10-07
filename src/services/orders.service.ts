@@ -42,6 +42,30 @@ export interface Order {
   medio_de_pago: string;
   fecha_creacion: string;
   items: OrderItem[];
+  /** Dirección de envío. Vacía en pedidos para recoger en tienda. */
+  envio_linea_uno?: string | null;
+  envio_complemento?: string | null;
+  envio_barrio?: string | null;
+  envio_ciudad?: string | null;
+  envio_departamento?: string | null;
+  correo_comprador?: string | null;
+  telefono_comprador?: string | null;
+  /** Cupón aplicado y lo que descontó. */
+  cupon?: string | null;
+  cupon_descuento?: number | string | null;
+  metodo_envio?: number | string | null;
+  /** Datos de facturación de la orden. */
+  factura_nombre?: string | null;
+  factura_documento?: string | null;
+  factura_razon_social?: string | null;
+  factura_nit?: string | null;
+  factura_linea_uno?: string | null;
+  factura_complemento?: string | null;
+  factura_ciudad?: string | null;
+  factura_departamento?: string | null;
+  /** Guía de envío activa. */
+  guia?: string | null;
+  guia_url?: string | null;
 }
 
 /**

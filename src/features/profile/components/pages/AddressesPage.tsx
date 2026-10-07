@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ArrowLeft, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "../../hooks/useProfile";
+import ProfileListSkeleton from "../sections/ProfileListSkeleton";
 import { addressesService, type CreateAddressRequest } from "@/services/addresses.service";
 import { DBAddress } from "../../types";
 import AddressCard from "../addresses/AddressCard";
@@ -14,10 +15,8 @@ interface AddressesPageProps {
 }
 
 const AddressesPage: React.FC<AddressesPageProps> = ({ onBack, className }) => {
-  const { state, actions } = useProfile();
-  const [selectedFilter, setSelectedFilter] = useState<
-    "all" | "home" | "work" | "other"
-  >("all");
+  const { state, actions, isLoading } = useProfile();
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<DBAddress | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
@@ -28,15 +27,7 @@ const AddressesPage: React.FC<AddressesPageProps> = ({ onBack, className }) => {
   const filteredAddresses = addresses
     .filter((addr) => {
       if (selectedFilter === "all") return true;
-
-      const tipo = addr.tipo?.toUpperCase();
-      if (selectedFilter === "home") return tipo === "CASA" || tipo === "AMBOS";
-      if (selectedFilter === "work")
-        return tipo === "TRABAJO" || tipo === "AMBOS";
-      if (selectedFilter === "other")
-        return tipo !== "CASA" && tipo !== "TRABAJO" && tipo !== "AMBOS";
-
-      return true;
+      return (addr.ciudad || "").trim().toUpperCase() === selectedFilter;
     })
     .sort((a, b) => {
       // Predeterminada siempre primero
@@ -46,21 +37,22 @@ const AddressesPage: React.FC<AddressesPageProps> = ({ onBack, className }) => {
     });
 
   // Contar direcciones por tipo
-  const counts = {
-    all: addresses.length,
-    home: addresses.filter(
-      (a) =>
-        a.tipo?.toUpperCase() === "CASA" || a.tipo?.toUpperCase() === "AMBOS"
-    ).length,
-    work: addresses.filter(
-      (a) =>
-        a.tipo?.toUpperCase() === "TRABAJO" || a.tipo?.toUpperCase() === "AMBOS"
-    ).length,
-    other: addresses.filter((a) => {
-      const tipo = a.tipo?.toUpperCase();
-      return tipo !== "CASA" && tipo !== "TRABAJO" && tipo !== "AMBOS";
-    }).length,
-  };
+  // Una entrada por ciudad con direcciones, ordenadas de mas a menos.
+  const ciudades = Object.entries(
+    addresses.reduce<Record<string, number>>((acc, a) => {
+      const ciudad = (a.ciudad || "").trim().toUpperCase();
+      if (ciudad) acc[ciudad] = (acc[ciudad] || 0) + 1;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  /** "BOGOTÁ" se lee mejor como "Bogotá". */
+  const enTitulo = (texto: string) =>
+    texto
+      .toLowerCase()
+      .split(" ")
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(" ");
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editingAddress, setEditingAddress] = useState<DBAddress | null>(null);
@@ -167,7 +159,7 @@ const AddressesPage: React.FC<AddressesPageProps> = ({ onBack, className }) => {
 
   return (
     <div
-      className={`min-h-screen bg-gray-50${className ? ` ${className}` : ""}`}
+      className={`min-h-screen bg-white${className ? ` ${className}` : ""}`}
     >
       {/* Header */}
       <div className="bg-white border-b-2 border-gray-100 sticky top-0 z-10">
@@ -213,50 +205,32 @@ const AddressesPage: React.FC<AddressesPageProps> = ({ onBack, className }) => {
               }`}
             >
               Todas{" "}
-              {counts.all > 0 && <span className="ml-1">({counts.all})</span>}
-            </button>
-            <button
-              onClick={() => setSelectedFilter("home")}
-              className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-colors ${
-                selectedFilter === "home"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Casa{" "}
-              {counts.home > 0 && <span className="ml-1">({counts.home})</span>}
-            </button>
-            <button
-              onClick={() => setSelectedFilter("work")}
-              className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-colors ${
-                selectedFilter === "work"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Trabajo{" "}
-              {counts.work > 0 && <span className="ml-1">({counts.work})</span>}
-            </button>
-            <button
-              onClick={() => setSelectedFilter("other")}
-              className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-colors ${
-                selectedFilter === "other"
-                  ? "bg-black text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Otras{" "}
-              {counts.other > 0 && (
-                <span className="ml-1">({counts.other})</span>
+              {addresses.length > 0 && (
+                <span className="ml-1">({addresses.length})</span>
               )}
             </button>
+            {ciudades.map(([ciudad, total]) => (
+              <button
+                key={ciudad}
+                onClick={() => setSelectedFilter(ciudad)}
+                className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-colors ${
+                  selectedFilter === ciudad
+                    ? "bg-black text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {enTitulo(ciudad)} <span className="ml-1">({total})</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Lista de direcciones */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {filteredAddresses.length === 0 ? (
+        {isLoading && addresses.length === 0 ? (
+          <ProfileListSkeleton />
+        ) : filteredAddresses.length === 0 ? (
           <div className="bg-white rounded-2xl border-2 border-gray-200 p-12 text-center">
             <p className="text-gray-500 mb-4">
               No tienes direcciones en esta categoría

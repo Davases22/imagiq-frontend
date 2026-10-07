@@ -101,6 +101,9 @@ export const useProfile = (): UseProfileReturn => {
             // Convertir formato DecryptedCardData a DBCard
             return {
               id: decrypted.cardId.replace(/\D/g, "").slice(-8) || "", // Convertir UUID a número temporal
+              // El UUID entero, sin tocar: el endpoint de borrado lo espera asi
+              // y con el id recortado responde "invalid input syntax for uuid".
+              cardId: decrypted.cardId,
               ultimos_dijitos: decrypted.last4Digits,
               marca: decrypted.brand?.toLowerCase() || undefined,
               banco: decrypted.banco || undefined,
@@ -127,6 +130,9 @@ export const useProfile = (): UseProfileReturn => {
         email: profileData.email,
         telefono: profileData.telefono,
         numero_documento: profileData.numero_documento,
+        tipo_documento: profileData.tipo_documento,
+        codigo_pais: profileData.codigo_pais,
+        fecha_nacimiento: profileData.fecha_nacimiento,
         direcciones,
         tarjetas,
       };

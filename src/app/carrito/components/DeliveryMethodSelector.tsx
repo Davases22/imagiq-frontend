@@ -113,7 +113,7 @@ export const DeliveryMethodSelector: React.FC<DeliveryMethodSelectorProps> = ({
             disableHomeDelivery
               ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
               : deliveryMethod === "domicilio"
-              ? "border-blue-500 cursor-pointer"
+              ? "border-blue-500 cursor-pointer relative z-10"
               : "border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer"
           }`}
         >

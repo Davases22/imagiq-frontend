@@ -24,6 +24,8 @@ import CouponsPage from "./pages/CouponsPage";
 import LoyaltyPage from "./pages/LoyaltyPage";
 import OrdersPage from "./pages/OrdersPage";
 import EditProfileModal, { EditProfileData } from "./modals/EditProfileModal";
+import ProfileSidebar from "./sections/ProfileSidebar";
+import ProfileDataPage from "./pages/ProfileDataPage";
 
 type CurrentView =
   | "main"
@@ -31,7 +33,8 @@ type CurrentView =
   | "payment-methods"
   | "coupons"
   | "loyalty"
-  | "orders";
+  | "orders"
+  | "profile";
 
 /**
  * Cupones y Programa de Lealtad todavia no estan desarrollados: la seccion se
@@ -51,6 +54,7 @@ const VISTAS_VALIDAS: CurrentView[] = [
   "coupons",
   "loyalty",
   "orders",
+  "profile",
 ];
 
 function esVistaValida(v: string | null | undefined): v is CurrentView {
@@ -165,41 +169,64 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
     );
   }
 
-  // Renderizar vista de direcciones
-  if (currentView === "addresses") {
-    return <AddressesPage onBack={handleBackToMain} />;
-  }
+  const contenido = (() => {
+    if (currentView === "addresses") return <AddressesPage onBack={handleBackToMain} />;
+    if (currentView === "payment-methods")
+      return <PaymentMethodsPage onBack={handleBackToMain} />;
+    if (currentView === "coupons") return <CouponsPage onBack={handleBackToMain} />;
+    if (currentView === "loyalty") return <LoyaltyPage onBack={handleBackToMain} />;
+    if (currentView === "orders")
+      return <OrdersPage onBack={handleBackToMain} userEmail={state.user!.email} />;
+    if (currentView === "profile") return <ProfileDataPage onBack={handleBackToMain} />;
+    return null;
+  })();
 
-  // Renderizar vista de métodos de pago
-  if (currentView === "payment-methods") {
-    return <PaymentMethodsPage onBack={handleBackToMain} />;
-  }
-
-  // Renderizar vista de cupones
-  if (currentView === "coupons") {
-    return <CouponsPage onBack={handleBackToMain} />;
-  }
-
-  // Renderizar vista de programa de lealtad
-  if (currentView === "loyalty") {
-    return <LoyaltyPage onBack={handleBackToMain} />;
-  }
-
-  // Renderizar vista de órdenes
-  if (currentView === "orders") {
+  if (contenido) {
     return (
-      <OrdersPage onBack={handleBackToMain} userEmail={state.user.email} />
+      <div className={cn("min-h-screen bg-white", className)}>
+        <div className="mx-auto grid max-w-[1440px] gap-8 px-4 py-8 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
+          <ProfileSidebar
+            nombre={state.user.nombre}
+            apellido={state.user.apellido}
+            email={state.user.email}
+            vistaActual={currentView}
+            onCambiarVista={setCurrentView}
+            onLogout={handleLogout}
+            totalDirecciones={state.user.direcciones?.length || 0}
+            totalTarjetas={state.user.tarjetas?.length || 0}
+          />
+          {/* min-w-0: sin esto una tabla ancha dentro estira la columna y
+              empuja el menu lateral fuera de la pantalla. */}
+          <div className="min-w-0">{contenido}</div>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className={cn("min-h-screen bg-white", className)}>
-      {/* Profile Header */}
-      <ProfileHeader
-        user={state.user}
-        onEditProfile={handleEditProfile}
-        loading={isLoading}
-      />
+      <div className="mx-auto grid max-w-[1440px] gap-8 px-4 py-8 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-8">
+        <ProfileSidebar
+          nombre={state.user.nombre}
+          apellido={state.user.apellido}
+          email={state.user.email}
+          vistaActual={currentView}
+          onCambiarVista={setCurrentView}
+          onLogout={handleLogout}
+          totalDirecciones={state.user.direcciones?.length || 0}
+          totalTarjetas={state.user.tarjetas?.length || 0}
+        />
+
+        <div className="min-w-0">
+      {/* Profile Header: en escritorio los datos ya estan en el menu lateral,
+          asi que aqui solo se muestra en movil. */}
+      <div className="lg:hidden">
+        <ProfileHeader
+          user={state.user}
+          onEditProfile={handleEditProfile}
+          loading={isLoading}
+        />
+      </div>
 
       {/* Quick Actions */}
       <QuickActions
@@ -207,7 +234,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
         onPaymentMethodsClick={handlePaymentMethodsClick}
       />
 
-      <div className="max-w-6xl mx-auto px-4 pb-8">
+      <div className="pb-8">
         {/* Benefits Section — oculta mientras Cupones y Programa de Lealtad no
             esten desarrollados. Hoy se montaba con couponsCount fijo en 0 y sin
             programa, asi que el usuario entraba a dos pantallas vacias.
@@ -240,8 +267,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ className }) => {
           onDataProcessingClick={handleDataProcessingClick}
         />
 
-        {/* Logout Section */}
-        <LogoutSection onLogout={handleLogout} />
+        {/* Logout Section: en escritorio el boton vive en el menu lateral. */}
+        <div className="lg:hidden">
+          <LogoutSection onLogout={handleLogout} />
+        </div>
+      </div>
+        </div>
       </div>
 
       {/* Edit Profile Modal */}

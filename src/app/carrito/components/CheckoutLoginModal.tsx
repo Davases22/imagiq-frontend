@@ -14,10 +14,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent, ClipboardEvent as ReactClipboardEvent } from "react";
 import { X, Loader2, Eye, EyeOff } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { apiPost } from "@/lib/api-client";
+import SamsungLoader from "./SamsungLoader";
 
 /** Logo oficial de Gmail (multicolor de Google) para el canal de correo. */
 function GmailIcon({ className }: { className?: string }) {
@@ -196,13 +198,19 @@ type Mode = "password" | "otp";
 type OtpChannel = "email" | "telefono";
 
 export default function CheckoutLoginModal({
-  email,
+  email: emailInicial,
   phoneHint,
   onClose,
   onSuccess,
 }: CheckoutLoginModalProps) {
   const [mode, setMode] = useState<Mode>("password");
   const [password, setPassword] = useState("");
+  // `correo` es lo que hay en el input; `email` es el correo ya confirmado
+  // contra el backend. Los efectos de pista y bloqueo cuelgan del segundo:
+  // si colgaran del input se dispararian en cada tecla.
+  const [correo, setCorreo] = useState(emailInicial);
+  const [email, setEmail] = useState(emailInicial);
+  const [buscandoCuenta, setBuscandoCuenta] = useState(false);
   const [otpChannel, setOtpChannel] = useState<OtpChannel>("email");
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -216,8 +224,23 @@ export default function CheckoutLoginModal({
   // (según por qué camino se abrió el modal), lo resolvemos aquí con el email.
   const [hint, setHint] = useState<string | null>(phoneHint ?? null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
+
+  // Congelar el scroll del fondo: con el modal abierto, rodar la pagina
+  // detras despista y deja el modal flotando sobre otra cosa.
+  useEffect(() => {
+    const { body } = document;
+    const overflowPrevio = body.style.overflow;
+    const paddingPrevio = body.style.paddingRight;
+    const anchoBarra = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (anchoBarra > 0) body.style.paddingRight = `${anchoBarra}px`;
+
+    return () => {
+      body.style.overflow = overflowPrevio;
+      body.style.paddingRight = paddingPrevio;
+    };
+  }, []);
 
   // Cerrar con Escape + enfocar el modal al abrir (accesibilidad).
   useEffect(() => {
@@ -236,6 +259,7 @@ export default function CheckoutLoginModal({
       setHint(phoneHint);
       return;
     }
+    if (!email) return;
     let cancelled = false;
     apiPost<{ telefonoMask?: string | null }>("/api/auth/check-email", { email })
       .then((r) => {
@@ -251,6 +275,7 @@ export default function CheckoutLoginModal({
 
   // Cargar el estado de bloqueo por intentos (persistido por email).
   useEffect(() => {
+    if (!email) return;
     const lock = readOtpLock(email);
     setOtpAttempts(lock.count);
     if (lock.lockedUntil && lock.lockedUntil > Date.now()) {
@@ -281,15 +306,47 @@ export default function CheckoutLoginModal({
     Math.floor((remainingMs % 60000) / 1000),
   ).padStart(2, "0")}`;
 
-  // Medir el contenido para animar la altura del modal entre estados: cada modo
-  // usa su altura natural (nada de espacio vacío) pero la transición es suave.
-  useEffect(() => {
-    const el = contentRef.current;
-    if (el) setContentHeight(el.scrollHeight);
-  }, [mode, otpSent, isLocked, error, hint, otpChannel]);
+  const handleIrAlCodigo = async () => {
+    const limpio = correo.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpio)) {
+      setError("Escribe tu correo para enviarte el código.");
+      return;
+    }
+    setBuscandoCuenta(true);
+    setError("");
+    try {
+      const r = await apiPost<{ exists: boolean; telefonoMask?: string | null }>(
+        "/api/auth/check-email",
+        { email: limpio },
+      );
+      if (!r?.exists) {
+        setError("No encontramos una cuenta con ese correo.");
+        return;
+      }
+      const telefono = r.telefonoMask ?? null;
+      setHint(telefono);
+      setEmail(limpio);
+      setMode("otp");
+      // Sin telefono registrado solo cabe el correo: preguntar "¿por donde?"
+      // con una sola opcion es hacer perder un clic. Se envia de una.
+      if (!telefono) {
+        setOtpChannel("email");
+        await enviarOtp(limpio, "email");
+      }
+    } catch {
+      setError("No se pudo comprobar el correo. Intenta de nuevo.");
+    } finally {
+      setBuscandoCuenta(false);
+    }
+  };
 
   const handlePasswordLogin = async () => {
     if (loading) return; // evitar doble envío (Enter repetido)
+    const limpio = correo.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpio)) {
+      setError("Escribe un correo válido.");
+      return;
+    }
     if (!password) {
       setError("Ingresa tu contraseña.");
       return;
@@ -298,7 +355,7 @@ export default function CheckoutLoginModal({
     setError("");
     try {
       const result = await apiPost<LoginResult>("/api/auth/login", {
-        email,
+        email: limpio,
         contrasena: password,
       });
       if (!result?.access_token || !result?.user) {
@@ -307,6 +364,23 @@ export default function CheckoutLoginModal({
       onSuccess(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo iniciar sesión.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const enviarOtp = async (destino: string, canal: OtpChannel) => {
+    setLoading(true);
+    setError("");
+    setOtpCode("");
+    try {
+      await apiPost("/api/auth/otp/send-login", {
+        metodo: canal === "email" ? "email" : "whatsapp",
+        email: destino,
+      });
+      setOtpSent(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo enviar el código.");
     } finally {
       setLoading(false);
     }
@@ -379,11 +453,14 @@ export default function CheckoutLoginModal({
     }
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+      className="checkout-login-fondo fixed inset-0 z-[10100] flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
+      {loading && <SamsungLoader etiqueta="Iniciando sesión" />}
       <div
         ref={dialogRef}
         role="dialog"
@@ -391,7 +468,7 @@ export default function CheckoutLoginModal({
         aria-labelledby="checkout-login-title"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl outline-none"
+        className="checkout-login-pop relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl outline-none"
       >
         <button
           onClick={onClose}
@@ -410,64 +487,87 @@ export default function CheckoutLoginModal({
           />
         </div>
 
-        <h2 id="checkout-login-title" className="mb-1 text-xl font-semibold text-gray-900">Inicia sesión</h2>
-        <p className="mb-4 text-sm text-gray-500">
-          El correo <span className="font-medium text-gray-700">{email}</span> ya
-          tiene una cuenta. Inicia sesión para continuar con tu compra.
-        </p>
-
-        {/* Tabs clave / código */}
-        <div className="mb-4 flex rounded-lg bg-gray-100 p-1 text-sm font-medium">
-          <button
-            onClick={() => { setMode("password"); setError(""); }}
-            className={`flex-1 rounded-md py-2 transition ${mode === "password" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
-          >
-            Con contraseña
-          </button>
-          <button
-            onClick={() => { setMode("otp"); setError(""); }}
-            className={`flex-1 rounded-md py-2 transition ${mode === "otp" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
-          >
-            Con código
-          </button>
+        <div className="mb-6 space-y-2 text-center">
+          <h2 id="checkout-login-title" className="text-3xl font-bold text-gray-900">
+            Iniciar sesión
+          </h2>
+          <p className="text-sm text-gray-600">
+            {emailInicial
+              ? "Ese correo ya tiene una cuenta. Entra para seguir con tu compra."
+              : "Ingresa tus datos para continuar"}
+          </p>
         </div>
 
-        {/* Alto animado: cada estado usa su altura natural, con transición suave
-            para que no salte al cambiar de pestaña/estado. */}
-        <div
-          style={{ height: contentHeight }}
-          className="overflow-hidden transition-[height] duration-200 ease-out"
-        >
-          <div ref={contentRef}>
+        <>
+        <div>
         {mode === "password" ? (
           <div className="space-y-3">
-            <div className="relative">
+            <div>
+              <label htmlFor="login-correo" className="mb-1 block text-sm font-medium text-gray-700">
+                Correo electrónico
+              </label>
               <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                id="login-correo"
+                type="email"
+                autoComplete="email"
+                value={correo}
+                onChange={(e) => { setCorreo(e.target.value); setError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handlePasswordLogin()}
-                placeholder="Tu contraseña"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-10 text-sm focus:border-gray-900 focus:outline-none"
-                autoFocus
+                placeholder="tu@email.com"
+                autoFocus={!emailInicial}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-gray-900 focus:outline-none"
               />
+            </div>
+
+            <div>
+              <label htmlFor="login-clave" className="mb-1 block text-sm font-medium text-gray-700">
+                Contraseña
+              </label>
+              <div className="relative">
+                <input
+                  id="login-clave"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handlePasswordLogin()}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-10 text-sm focus:border-gray-900 focus:outline-none"
+                  autoFocus={!!emailInicial}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              {/* Donde /login pone "Olvidaste tu contrasena". Quien compra casi
+                  nunca recuerda la clave; el codigo lo resuelve sin salir del
+                  carrito ni cambiar nada de la cuenta. */}
               <button
                 type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                onClick={handleIrAlCodigo}
+                disabled={buscandoCuenta || loading}
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 underline underline-offset-4 hover:text-black disabled:opacity-60"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {buscandoCuenta && <Loader2 className="h-4 w-4 animate-spin" />}
+                Iniciar sesión con código
+              </button>
+              <button
+                onClick={handlePasswordLogin}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 rounded-xl bg-black px-12 py-3.5 text-base font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+              >
+                {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+                Entrar
               </button>
             </div>
-            <button
-              onClick={handlePasswordLogin}
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Iniciar sesión
-            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -556,9 +656,10 @@ export default function CheckoutLoginModal({
         )}
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-          </div>
         </div>
+        </>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

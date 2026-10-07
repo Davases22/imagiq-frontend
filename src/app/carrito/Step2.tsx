@@ -14,6 +14,10 @@ import Step4OrderSummary from "./components/Step4OrderSummary";
 import TradeInCompletedSummary from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInCompletedSummary";
 import TradeInModal from "@/app/productos/dispositivos-moviles/detalles-producto/estreno-y-entrego/TradeInModal";
 import CheckoutLoginModal from "./components/CheckoutLoginModal";
+import SamsungLoader from "./components/SamsungLoader";
+
+/** Lo que dura una pasada del barrido en SamsungLoader. */
+const MS_ANIMACION_LOGIN = 1100;
 import { useAuthContext } from "@/features/auth/context";
 import AddNewAddressForm from "./components/AddNewAddressForm";
 import type { Address } from "@/types/address";
@@ -928,18 +932,18 @@ export default function Step2({
     // Si está en paso de formulario de invitado, hacer el registro
     if (guestStep === 'form' && !isRegisteredAsGuest) {
       if (!isGuestFormValid) {
-        setError("Por favor completa todos los campos obligatorios.");
-        const newFieldErrors: typeof fieldErrors = {
-          email: guestForm.email.trim() ? "" : "Este campo es obligatorio",
-          nombre: guestForm.nombre.trim() ? "" : "Este campo es obligatorio",
-          apellido: guestForm.apellido.trim() ? "" : "Este campo es obligatorio",
-          cedula: guestForm.cedula.trim() ? "" : "Este campo es obligatorio",
-          celular: guestForm.celular.trim() ? "" : "Este campo es obligatorio",
-          tipo_documento: guestForm.tipo_documento.trim()
-            ? ""
-            : "Este campo es obligatorio",
-        };
-        setFieldErrors(newFieldErrors);
+        const errores = validateFields(guestForm);
+        setFieldErrors(errores);
+        setSubmitAttempted(true);
+        setError("");
+
+        // Saltar al primero que falle, que si no hay que ir buscandolo.
+        const primero = Object.entries(errores).find(([, msg]) => msg)?.[0];
+        if (primero && typeof document !== "undefined") {
+          const campo = document.getElementById(primero);
+          campo?.scrollIntoView({ behavior: "smooth", block: "center" });
+          campo?.focus({ preventScroll: true });
+        }
         return;
       }
       await handleGuestSubmit();
@@ -1315,10 +1319,79 @@ export default function Step2({
   }, [cartProducts]);
 
   // Estado derivado para reutilizar lógica de deshabilitado en el botón móvil
+  // Al pulsar "Iniciar sesion" se muestra el logo cargando y luego se abre el
+  // modal. Si la persona ya escribio su correo abajo, se aprovecha para entrar
+  // directo a la clave en vez de volver a pedirlo.
+  const [abriendoLogin, setAbriendoLogin] = useState(false);
+
+  const abrirModalLogin = async () => {
+    setAbriendoLogin(true);
+    const empezo = Date.now();
+    const correo = guestForm.email.trim().toLowerCase();
+    let emailDelModal = "";
+    let pista: string | null = null;
+
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      try {
+        const r = await apiPost<{ exists: boolean; telefonoMask?: string | null }>(
+          "/api/auth/check-email",
+          { email: correo },
+        );
+        if (r?.exists) {
+          emailDelModal = correo;
+          pista = r.telefonoMask ?? null;
+        }
+      } catch {
+        /* sin cuenta confirmada: el modal pedira el correo */
+      }
+    }
+
+    const falta = MS_ANIMACION_LOGIN - (Date.now() - empezo);
+    if (falta > 0) await new Promise((r) => setTimeout(r, falta));
+
+    setLoginModalEmail(emailDelModal);
+    setLoginModalPhoneHint(pista);
+    setAbriendoLogin(false);
+    setShowLoginModal(true);
+  };
+
+  const precalcularTiendasCandidatas = async (
+    userId: string,
+    addressId: string | null | undefined,
+  ) => {
+    try {
+      const { productEndpoints } = await import("@/lib/api");
+      const { buildGlobalCanPickUpKey, setGlobalCanPickUpCache } = await import(
+        "@/app/carrito/utils/globalCanPickUpCache"
+      );
+      const products = cartProducts.map((p) => ({
+        sku: p.sku,
+        quantity: p.quantity || 1,
+      }));
+      if (products.length === 0) return;
+
+      const response = await productEndpoints.getCandidateStores({
+        products,
+        user_id: userId,
+      });
+      if (!response?.data) return;
+
+      const cacheKey = buildGlobalCanPickUpKey({ userId, products, addressId });
+      setGlobalCanPickUpCache(
+        cacheKey,
+        response.data.canPickUp,
+        response.data,
+        addressId,
+      );
+    } catch (e) {
+      // Si falla, step3 hara su propia consulta; no vale la pena frenar aqui.
+      console.error("No se pudo precalcular tiendas candidatas", e);
+    }
+  };
+
   const isMobileContinueDisabled =
     loading ||
     isSavingAddress ||
-    (!isRegisteredAsGuest && !isGuestFormValid) ||
     (isRegisteredAsGuest && !hasAddedAddress && !isAddressFormValid) ||
     (guestStep !== 'verified' && guestStep !== 'form' && isRegisteredAsGuest) ||
     !tradeInValidation.isValid;
@@ -1774,7 +1847,7 @@ export default function Step2({
                 </div>
                 <div className="flex flex-wrap gap-3 items-center">
                   <Button
-                    onClick={() => router.push("/login")}
+                    onClick={abrirModalLogin}
                     className="bg-[#333] hover:bg-[#222] text-white font-bold py-3 px-8 h-auto"
                   >
                     Iniciar sesión
@@ -1810,9 +1883,6 @@ export default function Step2({
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Label htmlFor="email">Correo electrónico *</Label>
-                      {shouldShowError("email") && (
-                        <span className="text-red-500 text-xs">{fieldErrors.email}</span>
-                      )}
                     </div>
                     <Input
                       id="email"
@@ -1827,6 +1897,9 @@ export default function Step2({
                       autoFocus
                       className={`!h-11 ${shouldShowError("email") ? "border-red-500" : ""}`}
                     />
+                    {shouldShowError("email") && (
+                      <span className="text-red-500 text-xs mt-0.5">{fieldErrors.email}</span>
+                    )}
                   </div>
 
                   {/* Nombre y Apellido */}
@@ -1834,9 +1907,6 @@ export default function Step2({
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Label htmlFor="nombre">Nombre *</Label>
-                        {shouldShowError("nombre") && (
-                          <span className="text-red-500 text-xs">{fieldErrors.nombre}</span>
-                        )}
                       </div>
                       <Input
                         id="nombre"
@@ -1850,13 +1920,13 @@ export default function Step2({
                         disabled={loading || isRegisteredAsGuest}
                         className={`!h-11 ${shouldShowError("nombre") ? "border-red-500" : ""}`}
                       />
+                      {shouldShowError("nombre") && (
+                        <span className="text-red-500 text-xs mt-0.5">{fieldErrors.nombre}</span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Label htmlFor="apellido">Apellido *</Label>
-                        {shouldShowError("apellido") && (
-                          <span className="text-red-500 text-xs">{fieldErrors.apellido}</span>
-                        )}
                       </div>
                       <Input
                         id="apellido"
@@ -1870,6 +1940,9 @@ export default function Step2({
                         disabled={loading || isRegisteredAsGuest}
                         className={`!h-11 ${shouldShowError("apellido") ? "border-red-500" : ""}`}
                       />
+                      {shouldShowError("apellido") && (
+                        <span className="text-red-500 text-xs mt-0.5">{fieldErrors.apellido}</span>
+                      )}
                     </div>
                   </div>
 
@@ -1879,9 +1952,6 @@ export default function Step2({
                       <div className="flex items-center gap-2 flex-wrap">
                         <Label htmlFor="tipo_documento" className="hidden sm:inline">Tipo de Documento *</Label>
                         <Label htmlFor="tipo_documento" className="sm:hidden">Tipo Doc. *</Label>
-                        {shouldShowError("tipo_documento") && (
-                          <span className="text-red-500 text-xs">{fieldErrors.tipo_documento}</span>
-                        )}
                       </div>
                       <Select
                         value={guestForm.tipo_documento}
@@ -1901,14 +1971,14 @@ export default function Step2({
                           <SelectItem value="PP">PP</SelectItem>
                         </SelectContent>
                       </Select>
+                      {shouldShowError("tipo_documento") && (
+                        <span className="text-red-500 text-xs mt-0.5">{fieldErrors.tipo_documento}</span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Label htmlFor="cedula" className="hidden sm:inline">No. de Documento *</Label>
                         <Label htmlFor="cedula" className="sm:hidden">No. Doc. *</Label>
-                        {shouldShowError("cedula") && (
-                          <span className="text-red-500 text-xs">{fieldErrors.cedula}</span>
-                        )}
                       </div>
                       <Input
                         id="cedula"
@@ -1924,6 +1994,9 @@ export default function Step2({
                         maxLength={10}
                         className={`!h-11 ${shouldShowError("cedula") ? "border-red-500" : ""}`}
                       />
+                      {shouldShowError("cedula") && (
+                        <span className="text-red-500 text-xs mt-0.5">{fieldErrors.cedula}</span>
+                      )}
                     </div>
                   </div>
 
@@ -1931,16 +2004,17 @@ export default function Step2({
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Label htmlFor="celular">Celular *</Label>
-                      {shouldShowError("celular") && (
-                        <span className="text-red-500 text-xs">{fieldErrors.celular}</span>
-                      )}
                     </div>
                     <div className="flex gap-2">
                       <Select defaultValue="57" disabled={loading || isRegisteredAsGuest}>
-                        <SelectTrigger className="!h-11 w-24 shrink-0">
+                        <SelectTrigger className="!h-11 w-24 shrink-0 data-[state=open]:rounded-b-none data-[state=open]:border-b-0">
                           <SelectValue placeholder="+57" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                          sideOffset={0}
+                          align="start"
+                          className="min-w-0 w-(--radix-select-trigger-width) data-[side=bottom]:translate-y-0 data-[side=top]:translate-y-0 data-[side=bottom]:rounded-t-none data-[side=bottom]:border-t-0 data-[side=top]:rounded-b-none data-[side=top]:border-b-0"
+                        >
                           <SelectItem value="57">🇨🇴 +57</SelectItem>
                           <SelectItem value="1">🇺🇸 +1</SelectItem>
                           <SelectItem value="34">🇪🇸 +34</SelectItem>
@@ -1966,6 +2040,9 @@ export default function Step2({
                         className={`!h-11 flex-1 ${shouldShowError("celular") ? "border-red-500" : ""}`}
                       />
                     </div>
+                    {shouldShowError("celular") && (
+                      <span className="text-red-500 text-xs mt-0.5">{fieldErrors.celular}</span>
+                    )}
                   </div>
 
                   {/* Mensaje de error general */}
@@ -2095,7 +2172,6 @@ export default function Step2({
               disabled={
                 loading ||
                 isSavingAddress ||
-                (!isRegisteredAsGuest && !isGuestFormValid) ||
                 (isRegisteredAsGuest && !hasAddedAddress && !isAddressFormValid) ||
                 (guestStep === 'otp' && otpSent && otpCode.length !== 6) ||
                 (guestStep !== 'verified' && guestStep !== 'form') ||
@@ -2201,6 +2277,8 @@ export default function Step2({
       />
 
       {/* Modal de inicio de sesión: correo del invitado = cuenta registrada (rol 2) */}
+      {abriendoLogin && <SamsungLoader etiqueta="Abriendo inicio de sesión" />}
+
       {showLoginModal && (
         <CheckoutLoginModal
           email={loginModalEmail}
@@ -2230,6 +2308,34 @@ export default function Step2({
               globalThis.window?.dispatchEvent(new Event("storage"));
             }
             setShowLoginModal(false);
+
+            // Con direccion, directo a Entrega; sin ella, se le pide aqui.
+            // Antes siempre empujaba a step3, y alli la guarda de
+            // candidate-stores devolvia al carrito a quien acababa de entrar.
+            let direccion: Address | null = null;
+            try {
+              const { addressesService } = await import("@/services/addresses.service");
+              const direcciones = await addressesService.getUserAddresses();
+              direccion =
+                direcciones.find((d) => d.esPredeterminada) ?? direcciones[0] ?? null;
+            } catch (e) {
+              console.error("No se pudieron leer las direcciones tras iniciar sesion", e);
+            }
+
+            if (!direccion) {
+              // Se queda en el paso 2 con el formulario de direccion, el mismo
+              // que ve quien se registra como invitado.
+              setIsRegisteredAsGuest(true);
+              setGuestStep("verified");
+              setHasAddedAddress(false);
+              return;
+            }
+
+            localStorage.setItem("checkout-address", JSON.stringify(direccion));
+            // Dejar calculadas las tiendas candidatas ANTES de navegar: step3
+            // exige ese cache y, al no existir para una sesion recien abierta,
+            // rebotaba a /carrito/step1.
+            await precalcularTiendasCandidatas(result.user.id, direccion.id);
             router.push("/carrito/step3");
           }}
         />
