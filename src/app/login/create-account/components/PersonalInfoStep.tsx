@@ -190,7 +190,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         <div className="space-y-2">
           <Label htmlFor="telefono">Teléfono *</Label>
           <div className="flex gap-2">
@@ -234,7 +234,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <Label>
             Fecha de nacimiento{" "}
             <span className="font-normal text-gray-500">(opcional)</span>
@@ -251,7 +251,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             max={new Date().toISOString().split("T")[0]}
             min={`${new Date().getFullYear() - 100}-01-01`}
             style={{ backgroundColor: "#ffffff" }}
-            className="h-9 w-full rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+            className="block h-9 w-full min-w-0 max-w-full rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
           />
         </div>
       </div>
@@ -308,7 +308,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
 
       <Separator className="my-4" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         <div className="space-y-2">
           <Label htmlFor="contrasena">Contraseña *</Label>
           <div className="relative">
