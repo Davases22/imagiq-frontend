@@ -33,7 +33,7 @@ const PremiumProductInfo: React.FC<{ product: ProductCardProps }> = ({
   const { addToFavorites, removeFromFavorites, isFavorite: checkIsFavorite } =
     useFavorites();
 
-  const isFavorite = checkIsFavorite(product.id);
+  const isFavorite = checkIsFavorite(product.id, product.colors?.map((c) => c.sku));
 
   const handleColorSelection = (colorOption: ColorOption) => {
     setSelectedColor(colorOption);

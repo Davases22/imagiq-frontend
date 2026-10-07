@@ -164,7 +164,7 @@ export default function ProductShowcase({ initialProducts, curados }: ProductSho
               key={product.id}
               {...product}
               forceNuevo
-              isFavorite={isFavorite(product.id)}
+              isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
               onToggleFavorite={handleToggleFavorite}
             />
           ))}
@@ -181,7 +181,7 @@ export default function ProductShowcase({ initialProducts, curados }: ProductSho
                 <ProductCard
                   {...product}
                   forceNuevo
-                  isFavorite={isFavorite(product.id)}
+                  isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
                   onToggleFavorite={handleToggleFavorite}
                 />
               </div>

@@ -7,6 +7,7 @@ import Step1 from "../Step1";
 import { addressesService } from "@/services/addresses.service";
 import { useCheckoutAddress } from "@/features/checkout";
 import { trackStep2Skipped } from "../utils/checkoutTracking";
+import { debugLog } from "@/lib/debugLog";
 
 export default function Step1Page() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function Step1Page() {
   );
   const { selectedAddress, selectAddress } = useCheckoutAddress();
 
-  console.log("🚀 [STEP1 PAGE] Usuario logueado:", loggedUser);
+  debugLog("🚀 [STEP1 PAGE] Usuario logueado:", loggedUser);
 
   const handleNext = async () => {
     // Obtener el rol del usuario (compatibilidad con backend que usa 'rol' y frontend que usa 'role')

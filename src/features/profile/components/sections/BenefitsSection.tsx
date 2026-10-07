@@ -23,7 +23,7 @@ const BenefitsSection: React.FC<BenefitsSectionProps> = ({
         {/* Cupones */}
         <button
           onClick={onCouponsClick}
-          className="w-full flex items-center justify-between p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-black transition-all"
+          className="w-full flex items-center justify-between p-4 bg-white rounded-3xl border-2 border-gray-200 hover:border-black transition-all"
         >
           <div className="flex items-center gap-3">
             <Gift className="w-5 h-5" />
@@ -40,7 +40,7 @@ const BenefitsSection: React.FC<BenefitsSectionProps> = ({
         {/* Programa de Lealtad */}
         <button
           onClick={onLoyaltyClick}
-          className="w-full flex items-center justify-between p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-black transition-all"
+          className="w-full flex items-center justify-between p-4 bg-white rounded-3xl border-2 border-gray-200 hover:border-black transition-all"
         >
           <div className="flex items-center gap-3">
             <Star className="w-5 h-5" />

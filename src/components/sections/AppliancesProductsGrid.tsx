@@ -125,7 +125,7 @@ export default function AppliancesProductsGrid({ initialProducts }: AppliancesPr
             <ProductCard
               key={product.id}
               {...product}
-              isFavorite={isFavorite(product.id)}
+              isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
               onToggleFavorite={handleToggleFavorite}
             />
           ))}
@@ -139,7 +139,7 @@ export default function AppliancesProductsGrid({ initialProducts }: AppliancesPr
               >
                 <ProductCard
                   {...product}
-                  isFavorite={isFavorite(product.id)}
+                  isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
                   onToggleFavorite={handleToggleFavorite}
                 />
               </div>

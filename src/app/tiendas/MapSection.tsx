@@ -126,17 +126,16 @@ export default function MapSection({
         borderRadius: 0,
       }
     : {
-        // 64 px a cada lado para que el mapa quede alineado con las secciones
-        // de productos de la home, que usan ese mismo margen lateral. Antes
-        // eran 30 px y la seccion se veia con menos aire que el resto.
-        left: 64,
-        right: 64,
+        // 24 px a cada lado: con 64 sobraba demasiado blanco y el mapa se
+        // quedaba estrecho. Asi gana 80 px de ancho.
+        left: 24,
+        right: 24,
         top: 0,
         bottom: 0,
         position: "absolute" as const,
-        height: "920px",
-        minHeight: "920px",
-        maxHeight: "920px",
+        height: "1080px",
+        minHeight: "1080px",
+        maxHeight: "1080px",
         width: "auto",
         borderRadius: "32px",
         overflow: "hidden",

@@ -11,7 +11,7 @@ export const NavigationButton = ({ direction, onClick }: NavigationButtonProps) 
     <button
       aria-label={label}
       onClick={onClick}
-      className="flex items-center justify-center shadow-lg hover:brightness-95 transition rounded flex-shrink-0"
+      className="flex items-center justify-center shadow-lg hover:brightness-95 transition rounded-full flex-shrink-0"
       style={{
         zIndex: 30,
         boxShadow: "0 4px 16px rgba(0,0,0,0.1)",

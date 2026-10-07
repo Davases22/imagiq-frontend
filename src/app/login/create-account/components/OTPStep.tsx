@@ -63,7 +63,7 @@ function OTPInputBoxes({
   };
 
   return (
-    <div className="flex gap-1.5 sm:gap-2 justify-center">
+    <div className="flex w-full gap-1.5 sm:gap-2 justify-center">
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <input
           key={index}
@@ -76,7 +76,7 @@ function OTPInputBoxes({
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={handlePaste}
           disabled={disabled}
-          className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex-1 min-w-0 max-w-12 h-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           autoComplete="one-time-code"
         />
       ))}
@@ -96,6 +96,7 @@ interface OTPStepProps {
   onMethodChange: (method: 'email' | 'whatsapp') => void;
   onChangeEmail: (newEmail: string) => void;
   onChangePhone: (newPhone: string) => void;
+  codigoPais?: string;
   disabled?: boolean;
   showSendButton?: boolean; // Para mostrar botón de enviar en Step2
   onVerifyOTP?: () => void; // Para verificar el código
@@ -113,6 +114,7 @@ export function OTPStep({
   onMethodChange,
   onChangeEmail,
   onChangePhone,
+  codigoPais = "57",
   disabled,
   showSendButton = false,
   onVerifyOTP,
@@ -255,22 +257,6 @@ export function OTPStep({
           return;
         }
 
-        // Verificar si el teléfono ya está registrado
-        try {
-          const response = await apiPost<{ exists: boolean; message?: string }>("/api/auth/check-phone", {
-            telefono: tempPhone,
-            codigo_pais: "57", // Colombia por defecto
-          });
-
-          if (response.exists) {
-            setValidationError("Este número de teléfono ya está registrado. Por favor, usa otro o inicia sesión.");
-            setIsValidating(false);
-            return;
-          }
-        } catch (error) {
-          console.log("⚠️ No se pudo validar el teléfono, permitiendo cambio:", error);
-        }
-
         // Si pasa las validaciones, guardar el cambio
         onChangePhone(tempPhone);
         setEditMode(null);
@@ -346,20 +332,23 @@ export function OTPStep({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <span className="text-gray-600">Email:</span>{" "}
-                  <span className="font-medium">{email}</span>
-                </div>
-                <button
+              // La etiqueta y el boton arriba, y el correo entero debajo con
+              // break-all: truncarlo con puntos suspensivos escondia justo el
+              // dato que la persona necesita leer para saber si es el suyo.
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-gray-600">Email:</span>
+                  <button
                   type="button"
                   onClick={() => setEditMode('email')}
                   disabled={disabled}
-                  className="text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 whitespace-nowrap text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Edit3 className="w-3 h-3" />
-                  Cambiar
-                </button>
+                    <Edit3 className="w-3 h-3" />
+                    Cambiar
+                  </button>
+                </div>
+                <p className="text-sm font-medium break-all">{email}</p>
               </div>
             )}
           </div>
@@ -411,20 +400,22 @@ export function OTPStep({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <span className="text-gray-600">Teléfono:</span>{" "}
-                  <span className="font-medium">+57 {telefono}</span>
+              // Mismo formato que el correo: etiqueta y "Cambiar" arriba, el
+              // dato debajo. Asi las dos filas se leen igual.
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-gray-600">Teléfono:</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditMode('phone')}
+                    disabled={disabled}
+                    className="shrink-0 whitespace-nowrap text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    Cambiar
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEditMode('phone')}
-                  disabled={disabled}
-                  className="text-blue-600 hover:text-blue-700 text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Edit3 className="w-3 h-3" />
-                  Cambiar
-                </button>
+                <p className="text-sm font-medium">+{codigoPais} {telefono}</p>
               </div>
             )}
           </div>
@@ -453,11 +444,7 @@ export function OTPStep({
                     : 'border-gray-300 bg-white hover:border-gray-400 opacity-70'
                   }`}
               >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/500px-WhatsApp.svg.png"
-                  alt="WhatsApp"
-                  className="w-6 h-6"
-                />
+                <img src="/images/whatsapp-icon.svg" alt="" aria-hidden="true" className="w-6 h-6" />
                 <span className="font-medium text-gray-700">WhatsApp</span>
               </button>
               <button
@@ -469,11 +456,7 @@ export function OTPStep({
                     : 'border-gray-300 bg-white hover:border-gray-400 opacity-70'
                   }`}
               >
-                <img
-                  src="/images/gmail-icon.svg"
-                  alt="Email"
-                  className="w-6 h-auto object-contain"
-                />
+                <img src="/images/gmail-icon.svg" alt="" aria-hidden="true" className="w-6 h-6 object-contain" />
                 <span className="font-medium text-gray-700">Email</span>
               </button>
             </div>
@@ -495,24 +478,16 @@ export function OTPStep({
         ) : (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-center">
             <p className="text-xs text-gray-600 font-bold mb-3">Verificación</p>
-            <p className="text-sm text-gray-600 mb-4 flex items-center justify-center gap-2">
+            <p className="text-sm text-gray-600 mb-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
               Enviamos un código de 6 dígitos vía
               {sendMethod === 'email' ? (
                 <>
-                  <img
-                    src="/images/gmail-icon.svg"
-                    alt="Email"
-                    className="w-5 h-auto inline"
-                  />
+                  <img src="/images/gmail-icon.svg" alt="" aria-hidden="true" className="w-5 h-5 inline object-contain" />
                   <span className="font-medium">Email</span>
                 </>
               ) : (
                 <>
-                  <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/500px-WhatsApp.svg.png"
-                    alt="WhatsApp"
-                    className="w-5 h-5 inline"
-                  />
+                  <img src="/images/whatsapp-icon.svg" alt="" aria-hidden="true" className="w-5 h-5 inline" />
                   <span className="font-medium text-green-600">WhatsApp</span>
                 </>
               )}

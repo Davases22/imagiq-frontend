@@ -124,7 +124,7 @@ const CategoryProductsGrid = forwardRef<HTMLDivElement, CategoryProductsGridProp
             >
               <ProductCard
                 {...product}
-                isFavorite={isFavorite(product.id)}
+                isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
                 onToggleFavorite={(productId: string) => {
                   if (isFavorite(productId)) {
                     handleRemoveToFavorites(productId);

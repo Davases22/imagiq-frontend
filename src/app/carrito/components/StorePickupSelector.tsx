@@ -34,7 +34,7 @@ export const StorePickupSelector: React.FC<StorePickupSelectorProps> = ({
     <div className="space-y-3">
       <label
         htmlFor="tienda"
-        className={`flex flex-col gap-3 p-4 border rounded-lg transition-all ${disabled || isLoading
+        className={`flex flex-col gap-3 p-4 border rounded-lg max-md:rounded-t-none transition-all ${disabled || isLoading
           ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
           : deliveryMethod === "tienda"
             ? "border-blue-500 cursor-pointer"
