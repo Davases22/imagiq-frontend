@@ -239,9 +239,15 @@ export default function CreateAccountPage() {
         });
       } else {
         // Enviar OTP por WhatsApp (método actual)
+        // Con el userId el codigo se emite para ESTA cuenta. Sin el, el
+        // backend tiene que adivinar a quien pertenece el numero, y uno
+        // compartido por varias cuentas se resuelve por fecha: el codigo
+        // llegaba al mismo WhatsApp pero quedaba a nombre de otra cuenta, asi
+        // que al validarlo salia "codigo invalido".
         await apiPost("/api/auth/otp/send-register", {
           telefono: formData.telefono,
           metodo: "whatsapp",
+          ...(userId ? { userId } : {}),
         });
       }
 
@@ -383,6 +389,7 @@ export default function CreateAccountPage() {
           result = await apiPost("/api/auth/otp/verify-register", {
             email: formData.email,
             codigo: otpCode,
+            ...(userId ? { userId } : {}),
           });
         }
 
