@@ -7,12 +7,20 @@
  * de introducir el indicador.
  */
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import CheckoutStepIndicator, { milestoneFromPath } from "./CheckoutStepIndicator";
 
 export default function CheckoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
   const inProgress = milestoneFromPath(pathname) !== null;
+
+  // Al cambiar de paso, arriba del todo. Sin esto —y se nota sobre todo en
+  // movil, donde los pasos son largos— se llegaba al paso siguiente a media
+  // pagina, con el titulo fuera de pantalla, tanto al continuar como al volver.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [pathname]);
 
   if (!inProgress) return <>{children}</>;
 
