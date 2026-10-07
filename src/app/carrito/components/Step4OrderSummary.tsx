@@ -1166,12 +1166,25 @@ export default function Step4OrderSummary({
   const stickyClasses = isSticky ? " sticky top-40" : "";
   const containerClasses = `${baseContainerClasses}${stickyClasses}`;
 
+  // Se enciende al pulsar el boton y se apaga solo. Es una red de seguridad:
+  // si el paso navega, el componente se desmonta antes; si la accion se
+  // cancela (una validacion que corta con un alert), el boton se libera a los
+  // 5 s en vez de quedarse girando para siempre.
+  const [pulsado, setPulsado] = React.useState(false);
+  React.useEffect(() => {
+    if (!pulsado) return;
+    const t = setTimeout(() => setPulsado(false), 5000);
+    return () => clearTimeout(t);
+  }, [pulsado]);
+
   // "Esta trabajando" y "no se puede pulsar" son cosas distintas. Las dos
   // bloquean el clic (para no duplicar la orden), pero solo la segunda debe
   // apagar el boton: mientras carga se queda verde con su spinner, que es lo
   // que dice que la compra sigue avanzando. Verlo gris parecia un error.
   const estaTrabajando =
-    isProcessing || (!isStep2 && (userClickedWhileLoading || isArtificialLoading));
+    isProcessing ||
+    pulsado ||
+    (!isStep2 && (userClickedWhileLoading || isArtificialLoading));
   const isPrimaryDisabled = estaTrabajando || disabled;
 
   const primaryButtonBaseClasses =
@@ -1326,8 +1339,9 @@ export default function Step4OrderSummary({
             disabled={isPrimaryDisabled}
             data-testid="checkout-finish-btn"
             data-button-text={buttonText}
-            aria-busy={isProcessing || userClickedWhileLoading || isArtificialLoading}
+            aria-busy={estaTrabajando}
             onClick={async () => {
+            setPulsado(true);
             // Paso de dirección (skipPickupCheck): enviar el formulario directo,
             // sin la lógica de pickup/canPickUp — esa se calcula DENTRO de
             // handleAddressAdded tras guardar, y ahí mismo auto-avanza. Evita el
@@ -1449,7 +1463,7 @@ export default function Step4OrderSummary({
             setTimeout(() => onFinishPayment(), 300);
           }}
         >
-          {(isProcessing || userClickedWhileLoading) ? (
+          {estaTrabajando ? (
             <span
               className="flex gap-2 items-center justify-center"
               aria-live="polite"

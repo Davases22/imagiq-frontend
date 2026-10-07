@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/features/auth/context";
 import { cn } from "@/lib/utils";
-import { User, Package, LogOut } from "lucide-react";
+import { User, ShoppingBag, LogOut } from "lucide-react";
 
 /**
  *
@@ -164,7 +164,7 @@ const UserOptionsDropdown: React.FC<UserOptionsDropdownProps> = ({
             }}
           >
             <span className="flex items-center gap-2.5">
-              <Package className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+              <ShoppingBag className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
               <span>
                 <span className="block font-medium">Mis pedidos</span>
                 <span className="block text-sm text-gray-500">

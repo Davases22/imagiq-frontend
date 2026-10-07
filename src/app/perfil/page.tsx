@@ -12,7 +12,7 @@
 
 import { ProfilePage as ProfilePageComponent } from "@/features/profile";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { safeGetLocalStorage } from "@/lib/localStorage";
 
 export default function ProfilePage() {
@@ -34,7 +34,11 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ProfilePageComponent />
+      {/* ProfilePageComponent usa useSearchParams (para ?ver=orders) y eso
+          obliga a un Suspense: sin el, Next aborta el prerender de /perfil. */}
+      <Suspense fallback={<div className="min-h-screen bg-white" />}>
+        <ProfilePageComponent />
+      </Suspense>
     </div>
   );
 }

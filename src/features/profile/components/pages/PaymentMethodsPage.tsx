@@ -1,6 +1,10 @@
 import React, { useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { profileService } from "@/services/profile.service";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useProfile } from "../../hooks/useProfile";
+import ProfileListSkeleton from "../sections/ProfileListSkeleton";
 import { useAuthContext } from "@/features/auth/context";
 import Modal from "@/components/ui/Modal";
 import AddCardForm from "@/components/forms/AddCardForm";
@@ -11,7 +15,7 @@ interface PaymentMethodsPageProps {
 }
 
 const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
-  const { state, actions } = useProfile();
+  const { state, actions, isLoading } = useProfile();
   const authContext = useAuthContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -26,8 +30,34 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
     setIsModalOpen(false);
   };
 
+  // Quitar una tarjeta NO la borra de la base: el backend marca `deleted_at`
+  // y la deja fuera de las consultas. Asi las ordenes que la usaron siguen
+  // teniendo a que apuntar; un borrado real las dejaria colgando.
+  const [tarjetaABorrar, setTarjetaABorrar] = useState<{
+    id: string;
+    ultimos: string;
+  } | null>(null);
+  const [borrando, setBorrando] = useState(false);
+
+  const confirmarBorrado = async () => {
+    if (!tarjetaABorrar || !state.user?.id) return;
+    setBorrando(true);
+    try {
+      await profileService.deleteCard(state.user.id, tarjetaABorrar.id);
+      toast.success("Método de pago eliminado");
+      setTarjetaABorrar(null);
+      await actions.loadProfile();
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "No se pudo eliminar la tarjeta",
+      );
+    } finally {
+      setBorrando(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Modal para agregar tarjeta */}
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} size="lg" showCloseButton={false}>
         <AddCardForm
@@ -95,7 +125,9 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {cards.length === 0 ? (
+        {isLoading && cards.length === 0 ? (
+          <ProfileListSkeleton />
+        ) : cards.length === 0 ? (
           <div className="bg-white rounded-2xl border-2 border-gray-200 p-10 text-center">
             <p className="text-gray-500 text-sm mb-4">
               No tienes métodos de pago registrados
@@ -108,7 +140,7 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
             </button>
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => {
               // Determinar color de gradiente según marca (colores pastel más suaves)
               const getCardGradient = (marca?: string) => {
@@ -125,7 +157,7 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
               return (
                 <div
                   key={card.id}
-                  className={`relative bg-gradient-to-br ${getCardGradient(card.marca)} rounded-xl p-3.5 shadow-lg hover:shadow-xl transition-all cursor-pointer group aspect-[1.586/1]`}
+                  className={`relative bg-gradient-to-br ${getCardGradient(card.marca)} rounded-2xl p-4 shadow-md hover:shadow-lg transition-all group aspect-[1.586/1]`}
                 >
                   {/* Badge de predeterminada */}
                   {card.es_predeterminada && (
@@ -160,7 +192,7 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
 
                   {/* Número de tarjeta */}
                   <div className="mb-2.5">
-                    <div className="text-gray-800 text-sm font-mono tracking-wider font-semibold">
+                    <div className="text-gray-900 text-base font-mono tracking-wider font-semibold">
                       •••• •••• •••• {card.ultimos_dijitos}
                     </div>
                   </div>
@@ -169,7 +201,7 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
                   <div className="flex justify-between items-end gap-1">
                     <div className="flex-1 min-w-0">
                       <div className="text-gray-700 text-[10px] mb-0.5 font-semibold">TITULAR</div>
-                      <div className="text-gray-800 text-xs font-bold uppercase truncate">
+                      <div className="text-gray-900 text-sm font-bold uppercase truncate">
                         {card.nombre_titular || card.alias || "TARJETA"}
                       </div>
                     </div>
@@ -194,14 +226,40 @@ const PaymentMethodsPage: React.FC<PaymentMethodsPageProps> = ({ onBack }) => {
                     </div>
                   )}
 
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTarjetaABorrar({
+                        id: card.cardId ?? card.id,
+                        ultimos: card.ultimos_dijitos ?? "",
+                      })
+                    }
+                    aria-label={`Eliminar tarjeta terminada en ${card.ultimos_dijitos}`}
+                    className="absolute bottom-2 left-2 z-10 rounded-full bg-white/70 p-1.5 text-gray-700 opacity-100 backdrop-blur-sm transition hover:bg-white hover:text-red-600 md:opacity-0 md:group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+
                   {/* Efecto hover */}
-                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+                  <div className="pointer-events-none absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!tarjetaABorrar}
+        onClose={() => setTarjetaABorrar(null)}
+        onConfirm={confirmarBorrado}
+        title="¿Eliminar este método de pago?"
+        message={`La tarjeta terminada en ${tarjetaABorrar?.ultimos ?? ""} dejará de aparecer al pagar. Tus pedidos anteriores no se ven afectados.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={borrando}
+      />
     </div>
   );
 };
