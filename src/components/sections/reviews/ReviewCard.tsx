@@ -36,6 +36,9 @@ export const ReviewCard = ({ review, isActive = true, index = 0, opacity,scale,r
       )}
           style={{
         boxShadow: shadow,
+        // Mismo redondeo que los banners. No tenia ninguno, por eso resaltaba
+        // como la unica esquina viva de la seccion.
+        borderRadius: 24,
         border: "1px solid #E5E7EB",
         display: "flex",
         flexDirection: "column",

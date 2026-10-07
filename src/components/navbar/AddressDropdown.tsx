@@ -733,17 +733,45 @@ const AddressDropdown: React.FC<AddressDropdownProps> = React.memo(({
                           // COMENTADO: Ya no se usa isDeleting
                           // disabled={isDeleting}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm">
-                                {address.nombreDireccion}
-                              </span>
-                              {isSelected && (
-                                <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-700 mt-1.5 leading-relaxed">
-                              {address.lineaUno || address.direccionFormateada}
-                            </p>
+                            {/* Cuando no se pone nombre, el formulario guarda
+                                "<calle> <numero>" como nombre, que es la propia
+                                direccion: mostrarlo ademas de la linea de abajo
+                                la repetia dos veces. Solo se muestra si aporta
+                                algo distinto ("Casa", "Oficina"). */}
+                            {(() => {
+                              const linea =
+                                address.lineaUno || address.direccionFormateada || "";
+                              const nombre = (address.nombreDireccion || "").trim();
+                              const repetido =
+                                !nombre ||
+                                linea
+                                  .toLowerCase()
+                                  .startsWith(nombre.toLowerCase());
+                              return (
+                                <>
+                                  {!repetido && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-gray-900 text-sm">
+                                        {nombre}
+                                      </span>
+                                      {isSelected && (
+                                        <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                  )}
+                                  <p
+                                    className={`text-sm text-gray-700 leading-relaxed ${
+                                      repetido ? "flex items-center gap-2 font-semibold text-gray-900" : "mt-1.5"
+                                    }`}
+                                  >
+                                    {linea}
+                                    {repetido && isSelected && (
+                                      <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                    )}
+                                  </p>
+                                </>
+                              );
+                            })()}
                             {(address.complemento || address.barrio) && (
                               <p className="text-xs text-gray-500 mt-1">
                                 {[

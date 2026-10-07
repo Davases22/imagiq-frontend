@@ -17,7 +17,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
           {/* Pedidos */}
           <button
             onClick={onOrdersClick}
-            className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-gray-200 hover:border-black transition-all hover:shadow-lg"
+            className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-3xl border-2 border-gray-200 hover:border-black transition-all hover:shadow-lg"
           >
             <Package className="w-8 h-8" />
             <span className="font-bold text-lg">Pedidos</span>
@@ -26,7 +26,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
           {/* Métodos de Pago */}
           <button
             onClick={onPaymentMethodsClick}
-            className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-gray-200 hover:border-black transition-all hover:shadow-lg"
+            className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-3xl border-2 border-gray-200 hover:border-black transition-all hover:shadow-lg"
           >
             <CreditCard className="w-8 h-8" />
             <span className="font-bold text-lg">Métodos de Pago</span>

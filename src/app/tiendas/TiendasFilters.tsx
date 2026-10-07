@@ -128,7 +128,7 @@ export default function TiendasFilters({
     <div className="flex flex-col gap-3 mt-3">
       <div className="flex gap-3 justify-between">
         <button
-          className="flex-1 bg-[#E5E5E5] rounded-[16px] px-0 py-2 flex items-center justify-center gap-2 text-gray-900 font-bold text-[15px] border-none shadow-none"
+          className="flex-1 bg-[#E5E5E5] rounded-full px-0 py-2 flex items-center justify-center gap-2 text-gray-900 font-bold text-[15px] border-none shadow-none"
           style={{
             fontFamily: "Samsung Sharp Sans, sans-serif",
             height: "28px",
@@ -141,7 +141,7 @@ export default function TiendasFilters({
           {loading ? "Buscando..." : "Cerca de mí"}
         </button>
         <button
-          className="flex-1 bg-[#E5E5E5] rounded-[16px] px-0 py-2 flex items-center justify-center gap-2 text-gray-900 font-bold text-[15px] border-none shadow-none"
+          className="flex-1 bg-[#E5E5E5] rounded-full px-0 py-2 flex items-center justify-center gap-2 text-gray-900 font-bold text-[15px] border-none shadow-none"
           style={{
             fontFamily: "Samsung Sharp Sans, sans-serif",
             height: "28px",
@@ -177,7 +177,7 @@ export default function TiendasFilters({
             placeholder="Buscar por nombre o dirección..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-[#E5E5E5] rounded-[16px] px-2 py-1 text-[15px] border-none focus:outline-none font-bold text-gray-700"
+            className="bg-[#E5E5E5] rounded-full px-2 py-1 text-[15px] border-none focus:outline-none font-bold text-gray-700"
             style={{
               fontFamily: "Samsung Sharp Sans, sans-serif",
               height: "28px",
@@ -186,7 +186,7 @@ export default function TiendasFilters({
           <div className="flex gap-2">
             {/* Filtro Ciudad */}
             <select
-              className="flex-1 bg-[#E5E5E5] rounded-[16px] px-2 py-1 text-gray-900 font-bold text-[15px] border-none shadow-none"
+              className="flex-1 bg-[#E5E5E5] rounded-full px-2 py-1 text-gray-900 font-bold text-[15px] border-none shadow-none"
               style={{
                 fontFamily: "Samsung Sharp Sans, sans-serif",
                 height: "28px",

@@ -30,13 +30,6 @@ export default function CreateAccountPage() {
   const [error, setError] = useState("");
   const [fromLogin, setFromLogin] = useState(false);
 
-  // Teléfono que ya pertenece a otra cuenta. Antes el backend borraba esa
-  // cuenta en silencio; ahora devuelve 409 y aquí se ofrecen las salidas.
-  const [conflictoTelefono, setConflictoTelefono] = useState<{
-    emailHint: string | null;
-    ownerHasPassword: boolean;
-  } | null>(null);
-
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -198,15 +191,15 @@ export default function CreateAccountPage() {
       setError("Número de documento es obligatorio");
       return false;
     }
-    if (!formData.fecha_nacimiento) {
-      setError("Fecha de nacimiento es obligatoria. Selecciona día, mes y año.");
-      return false;
-    }
-    // Validar que la fecha tiene formato correcto (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(formData.fecha_nacimiento)) {
-      setError("Fecha de nacimiento incompleta. Asegúrate de seleccionar día, mes y año.");
-      return false;
+    // La fecha de nacimiento es opcional: no se pide para comprar ni para
+    // verificar la cuenta, asi que exigirla solo anadia un paso. Si la
+    // escriben, se comprueba el formato; si la dejan vacia, se sigue.
+    if (formData.fecha_nacimiento) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(formData.fecha_nacimiento)) {
+        setError("La fecha de nacimiento no es válida.");
+        return false;
+      }
     }
     if (!formData.contrasena || formData.contrasena.length < 8) {
       setError("La contraseña debe tener al menos 8 caracteres");
@@ -263,10 +256,6 @@ export default function CreateAccountPage() {
     if (currentStep === 1) {
       if (!validateStep1()) return;
 
-      // Reintento: se borra el conflicto anterior para no dejar el panel
-      // colgado si la persona ya cambió el teléfono.
-      setConflictoTelefono(null);
-
       // Verificar duplicados antes de continuar (solo si los endpoints existen)
       setIsLoading(true);
       try {
@@ -293,12 +282,11 @@ export default function CreateAccountPage() {
             codigo_pais: formData.codigo_pais,
           });
 
-          if (phoneCheck.exists) {
-            setError("Este número de teléfono ya está registrado. Por favor, usa otro o inicia sesión.");
-            setHasPhoneError(true);
-            setIsLoading(false);
-            return;
-          }
+          // Un telefono repetido no frena nada: hay numeros que de verdad se
+          // comparten (familias, empresas con el movil de su contacto). Y el
+          // canal del codigo lo elige la persona, porque quien identifica la
+          // cuenta es el correo.
+          void phoneCheck;
         } catch (phoneCheckError) {
           console.log("⚠️ Endpoint de validación de teléfono no disponible, continuando sin validar duplicados");
         }
@@ -310,12 +298,9 @@ export default function CreateAccountPage() {
             numero_documento: formData.numero_documento,
           });
 
-          if (documentCheck.exists) {
-            setError("Este número de documento ya está registrado. Por favor, usa otro o inicia sesión.");
-            setHasDocumentError(true);
-            setIsLoading(false);
-            return;
-          }
+          // El documento NO es unico: la misma persona puede tener varias
+          // cuentas con la misma cedula. El backend lo permite expresamente.
+          void documentCheck;
         } catch (documentCheckError) {
           console.log("⚠️ Endpoint de validación de documento no disponible, continuando sin validar duplicados");
         }
@@ -331,7 +316,11 @@ export default function CreateAccountPage() {
           nombre: formData.nombre,
           apellido: formData.apellido,
           contrasena: formData.contrasena,
-          fecha_nacimiento: formData.fecha_nacimiento,
+          // undefined, no "": el DTO la marca @IsOptional(), pero class-validator
+          // solo se salta undefined/null. Una cadena vacia SI pasa por
+          // @IsDateString() y devuelve 400. Ahora que la fecha es opcional, ese
+          // caso ocurre de verdad.
+          fecha_nacimiento: formData.fecha_nacimiento || undefined,
           telefono: formData.telefono,
           codigo_pais: formData.codigo_pais,
           tipo_documento: formData.tipo_documento,
@@ -347,24 +336,8 @@ export default function CreateAccountPage() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Error al crear usuario";
 
-        // El teléfono ya es de otra cuenta. No es un error del formulario: la
-        // persona probablemente YA tiene cuenta y no lo recuerda, así que en
-        // vez de un texto rojo se le ofrecen las tres salidas posibles.
-        if (err instanceof ApiError && err.code === "PHONE_ALREADY_LINKED") {
-          setConflictoTelefono({
-            emailHint: err.emailHint ?? null,
-            ownerHasPassword: err.ownerHasPassword ?? false,
-          });
-          // A propósito NO se marca hasPhoneError: ese flag no pinta el campo
-          // (PersonalInfoStep no lo recibe), solo deshabilita el botón
-          // Continuar, y lo único que lo vuelve a false es un registro
-          // exitoso. Marcarlo dejaría a la persona sin forma de corregir el
-          // teléfono y reintentar.
-          setError("");
-        } else {
-          setError(msg);
-          await notifyError(msg, "Registro fallido");
-        }
+        setError(msg);
+        await notifyError(msg, "Registro fallido");
       } finally {
         setIsLoading(false);
       }
@@ -391,9 +364,12 @@ export default function CreateAccountPage() {
             codigo: otpCode,
           });
         } else {
-          // Verificar OTP por WhatsApp (método actual)
+          // El codigo llega por WhatsApp, pero quien identifica la cuenta es el
+          // CORREO, no el numero: un telefono puede estar en varias cuentas y el
+          // backend rechaza la verificacion si no sabe de cual se trata. Mandar
+          // el correo deja el canal libre sin ambiguedad.
           result = await apiPost("/api/auth/otp/verify-register", {
-            telefono: formData.telefono,
+            email: formData.email,
             codigo: otpCode,
           });
         }
@@ -528,6 +504,7 @@ export default function CreateAccountPage() {
             formData={formData}
             onChange={(data) => setFormData({ ...formData, ...data })}
             disabled={isLoading}
+            cuentaYaCreada={!!userId}
             onValidationChange={(hasErrors) => {
               setHasEmailError(hasErrors);
               setHasPhoneError(hasErrors);
@@ -539,6 +516,7 @@ export default function CreateAccountPage() {
           <OTPStep
             email={formData.email}
             telefono={formData.telefono}
+            codigoPais={formData.codigo_pais}
             otpCode={otpCode}
             otpSent={otpSent}
             sendMethod={sendMethod}
@@ -610,8 +588,14 @@ export default function CreateAccountPage() {
             {/* Espaciador flexible */}
             <div className="flex-grow" />
 
-            {/* Login prompt - Alineado al final */}
-            <div className="space-y-4 pb-6">
+            {/* Desde el paso 3 la cuenta ya existe y la sesion esta iniciada
+                (arriba se lee "Hola, <nombre>"), asi que ofrecer "iniciar
+                sesion" ahi sobra.
+                mt-10: el "¿Ya tienes cuenta?" va centrado sobre el separador con
+                -translate-y-1/2, asi que sin margen se montaba encima del
+                "Opcional" del ultimo paso. */}
+            {currentStep <= 2 && (
+            <div className="space-y-4 pb-6 mt-10">
               <div className="relative">
                 <Separator />
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-xs text-gray-500 whitespace-nowrap">
@@ -632,55 +616,13 @@ export default function CreateAccountPage() {
                 Iniciar sesión
               </Button>
             </div>
+            )}
           </div>
 
           {/* Contenido principal */}
           <div className="flex-1 space-y-6">
             <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
               {renderStepContent()}
-
-              {conflictoTelefono && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
-                  <p className="font-medium text-amber-900">
-                    Ese teléfono ya tiene una cuenta
-                  </p>
-                  <p className="mt-1 text-amber-800">
-                    {conflictoTelefono.emailHint
-                      ? `Está asociado a ${conflictoTelefono.emailHint}. Si es tuya, entra con ella y no tendrás que registrarte de nuevo.`
-                      : "Si es tuya, entra con ella y no tendrás que registrarte de nuevo."}
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        localStorage.removeItem("create_account_progress");
-                        router.push("/login");
-                      }}
-                      className="flex-1"
-                    >
-                      Iniciar sesión
-                    </Button>
-                    {conflictoTelefono.ownerHasPassword ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => router.push("/login/password-recovery")}
-                        className="flex-1"
-                      >
-                        Recuperar contraseña
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setConflictoTelefono(null)}
-                      className="flex-1"
-                    >
-                      Usar otro teléfono
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               {error && (
                 <div className="text-sm text-red-600 text-center bg-red-50 py-2 px-4 rounded-lg">
@@ -689,19 +631,9 @@ export default function CreateAccountPage() {
               )}
 
               <div className="flex gap-3 pt-4">
-                {/* Botón Atrás solo en paso 1 y paso 4 (NO en paso 2 ni paso 3) */}
-                {currentStep === 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/login")}
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    Volver al login
-                  </Button>
-                )}
-                {currentStep === 4 && (
+                {/* Antes solo en el paso 4: desde el 2 y el 3 no habia forma de
+                    volver a corregir un dato del paso anterior. */}
+                {currentStep === 2 && (
                   <Button
                     type="button"
                     variant="outline"
@@ -755,8 +687,14 @@ export default function CreateAccountPage() {
                   </Button>
                 )}
                 {!STEPS[currentStep - 1].required && (
-                  <Button type="button" variant="ghost" onClick={handleSkipStep} disabled={isLoading}>
-                    Omitir
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSkipStep}
+                    disabled={isLoading}
+                    className="flex-1"
+                  >
+                    Omitir por ahora
                   </Button>
                 )}
               </div>

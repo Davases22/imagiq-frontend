@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/features/auth/context";
 import { cn } from "@/lib/utils";
+import { User, Package, LogOut } from "lucide-react";
 
 /**
  *
@@ -30,6 +31,30 @@ const UserOptionsDropdown: React.FC<UserOptionsDropdownProps> = ({
   const handleToggle = () => setOpen(!open);
 
   const handleClose = () => setOpen(false);
+
+  // Se abre al pasar por encima, como los submenus del navbar. El cierre lleva
+  // un respiro de 150 ms: sin el, al mover el raton del boton hacia el panel se
+  // cruza el hueco entre ambos y el menu se cerraba en la cara.
+  const cierreDiferido = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const abrirPorHover = () => {
+    if (cierreDiferido.current) {
+      clearTimeout(cierreDiferido.current);
+      cierreDiferido.current = null;
+    }
+    setOpen(true);
+  };
+
+  const cerrarPorHover = () => {
+    if (cierreDiferido.current) clearTimeout(cierreDiferido.current);
+    cierreDiferido.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (cierreDiferido.current) clearTimeout(cierreDiferido.current);
+    };
+  }, []);
 
   // Cierra el dropdown al hacer click fuera
   useEffect(() => {
@@ -67,21 +92,41 @@ const UserOptionsDropdown: React.FC<UserOptionsDropdownProps> = ({
   if (!isAuthenticated || !user?.nombre || userRole === 3) return null;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div
+      className="relative"
+      ref={dropdownRef}
+      onMouseEnter={abrirPorHover}
+      onMouseLeave={cerrarPorHover}
+    >
       {/* Botón del usuario */}
       <button
         className={cn(
-          "flex flex-col items-end justify-center py-2 text-xs md:text-sm font-medium leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded-md transition-colors duration-300 hover:opacity-80",
-          showWhiteItems ? "text-white" : "text-black"
+          "flex flex-col items-end justify-center py-2 pb-2 text-xs md:text-sm font-medium leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded-md transition-colors duration-300 hover:opacity-80",
+          showWhiteItems ? "text-white" : "text-black",
+          // Mismo subrayado que los enlaces del navbar (Dispositivos moviles,
+          // TV y Audio...): se despliega de izquierda a derecha al pasar por
+          // encima y queda fijo mientras el menu esta abierto.
+          !showWhiteItems &&
+            "relative after:absolute after:left-0 after:right-0 after:bottom-0 after:h-1 after:bg-blue-500 after:rounded-full after:transition-transform after:duration-200 after:origin-left",
+          !showWhiteItems && (open ? "after:scale-x-100" : "after:scale-x-0 hover:after:scale-x-100"),
         )}
-        aria-label={`Opciones de usuario para ${primerNombre}`}
+        aria-label={primerNombre ? `Opciones de usuario para ${primerNombre}` : "Opciones de tu cuenta"}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={handleToggle}
         type="button"
       >
-        <span>Hola,</span>
-        <span className="font-semibold">{primerNombre}</span>
+        {/* Sin nombre quedaba un "Hola," colgando, sin nadie detras. Si no
+            sabemos como se llama, se dice "Mi cuenta", que al menos nombra lo
+            que hay al otro lado del boton. */}
+        {primerNombre ? (
+          <>
+            <span>Hola,</span>
+            <span className="font-semibold">{primerNombre}</span>
+          </>
+        ) : (
+          <span className="font-semibold">Mi cuenta</span>
+        )}
       </button>
 
       {/* Dropdown menu */}
@@ -99,9 +144,33 @@ const UserOptionsDropdown: React.FC<UserOptionsDropdownProps> = ({
               router.push("/perfil");
             }}
           >
-            <span className="block font-medium">Ver perfil</span>
-            <span className="block text-sm text-gray-500">
-              Gestiona tu cuenta
+            <span className="flex items-center gap-2.5">
+              <User className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+              <span>
+                <span className="block font-medium">Mi perfil</span>
+                <span className="block text-sm text-gray-500">
+                  Tus datos y direcciones
+                </span>
+              </span>
+            </span>
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors duration-150 border-b border-gray-100"
+            role="menuitem"
+            onClick={() => {
+              handleClose();
+              router.push("/perfil?ver=orders");
+            }}
+          >
+            <span className="flex items-center gap-2.5">
+              <Package className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+              <span>
+                <span className="block font-medium">Mis pedidos</span>
+                <span className="block text-sm text-gray-500">
+                  Sigue tus compras
+                </span>
+              </span>
             </span>
           </button>
 
@@ -114,9 +183,14 @@ const UserOptionsDropdown: React.FC<UserOptionsDropdownProps> = ({
               router.push("/");
             }}
           >
-            <span className="block font-medium">Cerrar sesión</span>
-            <span className="block text-sm text-gray-500">
-              Salir de tu cuenta
+            <span className="flex items-center gap-2.5">
+              <LogOut className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+              <span>
+                <span className="block font-medium">Cerrar sesión</span>
+                <span className="block text-sm text-gray-500">
+                  Salir de tu cuenta
+                </span>
+              </span>
             </span>
           </button>
         </div>

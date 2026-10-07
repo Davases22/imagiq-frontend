@@ -398,7 +398,7 @@ export default function Step4({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center py-8 px-2 md:px-0 pb-40 md:pb-8">
+    <div className="min-h-screen bg-white flex flex-col items-center py-8 px-0 pb-40 md:pb-8">
       {/* Modal para agregar nueva tarjeta */}
       <Modal
         isOpen={isAddCardModalOpen}
@@ -418,7 +418,7 @@ export default function Step4({
         {/* Formulario de pago */}
         <form
           id="checkout-form"
-          className="col-span-2 flex flex-col gap-8 rounded-2xl p-8 md:min-h-[70vh]"
+          className="col-span-2 flex flex-col gap-8 rounded-2xl py-8 px-0 sm:p-8 md:min-h-[70vh]"
           onSubmit={handleContinueToNextStep}
           autoComplete="off"
         >
@@ -499,14 +499,14 @@ export default function Step4({
 
       {/* Sticky Bottom Bar - Solo Mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="p-4 pb-8 flex items-center justify-between gap-4">
+        <div className="px-4 py-3 pb-8 flex items-center justify-between gap-2">
           {/* Izquierda: Total y descuentos */}
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-500">
               Total ({products.reduce((acc, p) => acc + p.quantity, 0)}{" "}
               productos)
             </p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xl font-bold text-gray-900 whitespace-nowrap">
               $ {Number(products.reduce((acc, p) => acc + p.price * p.quantity, 0)).toLocaleString()}
             </p>
             {/* Mostrar descuento si existe */}
@@ -525,7 +525,7 @@ export default function Step4({
               type="button"
               onClick={onBack}
               aria-label="Volver al paso anterior"
-              className="flex-shrink-0 flex items-center justify-center px-4 py-4 rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              className="flex-shrink-0 flex items-center justify-center px-3 py-3.5 rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
             >
               <svg
                 className="w-6 h-6"
@@ -544,7 +544,7 @@ export default function Step4({
           )}
           {/* Derecha: Botón continuar - destacado con sombra y glow */}
           <button
-            className={`flex-shrink-0 font-bold py-4 px-6 rounded-xl text-lg transition-all duration-200 text-white border-2 ${
+            className={`flex-shrink-0 font-bold py-3.5 px-5 rounded-xl text-base whitespace-nowrap transition-all duration-200 text-white border-2 ${
               isProcessing || isValidatingCard || !tradeInValidation.isValid || !isPaymentMethodValid
                 ? "bg-gray-400 border-gray-300 cursor-not-allowed"
                 : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"

@@ -134,7 +134,7 @@ export default function LiveStreamProducts({
           <div key={product.id} className="shrink-0 w-[260px] md:w-[280px] snap-start">
             <ProductCard
               {...product}
-              isFavorite={isFavorite(product.id)}
+              isFavorite={isFavorite(product.id, product.colors?.map((c) => c.sku))}
               onToggleFavorite={handleToggleFavorite}
             />
           </div>

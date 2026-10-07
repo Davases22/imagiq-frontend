@@ -31,9 +31,13 @@ function HeroContent({ config, videoEnded, positionStyle, isMobile }: Readonly<H
   const subSize = isMobile
     ? "text-base mb-4 font-medium"
     : "text-xl xl:text-2xl mb-6 font-normal";
+  // Enlace con linea debajo en vez de pastilla con borde: sobre una fotografia
+  // el borde redondeado competia con la imagen, y el titular de 60px lo dejaba
+  // en evidencia. Una linea fina pesa menos y se lee como invitacion, no como
+  // un boton de formulario.
   const buttonSize = isMobile
-    ? "px-6 py-2 text-sm"
-    : "px-7 py-2.5 text-sm";
+    ? "pb-1 text-sm"
+    : "pb-1.5 text-base";
 
   return (
     <div
@@ -72,11 +76,12 @@ function HeroContent({ config, videoEnded, positionStyle, isMobile }: Readonly<H
       {config.ctaText && (
         <Link
           href={config.ctaLink || "#"}
-          className={`bg-transparent hover:opacity-80 ${buttonSize} rounded-full font-semibold transition-all duration-300 transform hover:scale-105`}
+          className={`inline-block bg-transparent ${buttonSize} font-semibold transition-all duration-300 hover:opacity-80`}
           style={{
             color: "#ffffff",
-            borderWidth: '2px',
-            borderColor: "#ffffff",
+            borderBottomWidth: '2px',
+            borderBottomStyle: 'solid',
+            borderBottomColor: "#ffffff",
             ...(config.textStyles?.cta || {}),
           }}
         >

@@ -49,6 +49,25 @@ interface AddNewAddressFormProps {
   headerTitle?: string; // Título opcional para mostrar junto al indicador de pasos
 }
 
+/**
+ * Tope de las instrucciones de entrega.
+ *
+ * Coordinadora rechaza la guia si `observaciones` pasa de 100 caracteres, y
+ * devuelve la guia VACIA sin decir por que. En ese mismo campo el backend mete
+ * primero la linea de contacto (telefono del destinatario, y el correo si cabe)
+ * y despues estas instrucciones. Con el telefono son ~11 caracteres, asi que 80
+ * aqui deja margen para que la guia nunca se trunque.
+ */
+const MAX_INSTRUCCIONES = 80;
+
+/** Lo que la gente escribe casi siempre en las instrucciones de entrega. */
+const INSTRUCCIONES_SUGERIDAS = [
+  "Dejar en portería",
+  "Llamar al llegar",
+  "Timbrar",
+  "Horario de oficina",
+] as const;
+
 export default function AddNewAddressForm({
   onAddressAdded,
   onCancel,
@@ -491,6 +510,7 @@ export default function AddNewAddressForm({
       formData.numeroSecundario.trim() &&
       formData.numeroComplementario.trim() &&
       formData.setsReferencia.trim() &&
+      formData.barrio.trim() &&
       // Formulario de un solo paso: nombre + observación (instrucciones de
       // entrega) ahora viven en el paso 1. En billingOnly no aplican.
       (billingOnly || formData.instruccionesEntrega.trim())
@@ -503,6 +523,7 @@ export default function AddNewAddressForm({
     formData.numeroSecundario,
     formData.numeroComplementario,
     formData.setsReferencia,
+    formData.barrio,
     formData.instruccionesEntrega,
     billingOnly
   ]);
@@ -525,6 +546,10 @@ export default function AddNewAddressForm({
     if (!formData.numeroSecundario.trim()) missing.push("# Secund.");
     if (!formData.numeroComplementario.trim()) missing.push("# Compl.");
     if (!formData.setsReferencia.trim()) missing.push("Complemento");
+    if (!formData.barrio.trim()) missing.push("Barrio");
+    if (!billingOnly && !formData.instruccionesEntrega.trim()) {
+      missing.push("Observación / Instrucciones de entrega");
+    }
     // Google Places es opcional — no listar como campo faltante
 
     return missing;
@@ -536,8 +561,28 @@ export default function AddNewAddressForm({
     formData.numeroPrincipal,
     formData.numeroSecundario,
     formData.numeroComplementario,
-    formData.setsReferencia
+    formData.setsReferencia,
+    formData.barrio,
+    formData.instruccionesEntrega,
+    billingOnly
   ]);
+
+  // Al pulsar "Guardar" con el formulario a medias, saltamos al primer campo
+  // vacio en vez de dejar al cliente buscando cual es.
+  const primerCampoVacio = (): string | null => {
+    const orden: [string, string][] = [
+      ["departamento", formData.departamento],
+      ["ciudad", formData.ciudad],
+      ["nombreCalle", formData.nombreCalle],
+      ["numeroPrincipal", formData.numeroPrincipal],
+      ["numeroSecundario", formData.numeroSecundario],
+      ["numeroComplementario", formData.numeroComplementario],
+      ["barrio", formData.barrio],
+      ["setsReferencia", formData.setsReferencia],
+      ["instruccionesEntrega", billingOnly ? "x" : formData.instruccionesEntrega],
+    ];
+    return orden.find(([, valor]) => !valor.trim())?.[0] ?? null;
+  };
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -565,6 +610,24 @@ export default function AddNewAddressForm({
 
     if (!formData.numeroPrincipal.trim()) {
       newErrors.numeroPrincipal = "El número principal es requerido";
+    }
+
+    // Estos tres entraban en isStep1Complete (apagaban el boton) pero nadie los
+    // marcaba en rojo: el boton se quedaba gris sin decir que faltaba.
+    if (!formData.numeroSecundario.trim()) {
+      newErrors.numeroSecundario = "Falta este número";
+    }
+
+    if (!formData.numeroComplementario.trim()) {
+      newErrors.numeroComplementario = "Falta este número";
+    }
+
+    if (!formData.setsReferencia.trim()) {
+      newErrors.setsReferencia = "Indica el complemento (ej: Apt 301)";
+    }
+
+    if (!formData.barrio.trim()) {
+      newErrors.barrio = "El barrio es requerido";
     }
 
     // Validar dirección de facturación si no usa la misma
@@ -1281,7 +1344,7 @@ export default function AddNewAddressForm({
                 type="button"
                 onClick={handleUseMyLocation}
                 disabled={isManualGeoLoading || disabled}
-                className="flex items-center gap-1.5 px-6 py-2 rounded-xl border-2 border-gray-300 bg-white text-gray-700 text-sm font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 whitespace-nowrap"
                 title="Usar mi ubicación actual"
               >
                 {isManualGeoLoading ? (
@@ -1303,32 +1366,40 @@ export default function AddNewAddressForm({
             <button
               type="button"
               onClick={() => {
-                // Formulario de un solo paso: guardar directo (ya no hay paso 2).
-                if (billingOnly) {
+                if (validateForm()) {
                   handleSubmitInternal();
-                } else if (validateForm()) {
-                  handleSubmitInternal();
+                } else {
+                  // Que el cliente VEA que le falta: cada campo se pinta de rojo
+                  // con su mensaje (validateForm llena errors) y saltamos al
+                  // primero que este vacio.
+                  if (typeof document !== "undefined") {
+                    const id = primerCampoVacio();
+                    const primero = id ? document.getElementById(id) : null;
+                    primero?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    primero?.focus({ preventScroll: true });
+                  }
                 }
               }}
-              disabled={!isStep1Complete || isLoading}
+              disabled={isLoading}
               onMouseEnter={() => !isStep1Complete && setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
-              /* En desktop (lg+) el "Continuar" vive en el panel derecho
-                 (Step4OrderSummary, junto a "Volver"). Aquí se oculta para no
-                 duplicarlo. En mobile/tablet (sin panel) se mantiene. billingOnly
-                 es modal aparte: siempre muestra su botón. */
+              /* Se oculta cuando quien usa el formulario ya pone su propio
+                 boton de continuar: en el checkout vive en el panel derecho
+                 (onContinueRef) y en el registro, abajo del paso (onSubmitRef).
+                 Tenerlo arriba Y abajo confundia sobre cual era el bueno.
+                 billingOnly es un modal aparte: ahi si lleva el suyo. */
               className={`px-6 py-2 text-white rounded-xl font-bold transition border-2 ${
-                onContinueRef && !billingOnly ? "lg:hidden" : ""
+                (onContinueRef || onSubmitRef) && !billingOnly ? "hidden" : ""
               } ${
-                isStep1Complete && !(billingOnly && isLoading)
-                  ? "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
-                  : "bg-gray-400 border-gray-300 cursor-not-allowed"
+                isLoading
+                  ? "bg-gray-400 border-gray-300 cursor-not-allowed"
+                  : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
               }`}
             >
-              {billingOnly ? (isLoading ? "Guardando..." : "Guardar dirección") : "Continuar"}
+              {isLoading ? "Guardando..." : "Guardar"}
             </button>
 
-            {/* Tooltip mostrando campos faltantes - solo en desktop */}
+            {/* Tooltip mostrando campos faltantes - solo en desktop (hover) */}
             {showTooltip && !isStep1Complete && missingFields.length > 0 && (
               <div className="hidden lg:block absolute bottom-full right-0 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg z-50">
                 <div className="font-semibold mb-2">Campos faltantes:</div>
@@ -1538,10 +1609,13 @@ export default function AddNewAddressForm({
                     ? "bg-gray-100 cursor-not-allowed opacity-60"
                     : getFieldBackgroundClass(formData.numeroSecundario)
                 } ${
-                  getFieldBorderClass(formData.numeroSecundario)
+                  getFieldBorderClass(formData.numeroSecundario, !!errors.numeroSecundario)
                 }`}
               />
             </div>
+            {errors.numeroSecundario && (
+              <p className="text-red-500 text-xs mt-1">{errors.numeroSecundario}</p>
+            )}
           </div>
 
           {/* Número Complementario */}
@@ -1566,10 +1640,13 @@ export default function AddNewAddressForm({
                     ? "bg-gray-100 cursor-not-allowed opacity-60"
                     : getFieldBackgroundClass(formData.numeroComplementario)
                 } ${
-                  getFieldBorderClass(formData.numeroComplementario)
+                  getFieldBorderClass(formData.numeroComplementario, !!errors.numeroComplementario)
                 }`}
               />
             </div>
+            {errors.numeroComplementario && (
+              <p className="text-red-500 text-xs mt-1">{errors.numeroComplementario}</p>
+            )}
           </div>
         </div>
 
@@ -1581,7 +1658,7 @@ export default function AddNewAddressForm({
               htmlFor="barrio"
               className="block text-sm font-bold text-gray-900 mb-1"
             >
-              Barrio
+              Barrio <span className="text-red-500">*</span>
             </label>
             <input
               id="barrio"
@@ -1595,9 +1672,12 @@ export default function AddNewAddressForm({
                   ? "bg-gray-100 cursor-not-allowed opacity-60"
                   : getFieldBackgroundClass(formData.barrio)
               } ${
-                getFieldBorderClass(formData.barrio)
+                getFieldBorderClass(formData.barrio, !!errors.barrio)
               }`}
             />
+            {errors.barrio && (
+              <p className="text-red-500 text-xs mt-1">{errors.barrio}</p>
+            )}
           </div>
 
           {/* Complemento (ej: Oficina 204, Casa 5, Apto 301) */}
@@ -1615,16 +1695,19 @@ export default function AddNewAddressForm({
               onChange={(e) =>
                 handleInputChange("setsReferencia", e.target.value)
               }
-              placeholder="ej: Ofi. 204"
+              placeholder="ej: Ofi 204, Apt 301, Casa 5"
               disabled={disabled}
               className={`w-full px-2 sm:px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
                 disabled
                   ? "bg-gray-100 cursor-not-allowed opacity-60"
                   : getFieldBackgroundClass(formData.setsReferencia)
               } ${
-                getFieldBorderClass(formData.setsReferencia)
+                getFieldBorderClass(formData.setsReferencia, !!errors.setsReferencia)
               }`}
             />
+            {errors.setsReferencia && (
+              <p className="text-red-500 text-xs mt-1">{errors.setsReferencia}</p>
+            )}
           </div>
         </div>
 
@@ -1675,24 +1758,11 @@ export default function AddNewAddressForm({
         {/* Formulario de UN SOLO PASO: nombre + observación aquí mismo
             (antes vivían en el paso 2). Solo para envío, no para billingOnly. */}
         {!billingOnly && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div>
-              <label htmlFor="tipoDireccionPropiedadPaso1" className="block text-sm font-bold text-gray-900 mb-1">
-                Tipo de propiedad <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="tipoDireccionPropiedadPaso1"
-                value={formData.tipoDireccion}
-                onChange={(e) => handleInputChange("tipoDireccion", e.target.value)}
-                disabled={disabled}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
-              >
-                <option value="casa">Casa</option>
-                <option value="apartamento">Apartamento</option>
-                <option value="oficina">Oficina</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
+          /* Se quito el selector "Tipo de propiedad": anadia un paso mas sin
+             aportar nada que no diga ya el Complemento (Ofi 204, Apt 301,
+             Casa 5). El campo sigue viajando al backend con su valor por
+             defecto, que es lo que espera el DTO de addresses-ms. */
+          <div className="grid grid-cols-1 gap-4 pt-2">
             <div>
               <label htmlFor="instruccionesEntrega" className="block text-sm font-bold text-gray-900 mb-1">
                 Observación / Instrucciones de entrega <span className="text-red-500">*</span>
@@ -1704,8 +1774,42 @@ export default function AddNewAddressForm({
                 onChange={(e) => handleInputChange("instruccionesEntrega", e.target.value)}
                 placeholder="ej: Torre 3, apto 502. Dejar en portería."
                 disabled={disabled}
+                maxLength={MAX_INSTRUCCIONES}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
               />
+              {/* Atajos para lo que se escribe casi siempre. Al pulsar uno se
+                  anade al campo y queda marcado; al volver a pulsarlo, se quita.
+                  El texto sigue siendo editable a mano: esto solo ahorra
+                  teclear lo de siempre. */}
+              <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {INSTRUCCIONES_SUGERIDAS.map((sugerencia) => {
+                  const activa =
+                    formData.instruccionesEntrega.trim() === sugerencia;
+                  return (
+                    <button
+                      key={sugerencia}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() =>
+                        handleInputChange(
+                          "instruccionesEntrega",
+                          activa ? "" : sugerencia,
+                        )
+                      }
+                      className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-50 ${
+                        activa
+                          ? "border-gray-900 bg-gray-900 text-white"
+                          : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                      }`}
+                    >
+                      {sugerencia}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {formData.instruccionesEntrega.length}/{MAX_INSTRUCCIONES}
+              </p>
               {errors.instruccionesEntrega && (
                 <p className="text-red-500 text-xs mt-1">{errors.instruccionesEntrega}</p>
               )}

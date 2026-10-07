@@ -1166,19 +1166,27 @@ export default function Step4OrderSummary({
   const stickyClasses = isSticky ? " sticky top-40" : "";
   const containerClasses = `${baseContainerClasses}${stickyClasses}`;
 
-  // Reutilizar lógica de deshabilitado para el botón primario
-  const isPrimaryDisabled =
-    isProcessing || disabled || (!isStep2 && (userClickedWhileLoading || isArtificialLoading));
+  // "Esta trabajando" y "no se puede pulsar" son cosas distintas. Las dos
+  // bloquean el clic (para no duplicar la orden), pero solo la segunda debe
+  // apagar el boton: mientras carga se queda verde con su spinner, que es lo
+  // que dice que la compra sigue avanzando. Verlo gris parecia un error.
+  const estaTrabajando =
+    isProcessing || (!isStep2 && (userClickedWhileLoading || isArtificialLoading));
+  const isPrimaryDisabled = estaTrabajando || disabled;
 
   const primaryButtonBaseClasses =
     "flex-1 text-white font-bold py-3 px-6 rounded-xl text-sm transition-all duration-200 flex items-center justify-center";
 
   const primaryButtonVariantClasses =
     buttonVariant === "green"
-      ? isPrimaryDisabled
-        ? "bg-gray-400 border-2 border-gray-300"
-        : "bg-green-600 border-2 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
-      : "bg-black hover:bg-gray-900";
+      ? estaTrabajando
+        ? "bg-green-600 border-2 border-green-500 shadow-lg shadow-green-500/40"
+        : disabled
+          ? "bg-gray-400 border-2 border-gray-300"
+          : "bg-green-600 border-2 border-green-500 hover:bg-green-700 hover:border-green-600 shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
+      : estaTrabajando
+        ? "bg-black"
+        : "bg-black hover:bg-gray-900";
 
   if (isEmpty) {
     return (
@@ -1314,7 +1322,7 @@ export default function Step4OrderSummary({
         {!hideButton && (
           <button
             type="button"
-            className={`${primaryButtonBaseClasses} ${primaryButtonVariantClasses} ${isPrimaryDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${shouldAnimateButton ? "animate-buttonBounce" : ""}`}
+            className={`${primaryButtonBaseClasses} ${primaryButtonVariantClasses} ${estaTrabajando ? "cursor-wait" : isPrimaryDisabled ? "cursor-not-allowed" : "cursor-pointer"} ${shouldAnimateButton ? "animate-buttonBounce" : ""}`}
             disabled={isPrimaryDisabled}
             data-testid="checkout-finish-btn"
             data-button-text={buttonText}

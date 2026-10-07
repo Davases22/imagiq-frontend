@@ -22,6 +22,7 @@ import { useCardsCache } from "./hooks/useCardsCache";
 import { useAuthContext } from "@/features/auth/context";
 import { syncAddress } from "@/lib/addressSync";
 import { useCheckoutAddress } from "@/features/checkout";
+import { debugLog } from "@/lib/debugLog";
 import {
   getGlobalCanPickUpFromCache,
   buildGlobalCanPickUpKey,
@@ -1310,8 +1311,10 @@ export default function Step3({
   const isActivelyLoading = (storesLoading || isLoadingCanPickUp) && !skeletonTimedOut;
   const shouldShowSkeleton = isActivelyLoading;
 
-  // DEBUG: Descomentar para troubleshooting de skeleton
-  console.log('🔍 [Step3 SKELETON DEBUG]', {
+  // Va en el cuerpo del componente, asi que se ejecuta en CADA render: dejaba
+  // la consola con decenas de lineas identicas y tapaba todo lo demas. Queda
+  // disponible con NEXT_PUBLIC_DEBUG_LOGS=true.
+  debugLog('🔍 [Step3 SKELETON DEBUG]', {
     shouldShowSkeleton,
     storesLoading,
     isLoadingCanPickUp,
@@ -1337,11 +1340,15 @@ export default function Step3({
 
   return (
     <div className="min-h-screen w-full pb-40 md:pb-0">
-      <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      {/* En movil el contenedor NO pone margen lateral: el CheckoutShell ya
+          aporta px-4, y es ese borde el que marca la linea de "Entrega /
+          Paso 2 de 4". Cualquier padding extra aqui desalinea el titulo de
+          abajo respecto al de arriba. Desde sm si hay sitio de sobra. */}
+      <div className="w-full max-w-7xl mx-auto px-0 sm:px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Forma de entrega */}
           <div className="lg:col-span-2 space-y-4 lg:min-h-[70vh]">
-            <div className="bg-white rounded-lg p-6">
+            <div className="bg-white rounded-lg py-6 px-0 sm:p-6">
               {shouldShowSkeleton ? (
                 <div className="animate-pulse space-y-6">
                   {/* Título */}
@@ -1404,7 +1411,7 @@ export default function Step3({
                   />
 
                   {deliveryMethod === "domicilio" && !hasActiveTradeIn && (
-                    <div className="mt-6">
+                    <div className="mt-6 max-md:mt-0">
                       <AddressSelector
                         address={address}
                         addresses={addresses}
@@ -1421,7 +1428,7 @@ export default function Step3({
                   {/* Mostrar opción de recoger en tienda siempre, pero deshabilitada si canPickUp es false y no hay trade-in */}
                   {/* IMPORTANTE: Habilitar recoger en tienda si canPickUp global es true O si hay trade-in activo */}
                   {/* Mostrar estado de carga cuando se está verificando disponibilidad (cambio de dirección o carga inicial) */}
-                  <div className="mt-6">
+                  <div className="mt-6 max-md:-mt-px">
                     <StorePickupSelector
                       deliveryMethod={deliveryMethod}
                       onMethodChange={handleDeliveryMethodChange}
@@ -1562,14 +1569,14 @@ export default function Step3({
 
       {/* Sticky Bottom Bar - Solo Mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="p-4 pb-8 flex items-center justify-between gap-4">
+        <div className="px-4 py-3 pb-8 flex items-center justify-between gap-2">
           {/* Izquierda: Total y descuentos */}
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-500">
               Total ({products.reduce((acc, p) => acc + p.quantity, 0)}{" "}
               productos)
             </p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xl font-bold text-gray-900 whitespace-nowrap">
               $ {Number(calculations.total).toLocaleString()}
             </p>
             {/* Mostrar descuento si existe */}
@@ -1588,7 +1595,7 @@ export default function Step3({
               type="button"
               onClick={onBack}
               aria-label="Volver al paso anterior"
-              className="flex-shrink-0 flex items-center justify-center px-4 py-4 rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              className="flex-shrink-0 flex items-center justify-center px-3 py-3.5 rounded-xl border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
             >
               <svg
                 className="w-6 h-6"
@@ -1607,7 +1614,7 @@ export default function Step3({
           )}
           {/* Derecha: Botón continuar - destacado con sombra y glow */}
           <button
-            className={`flex-shrink-0 font-bold py-4 px-6 rounded-xl text-lg transition-all duration-200 text-white border-2 ${
+            className={`flex-shrink-0 font-bold py-3.5 px-5 rounded-xl text-base whitespace-nowrap transition-all duration-200 text-white border-2 ${
               !canContinue || !tradeInValidation.isValid || isWaitingForCanPickUp
                 ? "bg-gray-400 border-gray-300 cursor-not-allowed"
                 : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
