@@ -204,7 +204,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
               }}
               disabled={disabled}
               style={{ backgroundColor: '#ffffff' }}
-              className="w-[110px] h-9 rounded-md border border-gray-300 px-3 py-1 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+              className="w-[110px] h-9 rounded-md border border-input px-3 py-1 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus:outline-none"
             >
               {countryCodes.map((cc) => (
                 <option key={cc.code} value={cc.code}>
@@ -251,7 +251,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             max={new Date().toISOString().split("T")[0]}
             min={`${new Date().getFullYear() - 100}-01-01`}
             style={{ backgroundColor: "#ffffff" }}
-            className="block h-9 w-full min-w-0 max-w-full rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+            className="block h-9 w-full min-w-0 max-w-full rounded-md border border-input px-3 py-1 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus:outline-none"
           />
         </div>
       </div>
@@ -265,7 +265,7 @@ export function PersonalInfoStep({ formData, onChange, disabled, onValidationCha
             onChange={(e) => onChange({ tipo_documento: e.target.value })}
             disabled={disabled}
             style={{ backgroundColor: '#ffffff' }}
-            className="w-full h-9 rounded-md border border-gray-300 px-3 py-1 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+            className="w-full h-9 rounded-md border border-input px-3 py-1 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus:outline-none"
           >
             <option value="CC">CC</option>
             <option value="CE">CE</option>

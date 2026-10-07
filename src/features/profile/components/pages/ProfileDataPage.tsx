@@ -41,7 +41,7 @@ const PAISES = [
 ];
 
 const CLASES_CAMPO =
-  "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none transition-colors";
+  "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-black focus:outline-none focus:ring-0 transition-colors";
 
 export default function ProfileDataPage({ onBack }: ProfileDataPageProps) {
   const { state, actions, isLoading } = useProfile();
@@ -444,7 +444,7 @@ export default function ProfileDataPage({ onBack }: ProfileDataPageProps) {
                 value={datos.codigo_pais}
                 onValueChange={(v) => cambiar("codigo_pais", v)}
               >
-                <SelectTrigger className="!h-12 w-28 shrink-0 rounded-xl border-2 border-gray-200 !text-base data-[state=open]:rounded-b-none data-[state=open]:border-b-0">
+                <SelectTrigger className="!h-12 w-28 shrink-0 rounded-xl border-2 border-gray-200 !text-base focus-visible:border-black focus-visible:ring-0 data-[state=open]:border-black data-[state=open]:rounded-b-none data-[state=open]:border-b-0">
                   <SelectValue placeholder="+57" />
                 </SelectTrigger>
                 <SelectContent
@@ -467,7 +467,7 @@ export default function ProfileDataPage({ onBack }: ProfileDataPageProps) {
                 onChange={(e) => cambiar("telefono", e.target.value.replace(/\D/g, ""))}
                 maxLength={10}
                 placeholder="10 números, empieza con 3"
-                className="!h-12 min-w-0 rounded-xl border-2 border-gray-200 px-4 !text-base focus-visible:border-black"
+                className="!h-12 min-w-0 rounded-xl border-2 border-gray-200 px-4 !text-base focus-visible:border-black focus-visible:ring-0"
               />
             </div>
           </div>
