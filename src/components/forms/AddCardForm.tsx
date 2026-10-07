@@ -498,8 +498,8 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
   /* -------------------------------------------------------------------------- */
 
   const renderCardVisual = () => (
-    <div className="flex justify-center mb-6 md:mb-0">
-      <div className="w-full max-w-[340px]">
+    <div className="flex justify-center mb-3 md:mb-0">
+      <div className="w-full max-w-full sm:max-w-[340px]">
         <AnimatedCard
           cardNumber={cardNumber}
           cardHolder={cardHolder}
@@ -877,11 +877,11 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
 
       {/* Side-by-side Layout for embedded (guest users) / Stacked for non-embedded */}
       {embedded ? (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-3 lg:gap-6 items-start">
           {/* Columna Izquierda: Tarjeta animada */}
           <div className="w-full lg:w-1/2">
             <div className="flex items-start justify-center">
-              <div className="w-full max-w-[320px]">
+              <div className="w-full max-w-full sm:max-w-[320px]">
                 {renderCardVisual()}
               </div>
             </div>
@@ -907,7 +907,7 @@ const AddCardForm = React.forwardRef<AddCardFormHandle, AddCardFormProps>(({
 
   // Si está embebido, usar div para evitar form dentro de form
   if (embedded) {
-    return <div className="space-y-6">{content}</div>;
+    return <div className="space-y-3 sm:space-y-6">{content}</div>;
   }
 
   return (

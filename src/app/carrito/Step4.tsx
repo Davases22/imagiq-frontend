@@ -398,7 +398,7 @@ export default function Step4({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center py-8 px-0 pb-40 md:pb-8">
+    <div className="min-h-screen bg-white flex flex-col items-center py-3 md:py-8 px-0 pb-40 md:pb-8">
       {/* Modal para agregar nueva tarjeta */}
       <Modal
         isOpen={isAddCardModalOpen}
@@ -418,7 +418,7 @@ export default function Step4({
         {/* Formulario de pago */}
         <form
           id="checkout-form"
-          className="col-span-2 flex flex-col gap-8 rounded-2xl py-8 px-0 sm:p-8 md:min-h-[70vh]"
+          className="col-span-2 flex flex-col gap-8 rounded-2xl py-3 px-0 sm:p-8 md:min-h-[70vh]"
           onSubmit={handleContinueToNextStep}
           autoComplete="off"
         >

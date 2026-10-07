@@ -401,6 +401,10 @@ export default function Step2({
       //    check-email devuelve { exists:true } SOLO para rol 2; para invitados
       //    (rol 3) devuelve { exists:false, isGuest:true } y seguimos como invitado.
       const emailLower = guestForm.email.toLowerCase();
+      // Un correo que no existe no tiene nada detras que proteger; uno que ya
+      // es de un invitado si (sus pedidos y direcciones), y ahi hay que
+      // confirmar que es suyo antes de dejar seguir.
+      let correoYaEraDeUnInvitado = false;
       try {
         const emailCheck = await apiPost<{ exists: boolean; isGuest?: boolean; telefonoMask?: string | null }>(
           "/api/auth/check-email",
@@ -417,7 +421,11 @@ export default function Step2({
           setLoading(false);
           return;
         }
+        correoYaEraDeUnInvitado = emailCheck?.isGuest === true;
       } catch {
+        // Si check-email falla no se sabe de quien es el correo, asi que se
+        // pide el codigo: equivocarse hacia el lado seguro.
+        correoYaEraDeUnInvitado = true;
         // Si check-email falla, seguir con el registro (register-unverified
         // valida de nuevo y su error de "ya registrado" se maneja abajo).
       }
@@ -448,7 +456,16 @@ export default function Step2({
       //    el peor caso es "vuelve al OTP de hoy", nunca "checkout roto".
       //    Cuando el backend permita login de invitado sin verificar (rol 3),
       //    esta rama tendrá éxito y el flujo será realmente sin-OTP.
+      //
+      //    PERO solo cuando el correo NO existia. Si ya era de otro invitado,
+      //    entrar sin codigo significa que basta teclear el correo de alguien
+      //    para quedarse con su cuenta y ver sus pedidos y direcciones. En ese
+      //    caso se va por el OTP, que es lo unico que prueba que el correo es
+      //    suyo. Quien compra por primera vez no nota ninguna friccion.
       try {
+        if (correoYaEraDeUnInvitado) {
+          throw new Error("correo de un invitado existente: se exige código");
+        }
         const autoLogin = await apiPost<{
           access_token: string;
           user: { id: string; nombre: string; apellido: string; email: string; numero_documento: string; telefono: string; rol?: number };
@@ -460,7 +477,7 @@ export default function Step2({
           return;
         }
       } catch (autoLoginErr) {
-        console.warn("[Step2] auto-login-guest no disponible → fallback a OTP", autoLoginErr);
+        console.warn("[Step2] se continúa por OTP:", autoLoginErr);
       }
 
       // Fallback OTP legacy (garantiza que el invitado SIEMPRE pueda continuar)
@@ -747,9 +764,13 @@ export default function Step2({
         });
       } else {
         // console.log("📱 [Step2 handleVerifyOTP] Verificando OTP por WhatsApp:", guestForm.celular);
+        // Se manda el userId de la cuenta que acabamos de crear: el telefono
+        // no identifica una cuenta (hay numeros compartidos por familias y
+        // empresas) y sin el id el backend no sabria cual verificar.
         result = await apiPost("/api/auth/otp/verify-register", {
           telefono: guestForm.celular,
           codigo: otpCode,
+          ...(guestUserId ? { userId: guestUserId } : {}),
         });
       }
 

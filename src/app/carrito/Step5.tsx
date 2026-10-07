@@ -298,6 +298,13 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
     setSelectedInstallments(installments);
   };
 
+  const [navegando, setNavegando] = useState(false);
+  useEffect(() => {
+    if (!navegando) return;
+    const t = setTimeout(() => setNavegando(false), 5000);
+    return () => clearTimeout(t);
+  }, [navegando]);
+
   const handleContinue = () => {
     // Validar Trade-In antes de continuar
     const validation = validateTradeInProducts(products);
@@ -305,6 +312,7 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
       alert(getTradeInValidationMessage(validation));
       return;
     }
+    setNavegando(true);
 
     if (selectedInstallments === null) {
       return;
@@ -589,14 +597,28 @@ export default function Step5({ onBack, onContinue }: Step5Props) {
           {/* Derecha: Botón continuar - destacado con sombra y glow */}
           <button
             className={`flex-shrink-0 font-bold py-4 px-6 rounded-xl text-lg transition-all duration-200 text-white border-2 ${
-              selectedInstallments === null || !tradeInValidation.isValid
-                ? "bg-gray-400 border-gray-300 cursor-not-allowed"
-                : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
+              navegando
+                ? "bg-green-600 border-green-500 cursor-wait shadow-lg shadow-green-500/40"
+                : selectedInstallments === null || !tradeInValidation.isValid
+                  ? "bg-gray-400 border-gray-300 cursor-not-allowed"
+                  : "bg-green-600 border-green-500 hover:bg-green-700 hover:border-green-600 cursor-pointer shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50"
             }`}
             onClick={handleContinue}
-            disabled={selectedInstallments === null || !tradeInValidation.isValid}
+            disabled={
+              navegando || selectedInstallments === null || !tradeInValidation.isValid
+            }
           >
-            Continuar
+            {navegando ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                Continuar
+              </span>
+            ) : (
+              "Continuar"
+            )}
           </button>
         </div>
       </div>

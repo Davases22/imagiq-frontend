@@ -7,6 +7,8 @@ import { useAnalyticsWithUser } from "@/lib/analytics";
 import { tradeInEndpoints } from "@/lib/api";
 import { apiDelete, apiPost, apiPut } from "@/lib/api-client";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+import { ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import Step4OrderSummary from "./components/Step4OrderSummary";
 import ProductCard from "./ProductCard";
@@ -951,8 +953,27 @@ export default function Step1({
               ))}
             </div>
           ) : cartProducts.length === 0 ? (
-            <div className="text-gray-500 text-center py-16 text-lg" data-nosnippet>
-              No hay productos en el carrito.
+            <div data-nosnippet>
+              <div className="py-12 text-center">
+                <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-gray-300" aria-hidden="true" />
+                <p className="text-lg font-semibold text-gray-900">
+                  Tu carrito está vacío
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Mira lo que podría interesarte.
+                </p>
+                <Link
+                  href="/productos/dispositivos-moviles"
+                  className="mt-5 inline-block rounded-xl bg-black px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+                >
+                  Ver productos
+                </Link>
+              </div>
+
+              {/* Sin productos en el carrito no hay accesorios compatibles que
+                  calcular, pero si los universales, que Sugerencias ya guarda
+                  en cache: en visitas siguientes aparecen al instante. */}
+              <Sugerencias cartProducts={[]} />
             </div>
           ) : (
             <div className="space-y-4">
