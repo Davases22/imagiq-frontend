@@ -119,6 +119,18 @@ export default function CreateAccountPage() {
     if (savedProgress) {
       try {
         const progress = JSON.parse(savedProgress);
+
+        // Media hora: da margen de sobra para reintentar un codigo (que dura
+        // 10 minutos) y evita que un registro abandonado hace dias reaparezca
+        // con los datos de otra persona.
+        const MEDIA_HORA = 30 * 60 * 1000;
+        const vencido =
+          !progress.timestamp || Date.now() - progress.timestamp > MEDIA_HORA;
+        if (vencido) {
+          localStorage.removeItem("create_account_progress");
+          return;
+        }
+
         setCurrentStep(progress.currentStep || 1);
         setFormData(progress.formData || formData);
         setUserId(progress.userId || null);
