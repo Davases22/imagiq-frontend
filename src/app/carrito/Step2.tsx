@@ -517,6 +517,11 @@ export default function Step2({
         (lowerErrorMessage.includes("email") || lowerErrorMessage.includes("correo")) &&
         (lowerErrorMessage.includes("ya está registrado") ||
           lowerErrorMessage.includes("ya existe") ||
+          // El texto que manda hoy el backend. Sin esta variante el aviso caia
+          // al error generico: se veia el renglon rojo "ya tienes cuenta" y no
+          // se abria el modal de inicio de sesion, asi que no habia por donde
+          // seguir comprando.
+          lowerErrorMessage.includes("ya tiene una cuenta") ||
           lowerErrorMessage.includes("registered") ||
           lowerErrorMessage.includes("duplicate"))
       ) {
