@@ -39,6 +39,7 @@ import MaintenanceScreen from "@/components/MaintenanceScreen";
 import DevToolsGuard from "@/components/security/DevToolsGuard";
 import SecurityInitializer from "@/components/security/SecurityInitializer";
 import { chunkRecoveryScript } from "@/lib/chunkRecoveryScript";
+import { storageVersionScript } from "@/lib/storageVersionScript";
 // Si necesitas Inter desde Google Fonts en entornos con internet,
 // reactivar la importación desde next/font/google o agregar el CSS manual.
 
@@ -171,6 +172,13 @@ export default function RootLayout({
       }
     >
       <head>
+        {/* Va el PRIMERO: vacía el almacenamiento del navegador cuando sube la
+            versión, antes de que ningún provider lea el carrito o la sesión. Si
+            corriera después, la pantalla ya se habría pintado con datos viejos.
+            Ver storageVersionScript. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: storageVersionScript() }}
+        />
         {/* Recuperación de chunks: si un JS/CSS de /_next/static no llega (red
             inestable, conexión cortada) la app nunca hidrata y queda en
             "Iniciando seguridad..." o en "Application error". Ver chunkRecoveryScript. */}
